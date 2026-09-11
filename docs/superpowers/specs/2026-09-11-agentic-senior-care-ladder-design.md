@@ -13,7 +13,7 @@ Families and caregivers need remote eyes on a senior or recovering person withou
 
 | Role | Needs |
 | --- | --- |
-| Household caregiver | Configure triggers, rungs, contacts; receive calls/notifications; review audit trail |
+| Household caregiver | Configure triggers, rungs, contacts; receive calls/notifications; review **incident timeline** + pre-event clips |
 | Monitored person | Low-friction check-in (“Are you okay?”); optional consent to monitoring |
 | Judges / reviewers | Clear OpenCV → decision → action trace proving Agentic Vision |
 
@@ -24,8 +24,9 @@ Families and caregivers need remote eyes on a senior or recovering person withou
 - Substantive **OpenCV 5** image/video analysis on a meaningful **AWS** path.
 - **Agentic** loop: OpenCV output **changes** the next tool call / plan / rung (not caption-only chat).
 - Configurable care workflow (YAML/JSON): confirm → verbal response → wait → dial primary → … → optional emergency.
-- Privacy-safe default: pose/motion/zones; **blur faces** before cloud persistence where frames leave the device.
+- Privacy-safe default: pose/motion/zones; **blur / mosaic / silhouette** before cloud persistence where frames leave the device.
 - Demo mode with reserved fictional phones; live dials secret-gated (CALL-E-style destination bind).
+- Competitor-inspired product bar locked for v1 (see §14): no-answer escalation, privacy path, pre-event clip, incident timeline, two-way speaker check-in.
 
 ### Non-goals (v1)
 
@@ -40,7 +41,7 @@ Families and caregivers need remote eyes on a senior or recovering person withou
 2. **OpenCV 5** emits a structured cue (see §5).
 3. Agent loads the household **care plan** and selects the next **rung**.
 4. Execute rung tools (`reperceive`, `speaker_prompt`, `wait`, `dial_contact`, `notify_caregiver`, optional `emergency`).
-5. Append an **audit event**: `{cue, decision, tool, outcome, timestamp}` so judges can see perception changing action.
+5. Append an **audit event** (and attach a **pre-event clip** buffer) so judges and caregivers see perception changing action; surface events in an **incident timeline** UI.
 6. Clear / resolve when the monitored person confirms OK or a caregiver acknowledges.
 
 ## 5. OpenCV cue families
@@ -164,7 +165,21 @@ Camera / demo video
 
 - Technical report, architecture diagram, repo with pinned deps, working demo endpoint or screen-share, ≤5 min video, evaluation evidence + failure cases, Agentic Vision workflow diagram + action trace.
 
-## 13. Open questions (post-spec, non-blocking for plan)
+## 14. Competitor-inspired v1 features (locked)
+
+Borrow product patterns, not vendor stacks or accuracy claims. All are in scope for v1:
+
+| Feature | Inspired by (pattern) | Care Ladder behavior |
+| --- | --- | --- |
+| No-answer escalation | Kami / medical-alert ladders | If check-in silent and/or primary dial unanswered, advance to secondary; emergency only if rung `enabled: true` + fail-closed gates |
+| Privacy silhouette / blur | AltumView stick-figure; D-Link mosaic | Default pipeline: face mosaic or pose/silhouette export before cloud; raw identifiable frames stay local/demo-only |
+| Pre-event clip | Kami incident context | Keep a rolling 15–60s buffer; on cue, attach clip (blurred) to the incident record |
+| Incident timeline UI | SafelyYou-style review | Caregiver console shows ordered story: cue → repreceive → ask → waits → dials → resolve |
+| Two-way speaker check-in | Nobi / Alexa Together patterns | Prompt: “Are you okay? Do you want me to call 〈Caregiver〉?” with listen-back; Nest/Alexa first, phone fallback |
+
+**Explicitly out of v1 marketing:** unverifiable “99.x% accurate” claims; real 911 without gated config; facility EHR integrations (SafelyYou-class B2B).
+
+## 15. Open questions (post-spec, non-blocking for plan)
 
 - Exact Nest/Alexa integration path for hackathon (skill + companion app vs simulated speaker UI).  
 - Whether to pursue COOL on Graviton as a stretch after Agentic Vision bar is met.  
