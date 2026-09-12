@@ -61,3 +61,26 @@ class CueEvent(BaseModel):
     kind: Literal["no_movement", "no_visibility", "distress_heuristic"]
     confidence: float
     detail: dict[str, Any] = Field(default_factory=dict)
+
+
+class AuditEvent(BaseModel):
+    """One step in an incident timeline (cue → rung tools → resolve/jump)."""
+
+    tool: str
+    cue_kind: str | None = None
+    rung_id: str | None = None
+    detail: dict[str, Any] = Field(default_factory=dict)
+
+
+IncidentStatus = Literal["open", "resolved", "exhausted"]
+
+
+class Incident(BaseModel):
+    """Care-ladder run for one cue, with ordered audit events."""
+
+    id: str
+    household_id: str
+    cue: CueEvent
+    events: list[AuditEvent] = Field(default_factory=list)
+    status: IncidentStatus = "open"
+    pre_event_frame_count: int = 0
