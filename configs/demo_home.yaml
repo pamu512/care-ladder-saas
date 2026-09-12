@@ -2,6 +2,9 @@ household_id: demo-home-1
 caregiver:
   display_name: Alex
   phone_e164: "+12125550101"   # reserved fiction in demos
+secondary:
+  display_name: Sam
+  phone_e164: "+12125550102"   # reserved fiction in demos
 monitored:
   display_name: Pat
 zones:
