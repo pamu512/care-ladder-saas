@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -55,3 +55,9 @@ class CarePlan(BaseModel):
     rungs: list[Rung]
     quiet_hours: QuietHours | None = None
     secondary: Contact | None = None
+
+
+class CueEvent(BaseModel):
+    kind: Literal["no_movement", "no_visibility", "distress_heuristic"]
+    confidence: float
+    detail: dict[str, Any] = Field(default_factory=dict)
