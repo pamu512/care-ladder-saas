@@ -96,3 +96,13 @@ See `configs/demo_home.yaml`. Emergency rung is **disabled by default** (fail-cl
 ```
 
 E2E demo path: `tests/test_e2e_demo.py` (fixture → incident has ≥3 audit events).
+
+## AWS deployment sketch (OpenCV / AWS meaningful component)
+
+Live AWS deploy is **not** required for the judge demo. For the competition’s AWS path see:
+
+- [`infra/README.md`](infra/README.md) — S3 (blurred/silhouette clips only), ECS/Fargate service, EventBridge cue bus; how this meets the “meaningful AWS” bar
+- [`infra/ecs-task-outline.md`](infra/ecs-task-outline.md) — task/service outline (not live IaC)
+- Root [`Dockerfile`](Dockerfile) — builds a runnable API image (`uvicorn care_ladder.api.app:app`)
+
+The OpenCV/AWS compute grant proposal was submitted separately; this repo only sketches the same architecture. Do not assume a public URL unless you have actually deployed.
