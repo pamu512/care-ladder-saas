@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "care-ladder"
+version = "0.1.0"
+description = "Agentic Vision care ladder for OpenCV AI Competition 2026"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic>=2",
+  "pyyaml",
+  "opencv-python",
+  "fastapi",
+  "uvicorn",
+  "pytest",
+  "httpx",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "httpx",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
