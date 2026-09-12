@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
@@ -14,15 +16,21 @@ from care_ladder.channels.speaker import SpeakerSimulator
 from care_ladder.ladder.orchestrator import run_incident
 from care_ladder.models import CueEvent
 from care_ladder.plan_loader import load_care_plan
+from care_ladder.vision.cues import CueDetector
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEMO_PLAN_PATH = _REPO_ROOT / "configs" / "demo_home.yaml"
 
-SUPPORTED_FIXTURES = frozenset({"no_movement_silence"})
+SUPPORTED_FIXTURES = frozenset({"no_movement_silence", "opencv_stillness"})
+# Midday UTC so quiet_hours soft-suppress does not hide the judge demo ladder.
+DEMO_NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
 
 
 class DemoRunRequest(BaseModel):
-    fixture: str = Field(..., description='Demo fixture id, e.g. "no_movement_silence"')
+    fixture: str = Field(
+        ...,
+        description='Demo fixture id, e.g. "no_movement_silence" or "opencv_stillness"',
+    )
 
 
 class DemoRunResponse(BaseModel):
@@ -53,6 +61,65 @@ async def _run_no_movement_silence(store: AuditStore):
         dialer=dialer,
         pre_event_frames=[],
         store=store,
+        now=DEMO_NOW,
+    )
+    return incident
+
+
+def _synthetic_stillness_frames(
+    *,
+    width: int = 160,
+    height: int = 120,
+) -> list[np.ndarray]:
+    """Build a short synthetic still-person sequence for CueDetector (no live camera)."""
+    frames: list[np.ndarray] = []
+    for _ in range(4):
+        frame = np.zeros((height, width, 3), dtype=np.uint8)
+        frame[40:80, 60:100] = 200
+        frames.append(frame)
+    return frames
+
+
+async def _run_opencv_stillness(store: AuditStore):
+    """Fixture: synthetic frames → CueDetector.observe → run_incident (OpenCV path)."""
+    plan = load_care_plan(_DEMO_PLAN_PATH)
+    # Short timeout so demo/tests emit no_movement without waiting plan's 900s.
+    plan.triggers.no_movement.timeout_sec = 2
+    detector = CueDetector.from_plan(plan, zone_id="living_room")
+    # Zone in demo YAML is 640x480; use matching canvas so blob sits in-zone.
+    frames = _synthetic_stillness_frames(width=640, height=480)
+    # Place blob well inside living_room polygon
+    for f in frames:
+        f[:, :] = 0
+        f[200:280, 300:380] = 200
+
+    cue: CueEvent | None = None
+    times = [0.0, 1.0, 2.5, 3.0]
+    for frame, t in zip(frames, times, strict=True):
+        cue = detector.observe(frame, t=t)
+        if cue is not None:
+            break
+    if cue is None:
+        raise RuntimeError("opencv_stillness fixture: CueDetector did not emit a cue")
+
+    cue.detail = {
+        **cue.detail,
+        "source": "opencv_cue_detector",
+        "fixture": "opencv_stillness",
+    }
+
+    speaker = SpeakerSimulator(scripted=[])
+    dialer = StubDialer(behavior={"caregiver": "no_answer", "secondary": "answered"})
+    # Attach last frames (privacy-blurred inside run_incident).
+    incident = await run_incident(
+        cue=cue,
+        plan=plan,
+        speaker=speaker,
+        dialer=dialer,
+        pre_event_frames=frames[-2:],
+        store=store,
+        privacy_mode="blur",
+        now=DEMO_NOW,
     )
     return incident
 
@@ -88,6 +155,8 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             )
         if body.fixture == "no_movement_silence":
             incident = await _run_no_movement_silence(application.state.store)
+        elif body.fixture == "opencv_stillness":
+            incident = await _run_opencv_stillness(application.state.store)
         else:  # pragma: no cover - guarded by SUPPORTED_FIXTURES
             raise HTTPException(status_code=400, detail="unsupported fixture")
         return DemoRunResponse(incident_id=incident.id)

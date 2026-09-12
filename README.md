@@ -33,7 +33,9 @@ pip install -e ".[dev]"
    - Dial **`answered`** → resolve
    - Dial **`no_answer`** → escalate to next dial / skip non-dial rungs (logged jumps)
 
-Demo fixture `no_movement_silence` injects a `no_movement` cue with an empty speaker script (silence) so the ladder escalates through dial stubs.
+Demo fixtures:
+- `no_movement_silence` — injects a `no_movement` cue with an empty speaker script (silence) so the ladder escalates through dial stubs.
+- `opencv_stillness` — feeds **synthetic numpy frames** through `CueDetector.observe` (OpenCV), then `run_incident`; audit cue is tagged `source: opencv_cue_detector`.
 
 ## Privacy (blur / silhouette)
 
@@ -42,15 +44,20 @@ Before clips or caregiver views leave the device path, use:
 - `care_ladder.privacy.blur_faces(frame)` — Gaussian-blur person/face-like ROIs
 - `care_ladder.privacy.to_silhouette(frame)` — filled grayscale person mask (not a full-color photo)
 
-Prefer blurred or silhouette frames for any shared pre-event clip; do not ship raw identifiable video in demos.
+**Enforced at attach:** `run_incident(..., pre_event_frames=...)` maps frames through blur (default) or silhouette **before** setting `pre_event_frame_count`. Audit cue `detail` includes `privacy: "blur"` / `"silhouette"`; a non-zero attach count is refused without that flag. Do not ship raw identifiable video in demos.
 
 ## Reserved phones & emergency policy
 
 - Demo contacts use **NANP reserved fiction** numbers only: **NPA-555-01XX**  
   (`+12125550101` caregiver Alex, `+12125550102` secondary Sam in `configs/demo_home.yaml`).
+- When `CARE_LADDER_ENV=demo` (default), `load_care_plan` **rejects** non-reserved and emergency-like phones (`911`, `112`, etc.).
 - **Never** configure or dial real 911 / real personal numbers in this repo.
 - Emergency rung is **disabled by default** (`enabled: false`) — fail-closed in plan and in code.
 - **`StubDialer`** returns scripted outcomes only; it does not open a PSTN/VoIP session.
+
+## Quiet hours
+
+`quiet_hours` with `policy: soft_suppress_non_distress` is **enforced** in `run_incident`: non-distress cues (`no_movement`, `no_visibility`) during the window get an audit `suppress` event and status `suppressed` (distress still runs). Demo API fixtures pin a midday clock so judge demos always walk the ladder.
 
 ## Judge demo: show the incident timeline
 
@@ -66,9 +73,15 @@ App entrypoint: `care_ladder.api.app:app`
 ### 2. Run the demo fixture
 
 ```bash
+# Injected cue (silence → dial stubs)
 curl -s -X POST http://127.0.0.1:8000/demo/run \
   -H 'Content-Type: application/json' \
   -d '{"fixture":"no_movement_silence"}'
+
+# OpenCV path: synthetic frames → CueDetector → ladder
+curl -s -X POST http://127.0.0.1:8000/demo/run \
+  -H 'Content-Type: application/json' \
+  -d '{"fixture":"opencv_stillness"}'
 ```
 
 Returns `{"incident_id":"<id>"}`.

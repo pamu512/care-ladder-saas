@@ -7,7 +7,7 @@ from typing import Any, Sequence
 import cv2
 import numpy as np
 
-from care_ladder.models import CueEvent
+from care_ladder.models import CarePlan, CueEvent
 
 Point = tuple[float, float]
 
@@ -18,6 +18,9 @@ class CueDetector:
     Uses frame differencing for motion, contour centroids vs a zone polygon
     (`cv2.pointPolygonTest`) for presence, and a simple aspect-ratio / y-position
     heuristic for a non-clinical on-floor stand-in.
+
+    After emitting a cue, internal timers / presence latch clear so the same cue
+    does not spam every subsequent frame.
     """
 
     def __init__(
@@ -31,6 +34,9 @@ class CueDetector:
         distress_aspect_min: float = 2.0,
         distress_y_ratio_min: float = 0.65,
         binary_threshold: int = 40,
+        enable_no_movement: bool = True,
+        enable_no_visibility: bool = True,
+        enable_distress_heuristic: bool = True,
     ) -> None:
         self.no_movement_timeout_sec = float(no_movement_timeout_sec)
         self.zone = np.asarray(zone, dtype=np.float32)
@@ -40,11 +46,39 @@ class CueDetector:
         self.distress_aspect_min = distress_aspect_min
         self.distress_y_ratio_min = distress_y_ratio_min
         self.binary_threshold = binary_threshold
+        self.enable_no_movement = enable_no_movement
+        self.enable_no_visibility = enable_no_visibility
+        self.enable_distress_heuristic = enable_distress_heuristic
 
         self._prev_gray: np.ndarray | None = None
         self._seen_in_zone = False
         self._still_since: float | None = None
         self._distress_since: float | None = None
+
+    @classmethod
+    def from_plan(cls, plan: CarePlan, zone_id: str | None = None) -> CueDetector:
+        """Build a detector from ``CarePlan.triggers`` and a named (or first) zone."""
+        if not plan.zones:
+            raise ValueError("care plan has no zones for CueDetector.from_plan")
+        zone_model = None
+        if zone_id is not None:
+            for z in plan.zones:
+                if z.id == zone_id:
+                    zone_model = z
+                    break
+            if zone_model is None:
+                raise ValueError(f"zone_id {zone_id!r} not found in care plan")
+        else:
+            zone_model = plan.zones[0]
+
+        polygon = [(float(p[0]), float(p[1])) for p in zone_model.polygon]
+        return cls(
+            no_movement_timeout_sec=float(plan.triggers.no_movement.timeout_sec),
+            zone=polygon,
+            enable_no_movement=bool(plan.triggers.no_movement.enabled),
+            enable_no_visibility=bool(plan.triggers.no_visibility.enabled),
+            enable_distress_heuristic=bool(plan.triggers.distress_heuristic.enabled),
+        )
 
     def observe(self, frame: np.ndarray, t: float) -> CueEvent | None:
         gray = (
@@ -74,7 +108,9 @@ class CueDetector:
         else:
             self._still_since = None
             self._distress_since = None
-            if self._seen_in_zone:
+            if self._seen_in_zone and self.enable_no_visibility:
+                # Latch: require re-entry before another no_visibility.
+                self._seen_in_zone = False
                 return CueEvent(
                     kind="no_visibility",
                     confidence=0.85,
@@ -86,11 +122,15 @@ class CueDetector:
                 )
 
         if (
-            in_zone
+            self.enable_distress_heuristic
+            and in_zone
             and self._distress_since is not None
             and (t - self._distress_since) >= self.distress_sustain_sec
         ):
             assert blob is not None
+            sustain = t - self._distress_since
+            # Clear so condition must re-accumulate (no per-frame spam).
+            self._distress_since = None
             return CueEvent(
                 kind="distress_heuristic",
                 confidence=0.7,
@@ -99,20 +139,24 @@ class CueDetector:
                     "note": "coarse aspect/y heuristic only; not a medical diagnosis",
                     "aspect_ratio": blob["aspect"],
                     "y_ratio": blob["cy"] / float(h),
-                    "sustain_sec": t - self._distress_since,
+                    "sustain_sec": sustain,
                 },
             )
 
         if (
-            in_zone
+            self.enable_no_movement
+            and in_zone
             and self._still_since is not None
             and (t - self._still_since) >= self.no_movement_timeout_sec
         ):
+            still_sec = t - self._still_since
+            # Restart stillness clock so the same still pose does not re-fire next frame.
+            self._still_since = t
             return CueEvent(
                 kind="no_movement",
                 confidence=0.8,
                 detail={
-                    "still_sec": t - self._still_since,
+                    "still_sec": still_sec,
                     "motion_mean": motion,
                     "timeout_sec": self.no_movement_timeout_sec,
                 },

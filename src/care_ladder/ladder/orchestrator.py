@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from datetime import datetime, time, timezone
 from typing import Any
 
 from care_ladder.audit.store import AuditStore
 from care_ladder.channels.dial import StubDialer, next_rung_after_no_answer
 from care_ladder.channels.speaker import SpeakerChannel
-from care_ladder.models import AuditEvent, CarePlan, CueEvent, Incident, Rung
+from care_ladder.models import AuditEvent, CarePlan, CueEvent, Incident, PrivacyMode, Rung
+from care_ladder.privacy import blur_faces, to_silhouette
 
 
 def _contact_for_role(plan: CarePlan, role: str):
@@ -49,23 +51,23 @@ def _log_jump(
     reason: str,
     from_index: int,
     to_index: int | None,
+    **extra: Any,
 ) -> None:
+    detail: dict[str, Any] = {
+        "reason": reason,
+        "skipped_tool": rung.tool,
+        "skipped_rung_id": rung.id,
+        "from_index": from_index,
+        "to_index": to_index,
+        **extra,
+    }
+    if rung.tool == "emergency":
+        detail["emergency_enabled"] = rung.params.get("enabled")
     _append(
         events,
         tool="jump",
         rung_id=rung.id,
-        detail={
-            "reason": reason,
-            "skipped_tool": rung.tool,
-            "skipped_rung_id": rung.id,
-            "from_index": from_index,
-            "to_index": to_index,
-            **(
-                {"emergency_enabled": rung.params.get("enabled")}
-                if rung.tool == "emergency"
-                else {}
-            ),
-        },
+        detail=detail,
     )
 
 
@@ -88,6 +90,39 @@ async def _bounded_sleep(sec: float, max_wait_sec: float) -> float:
     return duration
 
 
+def _parse_hhmm(value: str) -> time:
+    hour_s, minute_s = value.strip().split(":", 1)
+    return time(hour=int(hour_s), minute=int(minute_s))
+
+
+def _in_quiet_hours(now: datetime, start_s: str, end_s: str) -> bool:
+    """True if ``now.time()`` falls in [start, end) (supports overnight windows)."""
+    start = _parse_hhmm(start_s)
+    end = _parse_hhmm(end_s)
+    t = now.timetz().replace(tzinfo=None) if now.tzinfo else now.time()
+    # Compare as naive local clock components from the provided datetime.
+    t = time(hour=t.hour, minute=t.minute, second=t.second)
+    if start <= end:
+        return start <= t < end
+    # Overnight e.g. 22:00 → 07:00
+    return t >= start or t < end
+
+
+def _apply_privacy(
+    frames: list[Any],
+    mode: PrivacyMode,
+) -> tuple[list[Any], PrivacyMode | None, int]:
+    """Map frames through blur/silhouette. Non-zero count only with a privacy mode."""
+    if not frames:
+        return [], None, 0
+    if mode == "silhouette":
+        transformed = [to_silhouette(f) for f in frames]
+    else:
+        transformed = [blur_faces(f) for f in frames]
+        mode = "blur"
+    return transformed, mode, len(transformed)
+
+
 async def run_incident(
     cue: CueEvent,
     plan: CarePlan,
@@ -97,6 +132,8 @@ async def run_incident(
     *,
     store: AuditStore | None = None,
     max_wait_sec: float = 0.05,
+    privacy_mode: PrivacyMode = "blur",
+    now: datetime | None = None,
 ) -> Incident:
     """Run the care-plan rung loop for one cue; return an Incident with audit events.
 
@@ -107,26 +144,70 @@ async def run_incident(
     - dial ``answered`` → resolve
     - dial ``no_answer`` → ``next_rung_after_no_answer`` (log jumps over skipped rungs)
     - ``emergency`` with ``enabled`` not True → fail-closed skip (never real 911)
+
+    Pre-event frames are privacy-transformed (default blur) before attach count.
     """
-    frames = list(pre_event_frames or [])
+    private_frames, privacy, frame_count = _apply_privacy(
+        list(pre_event_frames or []), privacy_mode
+    )
+    # Refuse non-zero attach without a privacy transform flag.
+    if frame_count > 0 and privacy not in {"blur", "silhouette"}:
+        private_frames, privacy, frame_count = [], None, 0
+
     incident = Incident(
         id=uuid.uuid4().hex,
         household_id=plan.household_id,
         cue=cue,
         events=[],
         status="open",
-        pre_event_frame_count=len(frames),
+        pre_event_frame_count=frame_count,
+        privacy=privacy,
     )
+    # Keep transformed frames available to callers that need a clip snapshot
+    # without serializing numpy into the pydantic model / JSON timeline.
+    incident.__dict__["_private_pre_event_frames"] = private_frames
+
     events = incident.events
+    cue_detail: dict[str, Any] = {
+        "confidence": cue.confidence,
+        "detail": cue.detail,
+    }
+    if privacy is not None:
+        cue_detail["privacy"] = privacy
+        cue_detail["pre_event_frame_count"] = frame_count
     _append(
         events,
         tool="cue",
         cue_kind=cue.kind,
-        detail={"confidence": cue.confidence, "detail": cue.detail},
+        detail=cue_detail,
     )
+
+    clock = now or datetime.now(timezone.utc)
+    if (
+        plan.quiet_hours is not None
+        and plan.quiet_hours.policy == "soft_suppress_non_distress"
+        and cue.kind != "distress_heuristic"
+        and _in_quiet_hours(clock, plan.quiet_hours.start, plan.quiet_hours.end)
+    ):
+        _append(
+            events,
+            tool="suppress",
+            cue_kind=cue.kind,
+            detail={
+                "reason": "quiet_hours",
+                "policy": plan.quiet_hours.policy,
+                "quiet_hours_start": plan.quiet_hours.start,
+                "quiet_hours_end": plan.quiet_hours.end,
+            },
+        )
+        incident.status = "suppressed"
+        if store is not None:
+            store.save(incident)
+        return incident
 
     idx = 0
     n = len(plan.rungs)
+    skip_next_wait = False
     while idx < n:
         rung = plan.rungs[idx]
         tool = rung.tool
@@ -145,9 +226,11 @@ async def run_incident(
         if tool == "speaker_prompt":
             text = str(rung.params.get("text", "Are you okay?"))
             wait_sec = float(rung.params.get("wait_sec", 0))
+            consumed_follow_wait = False
             # Prefer following wait rung as listen window when speaker has no wait_sec.
             if "wait_sec" not in rung.params and idx + 1 < n and plan.rungs[idx + 1].tool == "wait":
                 wait_sec = float(plan.rungs[idx + 1].params.get("sec", wait_sec))
+                consumed_follow_wait = True
             # Bound the speaker listen window for demo/tests.
             listen = wait_sec
             if max_wait_sec >= 0:
@@ -186,11 +269,24 @@ async def run_incident(
                     )
                 idx = target
                 continue
-            # silence → continue; if next is wait used as listen window, still execute it
+            # silence → continue; skip wait if it was already the listen window
+            if consumed_follow_wait:
+                skip_next_wait = True
             idx += 1
             continue
 
         if tool == "wait":
+            if skip_next_wait:
+                _log_jump(
+                    events,
+                    rung,
+                    reason="listen_window_already_consumed",
+                    from_index=idx,
+                    to_index=idx + 1 if idx + 1 < n else None,
+                )
+                skip_next_wait = False
+                idx += 1
+                continue
             sec = float(rung.params.get("sec", 0))
             slept = await _bounded_sleep(sec, max_wait_sec)
             _append(

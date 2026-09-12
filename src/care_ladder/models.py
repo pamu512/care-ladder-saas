@@ -72,7 +72,8 @@ class AuditEvent(BaseModel):
     detail: dict[str, Any] = Field(default_factory=dict)
 
 
-IncidentStatus = Literal["open", "resolved", "exhausted"]
+IncidentStatus = Literal["open", "resolved", "exhausted", "suppressed"]
+PrivacyMode = Literal["blur", "silhouette"]
 
 
 class Incident(BaseModel):
@@ -84,3 +85,4 @@ class Incident(BaseModel):
     events: list[AuditEvent] = Field(default_factory=list)
     status: IncidentStatus = "open"
     pre_event_frame_count: int = 0
+    privacy: PrivacyMode | None = None
