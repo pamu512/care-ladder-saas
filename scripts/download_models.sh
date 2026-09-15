@@ -4,20 +4,25 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MODEL="$ROOT/models/person_detection_mediapipe_2023mar.onnx"
-URL="https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/person_detection_mediapipe/person_detection_mediapipe_2023mar.onnx"
-
-if [[ -s "$MODEL" ]]; then
-  echo "already present: $MODEL ($(du -h "$MODEL" | cut -f1))"
-  exit 0
-fi
+MODELS=(
+  "person_detection_mediapipe_2023mar.onnx|https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/person_detection_mediapipe/person_detection_mediapipe_2023mar.onnx"
+  "pose_estimation_mediapipe_2023mar.onnx|https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/pose_estimation_mediapipe/pose_estimation_mediapipe_2023mar.onnx"
+)
 
 mkdir -p "$ROOT/models"
-curl -sL "$URL" -o "$MODEL"
-SIZE=$(wc -c < "$MODEL")
-if (( SIZE < 1000000 )); then
-  echo "error: downloaded file too small ($SIZE bytes) — LFS pointer?" >&2
-  rm -f "$MODEL"
-  exit 1
-fi
-echo "downloaded: $MODEL ($(du -h "$MODEL" | cut -f1))"
+for entry in "${MODELS[@]}"; do
+  NAME="${entry%%|*}"; URL="${entry#*|}"
+  MODEL="$ROOT/models/$NAME"
+  if [[ -s "$MODEL" ]]; then
+    echo "already present: $NAME ($(du -h "$MODEL" | cut -f1))"
+    continue
+  fi
+  curl -sL "$URL" -o "$MODEL"
+  SIZE=$(wc -c < "$MODEL")
+  if (( SIZE < 1000000 )); then
+    echo "error: $NAME too small ($SIZE bytes) — LFS pointer?" >&2
+    rm -f "$MODEL"
+    exit 1
+  fi
+  echo "downloaded: $NAME ($(du -h "$MODEL" | cut -f1))"
+done

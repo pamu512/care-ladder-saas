@@ -32,8 +32,10 @@ SUPPORTED_FIXTURES = frozenset(
         "no_movement_silence",
         "opencv_stillness",
         "opencv_dnn_person",
+        "opencv_pose_person",
     }
 )
+_POSE_MODEL_PATH = _REPO_ROOT / "models" / "pose_estimation_mediapipe_2023mar.onnx"
 _MODEL_PATH = _REPO_ROOT / "models" / "person_detection_mediapipe_2023mar.onnx"
 # Midday UTC so quiet_hours soft-suppress does not hide the judge demo ladder.
 DEMO_NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
@@ -239,6 +241,53 @@ async def _publish_cloud(incident) -> None:
         print(f"WARNING: cloud publish failed for {incident.id}: {exc}")
 
 
+async def _run_opencv_pose_person(store: AuditStore):
+    """Fixture: real photo → person ONNX → pose ONNX → torso metrics, no distress.
+
+    Standing person: pose runs, torso angle computed, no distress cue; the
+    incident demonstrates the pose path end-to-end with `source: pose_heuristics`
+    context in the cue detail (pattern telemetry, not a fall).
+    """
+    import cv2
+
+    photo = cv2.imread(str(_REPO_ROOT / "tests" / "fixtures" / "basketball1.png"))
+    if photo is None:
+        raise RuntimeError("opencv_pose_person fixture: sample photo missing")
+    if not _MODEL_PATH.exists() or not _POSE_MODEL_PATH.exists():
+        raise RuntimeError("opencv_pose_person fixture: run scripts/download_models.sh first")
+
+    from care_ladder.vision.mppersondet import MPPersonDet
+    from care_ladder.vision.mppose import MPPose
+
+    plan = load_care_plan(_DEMO_PLAN_PATH)
+    plan.triggers.no_movement.timeout_sec = 2
+    detector = CueDetector.from_plan(plan, zone_id="living_room")
+    detector.person_detector = MPPersonDet(str(_MODEL_PATH), scoreThreshold=0.3)
+    detector.pose_model = MPPose(str(_POSE_MODEL_PATH), confThreshold=0.5)
+
+    cue = None
+    for t in [0.0, 0.5, 1.0, 2.5, 3.0]:
+        cue = detector.observe(photo, t=t)
+        if cue is not None:
+            break
+    if cue is None:
+        raise RuntimeError("opencv_pose_person fixture: detector emitted no cue")
+
+    cue.detail = {
+        **cue.detail,
+        "source": "opencv_pose_path",
+        "pose": getattr(detector, "last_pose_metrics", None),
+        "models": ["person_detection_mediapipe_2023mar", "pose_estimation_mediapipe_2023mar"],
+        "fixture": "opencv_pose_person",
+    }
+    speaker = SpeakerSimulator(scripted=["I'm fine"])
+    dialer = StubDialer(behavior={})
+    return await run_incident(
+        cue=cue, plan=plan, speaker=speaker, dialer=dialer,
+        pre_event_frames=[photo], store=store, privacy_mode="silhouette", now=DEMO_NOW,
+    )
+
+
 def create_app(store: AuditStore | None = None) -> FastAPI:
     """Build FastAPI app with injectable store (tests inject a fresh memory store)."""
     audit = store if store is not None else _default_store()
@@ -392,6 +441,8 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             incident = await _run_opencv_stillness(application.state.store)
         elif body.fixture == "opencv_dnn_person":
             incident = await _run_opencv_dnn_person(application.state.store)
+        elif body.fixture == "opencv_pose_person":
+            incident = await _run_opencv_pose_person(application.state.store)
         else:  # pragma: no cover - guarded by SUPPORTED_FIXTURES
             raise HTTPException(status_code=400, detail="unsupported fixture")
         await _publish_cloud(incident)

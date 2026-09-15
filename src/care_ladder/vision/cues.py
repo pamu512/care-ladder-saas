@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 
 from care_ladder.models import CarePlan, CueEvent
+from care_ladder.vision.pose_heuristics import PoseHeuristics, torso_metrics
 from care_ladder.vision.tracker import PersonTracker
 
 Point = tuple[float, float]
@@ -41,6 +42,7 @@ class CueDetector:
         person_detector: Any | None = None,
         motion_source: str = "frame_diff",
         tracking_enabled: bool = True,
+        pose_model: Any | None = None,
     ) -> None:
         self.no_movement_timeout_sec = float(no_movement_timeout_sec)
         self.zone = np.asarray(zone, dtype=np.float32)
@@ -69,6 +71,8 @@ class CueDetector:
         self.last_detection_source: str | None = None
         self._tracker: PersonTracker | None = None
         self.tracking_enabled = tracking_enabled
+        self.pose_model = pose_model
+        self.pose_state = PoseHeuristics() if pose_model is not None else None
 
     @classmethod
     def from_plan(cls, plan: CarePlan, zone_id: str | None = None) -> CueDetector:
@@ -122,6 +126,24 @@ class CueDetector:
             tracking = self._tracker.observe(dets, t)
             self.last_tracking = tracking
 
+        # Pose-based distress: when DNN person + pose models are available,
+        # run keypoint geometry through the fall-signature state machine.
+        pose_fire = None
+        if self.pose_model is not None and self.person_detector is not None:
+            if self.pose_state is None:
+                self.pose_state = PoseHeuristics()
+            try:
+                people = self._detect_people_dnn(frame)
+                if people:
+                    res = self.pose_model.infer(frame, people[0]["_row"])
+                    if res is not None:
+                        _bbox, landmarks, *_ = res
+                        metrics = torso_metrics(np.asarray(landmarks), h)
+                        pose_fire = self.pose_state.observe(metrics, t)
+                        self.last_pose_metrics = metrics
+            except Exception:
+                self.last_pose_metrics = None
+
         in_zone = bool(blob and self._point_in_zone(blob["cx"], blob["cy"]))
 
         # Motion: MOG2 foreground ratio (robust to global illumination drift) or
@@ -167,6 +189,21 @@ class CueDetector:
                     detail["track_events"] = tr["events"]
                 return CueEvent(kind="no_visibility", confidence=0.85, detail=detail)
 
+        # Pose-based fall signature takes priority over the shape heuristic.
+        if (
+            pose_fire is not None
+            and self.enable_distress_heuristic
+            and in_zone
+        ):
+            detail = dict(pose_fire)
+            detail["source"] = "pose_heuristics"
+            if getattr(self, "last_tracking", None):
+                tr = self.last_tracking
+                detail["person_count"] = tr["person_count"]
+                detail["tracks"] = tr["tracks"]
+            self._distress_since = None  # suppress the shape fallback
+            return CueEvent(kind="distress_heuristic", confidence=0.85, detail=detail)
+
         if (
             self.enable_distress_heuristic
             and in_zone
@@ -183,6 +220,7 @@ class CueDetector:
                 "aspect_ratio": blob["aspect"],
                 "y_ratio": blob["cy"] / float(h),
                 "sustain_sec": sustain,
+                "source": "shape_heuristic",
             }
             if getattr(self, "last_tracking", None):
                 tr = self.last_tracking
@@ -236,6 +274,7 @@ class CueDetector:
                     "area": float(area),
                     "aspect": (bw / float(bh)) if bh > 0 else 0.0,
                     "score": float(r[12]),
+                    "_row": r,
                 }
             )
         return sorted(out, key=lambda b: -b["score"])
