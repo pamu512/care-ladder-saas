@@ -197,6 +197,13 @@ def build_cases() -> list[EvalCase]:
             frames=lambda: _seq_clip("kul_fall_1.avi", fps=30, sample_hz=5),
         ),
         EvalCase(
+            "clip_fall_2_two_tier",
+            "KU Leuven gradual bed-collapse (two-tier: stillness escalation)",
+            "no_movement",
+            timeout_sec=30.0,
+            frames=lambda: _seq_clip("kul_fall_2.avi", fps=30, sample_hz=5),
+        ),
+        EvalCase(
             "clip_pedestrians_negative",
             "OpenCV vtest pedestrians (negative control)",
             None,

@@ -1,5 +1,5 @@
 {
-  "cases": 7,
+  "cases": 9,
   "cue_recall": 1.0,
   "false_escalation_rate": 0.0,
   "mean_time_to_confirm_sec": 3.0,
@@ -45,6 +45,20 @@
       "expect": "no_movement",
       "emitted": "no_movement",
       "time_to_cue_sec": 3.5
+    },
+    {
+      "case_id": "clip_real_fall_1",
+      "expect": "distress_heuristic",
+      "emitted": "distress_heuristic",
+      "time_to_cue_sec": 100.7,
+      "note": "KU Leuven fall re-enactment; sudden_vertical_to_horizontal at clip-time t=100.7 (fall occurs mid-clip)"
+    },
+    {
+      "case_id": "clip_fall_2_two_tier",
+      "expect": "no_movement",
+      "emitted": "no_movement",
+      "time_to_cue_sec": 99.0,
+      "note": "gradual bed collapse (KU Leuven): pose fast path intentionally silent (pose unreliable on motionless subject); escalates via stillness at 30s plan timeout \u2014 two-tier escalation proven on real footage"
     }
   ],
   "dnn": true

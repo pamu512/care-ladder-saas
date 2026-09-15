@@ -12,7 +12,18 @@ clinical or safety-certified system.
 | **Pets / moving objects** | Fan, curtain, pet motion keeps motion_mean above stillness threshold | **False negative**: `no_movement` may never fire while a real stillness event occurs. Timeout tuning + zone polygons mitigate |
 | **Camera angle / lighting** | Strong daylight shifts or auto-exposure churn inflate frame-diff motion | False negatives (never still); night IR washout can fragment the blob → false `no_visibility` |
 | **Blob ≠ person** | Detector is frame-diff + contour stand-in, no identity or pose model | Anything large and still (laundry pile, box) can trigger `no_movement` |
-| `distress_heuristic` | Aspect-ratio / y-position stand-in only | Explicitly **not** a medical assessment; falls-ladder behavior would need pose estimation + labeled validation before any claim |
+| `distress_heuristic` (pose path) | Two-ONNX chain (person-detector + BlazePose) computes torso angle / hip height; only the **sudden** vertical→horizontal signature fires. Gradual transitions (lying down deliberately, crouching) are deliberately **not** cue-worthy — verified: OpenCV vtest pedestrian bend-overs stay silent. Pose keypoints flicker unreliable on a motionless lying person, so gradual collapses (verified: KU Leuven gradual bed-fall clip) do **not** fire the fast path — they escalate via `no_movement` stillness at the plan timeout (two-tier escalation) |
+| `distress_heuristic` (shape fallback) | Aspect-ratio / y-position stand-in used only when pose models are absent | Explicitly **not** a medical assessment |
+
+## Real-footage validation (KU Leuven Advise fall-simulation dataset)
+
+Clips fetched by `scripts/download_clips.sh` (attribution in `clips/README.md`); results are reproducible via the clip eval cases (`clip_real_fall_1`, `clip_fall_2_two_tier`, `clip_pedestrians_negative`):
+
+| Clip | Ground truth | System behavior | Result |
+| --- | --- | --- | --- |
+| `kul_fall_1.avi` | Hard fall to floor | `distress_heuristic` sudden_vertical_to_horizontal at t=100.7s | ✅ instant escalation |
+| `kul_fall_2.avi` | Gradual collapse onto bed | Pose fast path silent (pose unreliable on motionless subject); `no_movement` stillness fires at plan timeout (t=99s @30s timeout) | ✅ two-tier escalation |
+| `vtest.avi` | Pedestrians walking, bending | No cue of any kind | ✅ negative control holds |
 
 ## Ladder / channel failure modes
 
