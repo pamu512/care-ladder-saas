@@ -237,14 +237,21 @@ def _seq_clip(name: str, fps: float, sample_hz: float):
 
 
 def summarize(results: list[dict]) -> dict:
-    """Compute the grant-proposal metrics from per-case result dicts."""
-    expect_cue = [r for r in results if r["expect_cue"] is not None]
-    expect_none = [r for r in results if r["expect_cue"] is None]
+    """Compute the grant-proposal metrics from per-case result dicts.
+
+    Skipped cases (missing fixture/clip) are excluded from recall/FPR
+    denominators — a case that could not run is not a miss.
+    """
+    ran = [r for r in results if not r.get("skipped")]
+    expect_cue = [r for r in ran if r["expect_cue"] is not None]
+    expect_none = [r for r in ran if r["expect_cue"] is None]
     hits = [r for r in expect_cue if r.get("emitted") == r["expect_cue"]]
     false_escalations = [r for r in expect_none if r.get("emitted") is not None]
     ttc = [r["time_to_cue_sec"] for r in hits if r.get("time_to_cue_sec") is not None]
     return {
         "cases": len(results),
+        "cases_ran": len(ran),
+        "cases_skipped": len(results) - len(ran),
         "cue_recall": round(len(hits) / len(expect_cue), 3) if expect_cue else None,
         "false_escalation_rate": (
             round(len(false_escalations) / len(expect_none), 3) if expect_none else None
@@ -256,6 +263,7 @@ def summarize(results: list[dict]) -> dict:
                 "expect": r["expect_cue"],
                 "emitted": r.get("emitted"),
                 "time_to_cue_sec": r.get("time_to_cue_sec"),
+                **({"skipped": r["skipped"]} if r.get("skipped") else {}),
             }
             for r in results
         ],

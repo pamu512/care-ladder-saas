@@ -23,6 +23,9 @@ jobs:
       - name: Download person-detector model
         run: ./scripts/download_models.sh
 
+      - name: Download eval clips (KU Leuven falls + negative control)
+        run: ./scripts/download_clips.sh
+
       - name: Tests
         run: python -m pytest -v
 

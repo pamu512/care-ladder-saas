@@ -28,13 +28,13 @@ MODEL = ROOT / "models" / "person_detection_mediapipe_2023mar.onnx"
 
 
 def run_case(case, use_dnn: bool) -> dict:
-    frames = case.frames()  # may be empty when photo fixture missing
+    frames = case.frames()  # may be empty when photo fixture / clip missing
     if not frames:
         return {
             "case_id": case.case_id,
             "expect_cue": case.expect_cue,
             "emitted": None,
-            "skipped": "no frames (missing photo fixture)",
+            "skipped": "no frames (missing photo fixture or clip — run scripts/download_clips.sh)",
         }
 
     detector_kwargs = {}
