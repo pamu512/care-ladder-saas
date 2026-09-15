@@ -37,6 +37,8 @@ class CueDetector:
         enable_no_movement: bool = True,
         enable_no_visibility: bool = True,
         enable_distress_heuristic: bool = True,
+        person_detector: Any | None = None,
+        motion_source: str = "frame_diff",
     ) -> None:
         self.no_movement_timeout_sec = float(no_movement_timeout_sec)
         self.zone = np.asarray(zone, dtype=np.float32)
@@ -49,11 +51,19 @@ class CueDetector:
         self.enable_no_movement = enable_no_movement
         self.enable_no_visibility = enable_no_visibility
         self.enable_distress_heuristic = enable_distress_heuristic
+        self.person_detector = person_detector
+        if motion_source not in ("frame_diff", "mog2"):
+            raise ValueError(f"unknown motion_source {motion_source!r}")
+        self.motion_source = motion_source
+        self._mog2 = cv2.createBackgroundSubtractorMOG2(
+            history=60, varThreshold=32.0, detectShadows=False
+        )
 
         self._prev_gray: np.ndarray | None = None
         self._seen_in_zone = False
         self._still_since: float | None = None
         self._distress_since: float | None = None
+        self.last_detection_source: str | None = None
 
     @classmethod
     def from_plan(cls, plan: CarePlan, zone_id: str | None = None) -> CueDetector:
@@ -87,11 +97,24 @@ class CueDetector:
             else frame
         )
         h, w = gray.shape[:2]
-        blob = self._largest_blob(gray)
+
+        # Person localization: DNN person detector when available, else contour blob.
+        if self.person_detector is not None:
+            boxes = self._detect_people_dnn(frame)
+            self.last_detection_source = "dnn_person_detector"
+            blob = boxes[0] if boxes else None
+        else:
+            blob = self._largest_blob(gray)
+            self.last_detection_source = "contour_blob"
         in_zone = bool(blob and self._point_in_zone(blob["cx"], blob["cy"]))
 
+        # Motion: MOG2 foreground ratio (robust to global illumination drift) or
+        # plain frame differencing.
         motion = 0.0
-        if self._prev_gray is not None:
+        if self.motion_source == "mog2":
+            fg = self._mog2.apply(frame)
+            motion = float(np.count_nonzero(fg)) / float(fg.size) * 255.0
+        elif self._prev_gray is not None:
             diff = cv2.absdiff(gray, self._prev_gray)
             motion = float(np.mean(diff))
         self._prev_gray = gray.copy()
@@ -167,6 +190,29 @@ class CueDetector:
     def _point_in_zone(self, x: float, y: float) -> bool:
         # >= 0 means inside or on edge
         return cv2.pointPolygonTest(self.zone, (float(x), float(y)), False) >= 0.0
+
+    def _detect_people_dnn(self, frame: np.ndarray) -> list[dict[str, Any]]:
+        """Run the DNN person detector and normalize boxes to blob-dict shape."""
+        rows = self.person_detector.infer(frame)
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            x1, y1, x2, y2 = (float(v) for v in r[:4])
+            bw, bh = x2 - x1, y2 - y1
+            area = bw * bh
+            if area < self.min_blob_area:
+                continue
+            out.append(
+                {
+                    "cx": (x1 + x2) / 2.0,
+                    "cy": (y1 + y2) / 2.0,
+                    "w": float(bw),
+                    "h": float(bh),
+                    "area": float(area),
+                    "aspect": (bw / float(bh)) if bh > 0 else 0.0,
+                    "score": float(r[12]),
+                }
+            )
+        return sorted(out, key=lambda b: -b["score"])
 
     def _largest_blob(self, gray: np.ndarray) -> dict[str, Any] | None:
         _, mask = cv2.threshold(

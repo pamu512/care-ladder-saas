@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Care Ladder — Caregiver Console</title>
+<style>
+  :root {
+    --fg: #1a2332; --muted: #64748b; --accent: #0e7490; --border: #e2e8f0;
+    --card: #ffffff; --bg: #f5f7fa; --ok: #15803d; --warn: #b45309; --bad: #b91c1c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 14px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  .demo-btns { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    background: var(--accent); color: #fff; border: 0; border-radius: 8px;
+    padding: 8px 14px; font-size: 13px; cursor: pointer;
+  }
+  button:hover { filter: brightness(1.08); }
+  button:disabled { opacity: .5; cursor: default; }
+  main { max-width: 860px; margin: 24px auto; padding: 0 16px; }
+  .incident {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 20px; margin-bottom: 16px;
+  }
+  .incident h2 { font-size: 15px; margin: 0 0 4px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .badge {
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px;
+    border-radius: 999px; padding: 2px 10px;
+  }
+  .badge.resolved { background: #dcfce7; color: var(--ok); }
+  .badge.escalated { background: #fee2e2; color: var(--bad); }
+  .badge.suppressed, .badge.open { background: #fef3c7; color: var(--warn); }
+  .badge.cue { background: #e0f2fe; color: #075985; }
+  .meta { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+  .timeline { list-style: none; margin: 0; padding: 0; }
+  .timeline li {
+    display: grid; grid-template-columns: 130px 1fr; gap: 12px;
+    padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px;
+  }
+  .timeline li:first-child { border-top: 0; }
+  .tool { font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+  .tool.cue { color: #075985; }
+  .tool.jump { color: var(--warn); }
+  .tool.resolve { color: var(--ok); }
+  .tool.dial_contact { color: var(--bad); }
+  .detail { color: var(--muted); font-size: 13px; }
+  .rung { color: var(--muted); font-size: 12px; }
+  .empty { color: var(--muted); text-align: center; padding: 40px 0; }
+  .foot { color: var(--muted); font-size: 12px; margin: 24px 0; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Care Ladder</h1>
+  <span class="sub">Caregiver console — incident timeline (demo: stub dialer, speaker simulator, reserved phones)</span>
+  <div class="demo-btns">
+    <button data-fixture="no_movement_ok">Path A: verbal OK</button>
+    <button data-fixture="no_movement_silence">Path B: silence → escalate</button>
+    <button data-fixture="opencv_stillness">OpenCV stillness</button>
+  </div>
+</header>
+<main>
+  <div id="incidents"><div class="empty">No incidents yet — run a demo fixture above.</div></div>
+  <p class="foot">
+    Not a medical device. Privacy: frames are blurred/silhouette before persistence.
+    Emergency rung fail-closed; demo contacts are reserved NANP fiction (NPA-555-01XX).
+  </p>
+</main>
+<script>
+const TOOL_LABEL = {
+  cue: "OpenCV cue", reperceive: "re-perceive", speaker_prompt: "speaker check-in",
+  wait: "wait", jump: "jump (logged)", dial_contact: "dial", emergency: "emergency",
+  notify: "notify", resolve: "resolve", suppress: "quiet hours",
+};
+function detailText(ev) {
+  const d = ev.detail || {};
+  const bits = [];
+  if (d.text) bits.push("“" + d.text + "”");
+  if (d.reply_kind) bits.push("reply: " + d.reply_kind + (d.reply_raw ? ` ("${d.reply_raw}")` : ""));
+  if (d.status) bits.push("status: " + d.status);
+  if (d.result) bits.push("result: " + d.result);
+  if (d.contact) bits.push("contact: " + d.contact + " " + (d.phone_e164 || ""));
+  if (d.reason) bits.push("reason: " + d.reason + (d.skipped_rung_id ? ` (skipped ${d.skipped_rung_id})` : ""));
+  if (d.confidence != null) bits.push("confidence: " + d.confidence);
+  if (d.source) bits.push("source: " + d.source);
+  if (d.privacy) bits.push("privacy: " + d.privacy);
+  return bits.join(" · ");
+}
+function esc(s) { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+function renderIncident(inc) {
+  const li = inc.events.map(ev => `
+    <li>
+      <div><span class="tool ${ev.tool}">${esc(TOOL_LABEL[ev.tool] || ev.tool)}</span><br>
+      <span class="rung">${esc(ev.rung_id || "")}</span></div>
+      <div><div>${esc(detailText(ev))}</div></div>
+    </li>`).join("");
+  return `<section class="incident">
+    <h2>${esc(inc.id.slice(0, 8))} <span class="badge ${esc(inc.status)}">${esc(inc.status)}</span>
+      <span class="badge cue">cue: ${esc(inc.cue.kind)}</span></h2>
+    <div class="meta">household ${esc(inc.household_id)} · ${inc.events.length} audit events · pre-event frames: ${inc.pre_event_frame_count ?? 0}</div>
+    <ol class="timeline">${li}</ol>
+  </section>`;
+}
+async function refresh() {
+  const res = await fetch("/incidents");
+  const list = await res.json();
+  const el = document.getElementById("incidents");
+  if (!list.length) { el.innerHTML = '<div class="empty">No incidents yet — run a demo fixture above.</div>'; return; }
+  const parts = [];
+  for (const s of list) {
+    const r = await fetch("/incidents/" + s.id);
+    parts.push(renderIncident(await r.json()));
+  }
+  el.innerHTML = parts.reverse().join("");
+}
+document.querySelectorAll(".demo-btns button").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    try {
+      await fetch("/demo/run", {
+        method: "POST", headers: {"content-type": "application/json"},
+        body: JSON.stringify({fixture: btn.dataset.fixture}),
+      });
+      await refresh();
+    } finally { btn.disabled = false; }
+  });
+});
+refresh();
+</script>
+</body>
+</html>

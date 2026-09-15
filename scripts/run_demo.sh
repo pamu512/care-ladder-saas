@@ -20,6 +20,7 @@ PORT="${PORT:-8000}"
 echo "Care Ladder demo API: http://${HOST}:${PORT}"
 echo "  POST /demo/run  {\"fixture\":\"no_movement_silence\"}"
 echo "  GET  /incidents/{id}  — incident timeline"
+echo "  UI:   http://${HOST}:${PORT}/ui/  — caregiver console (demo fixtures)"
 echo "  Docs: http://${HOST}:${PORT}/docs"
 echo "Reserved phones only (NPA-555-01XX); emergency fail-closed; stub dialer / speaker simulator."
 

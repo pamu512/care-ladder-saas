@@ -88,5 +88,6 @@ If Docker is unavailable in the build environment, the Dockerfile is still the c
 ## Related docs
 
 - Design: `docs/superpowers/specs/2026-09-11-agentic-senior-care-ladder-design.md` §8 Architecture (AWS)
-- Grant draft answers (submitted separately): `grant/proposal-answers.md`
+- Grant proposal (submitted separately): `grant/Care-Ladder-OpenCV-AWS-Grant-Proposal.pdf`
+- Known failure modes and limitations: `docs/failure-modes.md`
 - Local judge runbook: root `README.md`

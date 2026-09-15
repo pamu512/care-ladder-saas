@@ -34,8 +34,10 @@ pip install -e ".[dev]"
    - Dial **`no_answer`** → escalate to next dial / skip non-dial rungs (logged jumps)
 
 Demo fixtures:
+- `no_movement_ok` — injects a `no_movement` cue with a verbal **"I'm fine"** speaker reply (spec §10 Path A): incident resolves at the check-in rung, no dial, no emergency.
 - `no_movement_silence` — injects a `no_movement` cue with an empty speaker script (silence) so the ladder escalates through dial stubs.
 - `opencv_stillness` — feeds **synthetic numpy frames** through `CueDetector.observe` (OpenCV), then `run_incident`; audit cue is tagged `source: opencv_cue_detector`.
+- `opencv_dnn_person` — feeds a **real photo** through the **MediaPipe person-detection ONNX via OpenCV 5 DNN** (`models/`, run `scripts/download_models.sh` once), then the ladder; audit cue is tagged `source: opencv_dnn_person_detector` with detector name. Frames attach as silhouettes.
 
 ## Privacy (blur / silhouette)
 
@@ -85,6 +87,18 @@ curl -s -X POST http://127.0.0.1:8000/demo/run \
 ```
 
 Returns `{"incident_id":"<id>"}`.
+
+### 2b. Or use the caregiver console UI
+
+Open **http://127.0.0.1:8000/ui/** — SafelyYou-style incident timeline with one-click
+demo fixtures:
+
+- **Path A: verbal OK** (`no_movement_ok`) — check-in clears, no dial.
+- **Path B: silence → escalate** (`no_movement_silence`) — dials walk stubs, jumps logged.
+- **OpenCV stillness** (`opencv_stillness`) — synthetic frames through `CueDetector`.
+
+Known failure modes and limitations: [`docs/failure-modes.md`](docs/failure-modes.md).
+Competitive landscape: [`docs/competitive-landscape.md`](docs/competitive-landscape.md).
 
 ### 3. Fetch the timeline
 

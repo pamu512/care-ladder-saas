@@ -8,6 +8,7 @@ from typing import Any
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from care_ladder.audit.store import AuditStore
@@ -21,7 +22,15 @@ from care_ladder.vision.cues import CueDetector
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEMO_PLAN_PATH = _REPO_ROOT / "configs" / "demo_home.yaml"
 
-SUPPORTED_FIXTURES = frozenset({"no_movement_silence", "opencv_stillness"})
+SUPPORTED_FIXTURES = frozenset(
+    {
+        "no_movement_ok",
+        "no_movement_silence",
+        "opencv_stillness",
+        "opencv_dnn_person",
+    }
+)
+_MODEL_PATH = _REPO_ROOT / "models" / "person_detection_mediapipe_2023mar.onnx"
 # Midday UTC so quiet_hours soft-suppress does not hide the judge demo ladder.
 DEMO_NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
 
@@ -45,6 +54,24 @@ def _incident_summary(incident) -> dict[str, Any]:
         "cue": incident.cue.model_dump(),
         "event_count": len(incident.events),
     }
+
+
+async def _run_no_movement_ok(store: AuditStore):
+    """Fixture: no_movement cue + verbal OK → resolve without dial (spec §10 Path A)."""
+    plan = load_care_plan(_DEMO_PLAN_PATH)
+    cue = CueEvent(kind="no_movement", confidence=0.9, detail={"fixture": "no_movement_ok"})
+    speaker = SpeakerSimulator(scripted=["I'm fine"])
+    dialer = StubDialer(behavior={})  # never reached on this path
+    incident = await run_incident(
+        cue=cue,
+        plan=plan,
+        speaker=speaker,
+        dialer=dialer,
+        pre_event_frames=[],
+        store=store,
+        now=DEMO_NOW,
+    )
+    return incident
 
 
 async def _run_no_movement_silence(store: AuditStore):
@@ -124,6 +151,62 @@ async def _run_opencv_stillness(store: AuditStore):
     return incident
 
 
+async def _run_opencv_dnn_person(store: AuditStore):
+    """Fixture: real photo → DNN person detector → zone check → ladder.
+
+    Uses tests/fixtures/basketball1.png (OpenCV sample image with a person).
+    Requires models/person_detection_mediapipe_2023mar.onnx (scripts/download_models.sh).
+    The DNN localizes the person (in-zone) every frame; identical frames → motion stays
+    ~0 → `no_movement` cue → ladder.
+    """
+    import cv2
+
+    photo = cv2.imread(str(_REPO_ROOT / "tests" / "fixtures" / "basketball1.png"))
+    if photo is None:
+        raise RuntimeError("opencv_dnn_person fixture: sample photo missing")
+    if not _MODEL_PATH.exists():
+        raise RuntimeError(
+            "opencv_dnn_person fixture: run scripts/download_models.sh first"
+        )
+
+    from care_ladder.vision.mppersondet import MPPersonDet
+
+    plan = load_care_plan(_DEMO_PLAN_PATH)
+    plan.triggers.no_movement.timeout_sec = 2  # demo clock, not plan's 900s
+    detector = CueDetector.from_plan(plan, zone_id="living_room")
+    detector.person_detector = MPPersonDet(str(_MODEL_PATH), scoreThreshold=0.3)
+
+    cue: CueEvent | None = None
+    times = [0.0, 1.0, 2.5, 3.0]
+    for t in times:
+        cue = detector.observe(photo, t=t)
+        if cue is not None:
+            break
+    if cue is None:
+        raise RuntimeError("opencv_dnn_person fixture: detector emitted no cue")
+
+    cue.detail = {
+        **cue.detail,
+        "source": "opencv_dnn_person_detector",
+        "detector": "mediapipe_persondet_2023mar (OpenCV 5 DNN)",
+        "fixture": "opencv_dnn_person",
+    }
+
+    speaker = SpeakerSimulator(scripted=["I'm fine, thanks"])
+    dialer = StubDialer(behavior={})
+    incident = await run_incident(
+        cue=cue,
+        plan=plan,
+        speaker=speaker,
+        dialer=dialer,
+        pre_event_frames=[photo],
+        store=store,
+        privacy_mode="silhouette",
+        now=DEMO_NOW,
+    )
+    return incident
+
+
 def create_app(store: AuditStore | None = None) -> FastAPI:
     """Build FastAPI app with injectable in-memory AuditStore (tests use a fresh store)."""
     audit = store if store is not None else AuditStore()
@@ -133,6 +216,9 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
         version="0.1.0",
     )
     application.state.store = audit
+
+    static_dir = Path(__file__).resolve().parent / "static"
+    application.mount("/ui", StaticFiles(directory=static_dir, html=True), name="ui")
 
     @application.get("/incidents")
     def list_incidents() -> list[dict[str, Any]]:
@@ -153,10 +239,14 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
                 status_code=400,
                 detail=f"unknown fixture {body.fixture!r}; supported: {sorted(SUPPORTED_FIXTURES)}",
             )
-        if body.fixture == "no_movement_silence":
+        if body.fixture == "no_movement_ok":
+            incident = await _run_no_movement_ok(application.state.store)
+        elif body.fixture == "no_movement_silence":
             incident = await _run_no_movement_silence(application.state.store)
         elif body.fixture == "opencv_stillness":
             incident = await _run_opencv_stillness(application.state.store)
+        elif body.fixture == "opencv_dnn_person":
+            incident = await _run_opencv_dnn_person(application.state.store)
         else:  # pragma: no cover - guarded by SUPPORTED_FIXTURES
             raise HTTPException(status_code=400, detail="unsupported fixture")
         return DemoRunResponse(incident_id=incident.id)
