@@ -84,7 +84,12 @@ class DynamoAuditStore(AuditStore):
         item["saved_at"] = int(time.time())
         ddb_item = {"incident_id": {"S": incident.id}}
         ddb_item.update(_to_ddb(item)["M"])
-        self._client.put_item(TableName=self._table, Item=ddb_item)
+        try:
+            self._client.put_item(TableName=self._table, Item=ddb_item)
+        except Exception as exc:  # pragma: no cover - env-dependent
+            # Persistence is best-effort: the incident stays in memory and the
+            # API keeps working; log loudly so the gap is visible.
+            print(f"WARNING: DynamoDB put failed for {incident.id}: {exc}")
         return incident
 
     def get(self, incident_id: str) -> Incident | None:

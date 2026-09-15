@@ -224,13 +224,19 @@ def _default_store() -> AuditStore:
 
 
 async def _publish_cloud(incident) -> None:
-    """Best-effort S3 clip upload + EventBridge cue emission (no-ops locally)."""
-    sinks = CloudSinks()
-    if not sinks.enabled:
-        return
-    frames = incident.__dict__.get("_private_pre_event_frames") or []
-    uris = sinks.upload_clip_frames(incident.id, frames, incident.privacy)
-    sinks.emit_cue(incident, uris)
+    """Best-effort S3 clip upload + EventBridge cue emission (no-ops locally).
+
+    Never fails the incident: cloud sink errors are logged and swallowed.
+    """
+    try:
+        sinks = CloudSinks()
+        if not sinks.enabled:
+            return
+        frames = incident.__dict__.get("_private_pre_event_frames") or []
+        uris = sinks.upload_clip_frames(incident.id, frames, incident.privacy)
+        sinks.emit_cue(incident, uris)
+    except Exception as exc:  # pragma: no cover - env-dependent
+        print(f"WARNING: cloud publish failed for {incident.id}: {exc}")
 
 
 def create_app(store: AuditStore | None = None) -> FastAPI:
