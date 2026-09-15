@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 
 from care_ladder.models import CarePlan, CueEvent
+from care_ladder.vision.tracker import PersonTracker
 
 Point = tuple[float, float]
 
@@ -39,6 +40,7 @@ class CueDetector:
         enable_distress_heuristic: bool = True,
         person_detector: Any | None = None,
         motion_source: str = "frame_diff",
+        tracking_enabled: bool = True,
     ) -> None:
         self.no_movement_timeout_sec = float(no_movement_timeout_sec)
         self.zone = np.asarray(zone, dtype=np.float32)
@@ -65,6 +67,8 @@ class CueDetector:
         self._still_since: float | None = None
         self._distress_since: float | None = None
         self.last_detection_source: str | None = None
+        self._tracker: PersonTracker | None = None
+        self.tracking_enabled = tracking_enabled
 
     @classmethod
     def from_plan(cls, plan: CarePlan, zone_id: str | None = None) -> CueDetector:
@@ -107,6 +111,17 @@ class CueDetector:
         else:
             blob = self._largest_blob(gray)
             self.last_detection_source = "contour_blob"
+        # Track all detections (DNN: every person box; contour: the best blob).
+        tracking = None
+        if self.tracking_enabled:
+            if self._tracker is None:
+                self._tracker = PersonTracker(w, h)
+            dets = self._detect_people_dnn(frame) if self.person_detector is not None else (
+                [dict(blob, height_ratio=blob["h"] / float(h))] if blob else []
+            )
+            tracking = self._tracker.observe(dets, t)
+            self.last_tracking = tracking
+
         in_zone = bool(blob and self._point_in_zone(blob["cx"], blob["cy"]))
 
         # Motion: MOG2 foreground ratio (robust to global illumination drift) or
@@ -141,15 +156,16 @@ class CueDetector:
             if self._seen_in_zone and self.enable_no_visibility:
                 # Latch: require re-entry before another no_visibility.
                 self._seen_in_zone = False
-                return CueEvent(
-                    kind="no_visibility",
-                    confidence=0.85,
-                    detail={
-                        "reason": "blob_left_zone_or_absent",
-                        "in_zone": False,
-                        "motion_mean": motion,
-                    },
-                )
+                detail = {
+                    "reason": "blob_left_zone_or_absent",
+                    "in_zone": False,
+                    "motion_mean": motion,
+                }
+                if getattr(self, "last_tracking", None):
+                    tr = self.last_tracking
+                    detail["person_count"] = tr["person_count"]
+                    detail["track_events"] = tr["events"]
+                return CueEvent(kind="no_visibility", confidence=0.85, detail=detail)
 
         if (
             self.enable_distress_heuristic
@@ -161,17 +177,18 @@ class CueDetector:
             sustain = t - self._distress_since
             # Clear so condition must re-accumulate (no per-frame spam).
             self._distress_since = None
-            return CueEvent(
-                kind="distress_heuristic",
-                confidence=0.7,
-                detail={
-                    "non_clinical": True,
-                    "note": "coarse aspect/y heuristic only; not a medical diagnosis",
-                    "aspect_ratio": blob["aspect"],
-                    "y_ratio": blob["cy"] / float(h),
-                    "sustain_sec": sustain,
-                },
-            )
+            detail = {
+                "non_clinical": True,
+                "note": "coarse aspect/y heuristic only; not a medical diagnosis",
+                "aspect_ratio": blob["aspect"],
+                "y_ratio": blob["cy"] / float(h),
+                "sustain_sec": sustain,
+            }
+            if getattr(self, "last_tracking", None):
+                tr = self.last_tracking
+                detail["person_count"] = tr["person_count"]
+                detail["tracks"] = tr["tracks"]
+            return CueEvent(kind="distress_heuristic", confidence=0.7, detail=detail)
 
         if (
             self.enable_no_movement
@@ -182,15 +199,17 @@ class CueDetector:
             still_sec = t - self._still_since
             # Restart stillness clock so the same still pose does not re-fire next frame.
             self._still_since = t
-            return CueEvent(
-                kind="no_movement",
-                confidence=0.8,
-                detail={
-                    "still_sec": still_sec,
-                    "motion_mean": motion,
-                    "timeout_sec": self.no_movement_timeout_sec,
-                },
-            )
+            detail = {
+                "still_sec": still_sec,
+                "motion_mean": motion,
+                "timeout_sec": self.no_movement_timeout_sec,
+            }
+            if getattr(self, "last_tracking", None):
+                tr = self.last_tracking
+                detail["person_count"] = tr["person_count"]
+                detail["tracks"] = tr["tracks"]
+                detail["track_events"] = tr["events"]
+            return CueEvent(kind="no_movement", confidence=0.8, detail=detail)
 
         return None
 
