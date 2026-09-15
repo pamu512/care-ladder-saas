@@ -36,6 +36,7 @@ def ingest_video(
     *,
     max_seconds: float = 120.0,
     pre_event_seconds: float = 3.0,
+    sample_hz: float | None = None,
     use_dnn: Any | None = None,
 ) -> VideoIngestResult:
     """Decode ``path`` and observe frames through ``detector``.
@@ -43,6 +44,11 @@ def ingest_video(
     Frame timestamps use real decode time (frame_index / fps) so trigger
     timeouts behave as they would on a live camera. Decoding stops at the first
     cue (the ladder takes over from there) or end of clip / max_seconds.
+
+    ``sample_hz`` processes a real-time sample grid (e.g. 5 Hz → every 6th
+    frame at 30 fps): timestamps stay in real seconds — validated on the
+    KU Leuven fall clips (sudden-fall signature survives 5 Hz sampling) —
+    while DNN cost drops ~6x for CPU-bound containers.
     """
     cap = cv2.VideoCapture(str(path))
     if not cap.isOpened():
@@ -53,9 +59,11 @@ def ingest_video(
         if fps <= 0 or fps != fps:  # 0 or NaN
             fps = 30.0
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        step = max(1, int(round(fps / sample_hz))) if sample_hz else 1
 
         cue: CueEvent | None = None
         seen = 0
+        processed = 0
         window: list[tuple[float, np.ndarray]] = []
 
         while True:
@@ -66,6 +74,9 @@ def ingest_video(
             if t > max_seconds:
                 break
             seen += 1
+            if (seen - 1) % step != 0:
+                continue  # off-grid frame: skip DNN work, keep real timestamps
+            processed += 1
 
             candidate = detector
             observed = candidate.observe(frame, t=t)

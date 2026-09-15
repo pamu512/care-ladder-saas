@@ -368,8 +368,11 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             detector = CueDetector.from_plan(plan, zone_id="living_room")
             if _MODEL_PATH.exists():
                 from care_ladder.vision.mppersondet import MPPersonDet
+                from care_ladder.vision.mppose import MPPose
 
                 detector.person_detector = MPPersonDet(str(_MODEL_PATH), scoreThreshold=0.3)
+                if _POSE_MODEL_PATH.exists():
+                    detector.pose_model = MPPose(str(_POSE_MODEL_PATH), confThreshold=0.5)
 
             # Clip resolution may differ from plan zone canvas; use full-frame zone.
             probe = cv2.VideoCapture(str(spilled))
@@ -385,11 +388,12 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
                 [[0, 0], [w, 0], [w, h], [0, h]], dtype=np.float32
             )
 
-            result = ingest_video(spilled, detector)
+            result = ingest_video(spilled, detector, sample_hz=5.0)
             if result.cue is None and detector.person_detector is not None:
                 # DNN found nobody in the whole clip (stylized/low-res footage):
                 # fall back to the contour-blob path and re-run once.
                 detector.person_detector = None
+                detector.pose_model = None
                 result = ingest_video(spilled, detector)
         finally:
             spilled.unlink(missing_ok=True)
