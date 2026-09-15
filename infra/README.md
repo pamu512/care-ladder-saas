@@ -1,6 +1,8 @@
 # Care Ladder — AWS deployment sketch
 
-**Status:** outline only. This documents a **minimal meaningful AWS** path for the OpenCV AI Competition 2026 (Agentic Vision / AWS) judges. It does **not** claim a live account, cluster, or public URL. Local FastAPI (`./scripts/run_demo.sh` → `care_ladder.api.app:app`) remains the supported judge demo.
+**Status:** LIVE. Deployed on AWS (account 367597235216, us-east-1): ECS/Fargate service `care-ladder-demo` behind an internet-facing ALB (`care-ladder-demo-2017970097.us-east-1.elb.amazonaws.com`) with CloudFront HTTPS in front (`https://d2u7pls4da2poz.cloudfront.net`). Local FastAPI (`./scripts/run_demo.sh` → `care_ladder.api.app:app`) remains the fallback judge demo.
+
+Provisioning commands used (reproducible): see `scripts/infra.sh` (VPC, ECR, ECS cluster/service, ALB, CloudFront, DynamoDB table, task role).
 
 The architecture matches the design spec and the separately submitted OpenCV/AWS compute grant proposal: **S3 (privacy-filtered clips) → ECS/Fargate (OpenCV + FastAPI) → EventBridge cue bus → orchestrator audit trail**.
 
