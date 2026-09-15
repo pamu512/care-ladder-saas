@@ -8,6 +8,7 @@
 grant/
 docs/
 tests/
+!tests/fixtures/
 *.md
 !README.md
 infra/

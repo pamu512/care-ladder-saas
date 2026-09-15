@@ -18,6 +18,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml README.md ./
 COPY src ./src
 COPY configs ./configs
+COPY tests/fixtures ./tests/fixtures
+
+# Fetch the person-detection ONNX (12 MB, Apache-2.0) for the opencv_dnn_person
+# fixture; same source as scripts/download_models.sh.
+ADD https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/person_detection_mediapipe/person_detection_mediapipe_2023mar.onnx /app/models/person_detection_mediapipe_2023mar.onnx
 
 # Editable install keeps package paths under /app/src so api.app resolves
 # configs/demo_home.yaml via Path(__file__).parents[3] / "configs".
