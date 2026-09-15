@@ -1,5 +1,5 @@
 {
-  "cases": 9,
+  "cases": 10,
   "cue_recall": 1.0,
   "false_escalation_rate": 0.0,
   "mean_time_to_confirm_sec": 3.0,
@@ -59,6 +59,13 @@
       "emitted": "no_movement",
       "time_to_cue_sec": 99.0,
       "note": "gradual bed collapse (KU Leuven): pose fast path intentionally silent (pose unreliable on motionless subject); escalates via stillness at 30s plan timeout \u2014 two-tier escalation proven on real footage"
+    },
+    {
+      "case_id": "clip_pedestrians_negative",
+      "expect": null,
+      "emitted": null,
+      "time_to_cue_sec": null,
+      "note": "OpenCV vtest pedestrians: no distress cue (bend-over FP eliminated by sudden-only rule)"
     }
   ],
   "dnn": true
