@@ -6,8 +6,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import cv2
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -231,6 +232,39 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="incident not found")
         # Full timeline JSON: ordered audit events (cue → tools → resolve/jump).
         return incident.model_dump()
+
+    @application.get("/incidents/{incident_id}/frames/{index}", response_class=Response)
+    def get_incident_frame(incident_id: str, index: int):
+        """Serve a privacy-transformed pre-event frame as PNG.
+
+        Frames reaching this endpoint already went through blur/silhouette in
+        run_incident; raw identifiable pixels never enter the store.
+        """
+        incident = application.state.store.get(incident_id)
+        if incident is None:
+            raise HTTPException(status_code=404, detail="incident not found")
+        frames = incident.__dict__.get("_private_pre_event_frames") or []
+        if not (0 <= index < len(frames)):
+            raise HTTPException(
+                status_code=404,
+                detail=f"frame index {index} out of range (0..{max(len(frames)-1, 0)})",
+            )
+        ok, buf = cv2.imencode(".png", frames[index])
+        if not ok:
+            raise HTTPException(status_code=500, detail="png encode failed")
+        return Response(content=buf.tobytes(), media_type="image/png")
+
+    @application.get("/incidents/{incident_id}/frames")
+    def list_incident_frames(incident_id: str) -> dict[str, Any]:
+        incident = application.state.store.get(incident_id)
+        if incident is None:
+            raise HTTPException(status_code=404, detail="incident not found")
+        frames = incident.__dict__.get("_private_pre_event_frames") or []
+        return {
+            "privacy": incident.privacy,
+            "count": len(frames),
+            "frame_urls": [f"/incidents/{incident_id}/frames/{i}" for i in range(len(frames))],
+        }
 
     @application.post("/demo/run", response_model=DemoRunResponse)
     async def demo_run(body: DemoRunRequest) -> DemoRunResponse:

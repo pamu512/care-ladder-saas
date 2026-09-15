@@ -56,6 +56,12 @@
   .detail { color: var(--muted); font-size: 13px; }
   .rung { color: var(--muted); font-size: 12px; }
   .empty { color: var(--muted); text-align: center; padding: 40px 0; }
+  .clip { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+  .clip-head { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .clip-strip img { max-width: 100%; max-height: 260px; border-radius: 6px; border: 1px solid var(--border); }
+  .clip-note { color: var(--muted); font-size: 11px; margin-top: 6px; }
+  button.step { background: var(--card); color: var(--fg); border: 1px solid var(--border); padding: 2px 10px; }
+  .clip-pos { font-weight: 400; color: var(--muted); min-width: 36px; text-align: center; }
   .foot { color: var(--muted); font-size: 12px; margin: 24px 0; text-align: center; }
 </style>
 </head>
@@ -67,6 +73,7 @@
     <button data-fixture="no_movement_ok">Path A: verbal OK</button>
     <button data-fixture="no_movement_silence">Path B: silence → escalate</button>
     <button data-fixture="opencv_stillness">OpenCV stillness</button>
+    <button data-fixture="opencv_dnn_person">DNN person (real photo)</button>
   </div>
 </header>
 <main>
@@ -97,19 +104,59 @@ function detailText(ev) {
   return bits.join(" · ");
 }
 function esc(s) { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
-function renderIncident(inc) {
+async function loadFrames(inc) {
+  try {
+    const r = await fetch("/incidents/" + inc.id + "/frames");
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+function renderIncident(inc, frames) {
   const li = inc.events.map(ev => `
     <li>
       <div><span class="tool ${ev.tool}">${esc(TOOL_LABEL[ev.tool] || ev.tool)}</span><br>
       <span class="rung">${esc(ev.rung_id || "")}</span></div>
       <div><div>${esc(detailText(ev))}</div></div>
     </li>`).join("");
+  let clipHtml = "";
+  if (frames && frames.count > 0) {
+    const imgs = frames.frame_urls.map((u, i) =>
+      `<img src="${u}" data-idx="${i}" alt="pre-event frame ${i}" loading="lazy">`).join("");
+    clipHtml = `
+    <div class="clip">
+      <div class="clip-head">Pre-event clip · <span class="badge cue">privacy: ${esc(frames.privacy || "?")}</span>
+        <button class="step" data-inc="${esc(inc.id)}" data-dir="-1">◀</button>
+        <span class="clip-pos" id="pos-${esc(inc.id)}">1/${frames.count}</span>
+        <button class="step" data-inc="${esc(inc.id)}" data-dir="1">▶</button>
+      </div>
+      <div class="clip-strip" id="strip-${esc(inc.id)}">${imgs}</div>
+      <div class="clip-note">Frames shown are the privacy-transformed copies persisted with the incident — raw video never leaves the device path.</div>
+    </div>`;
+  }
   return `<section class="incident">
     <h2>${esc(inc.id.slice(0, 8))} <span class="badge ${esc(inc.status)}">${esc(inc.status)}</span>
       <span class="badge cue">cue: ${esc(inc.cue.kind)}</span></h2>
     <div class="meta">household ${esc(inc.household_id)} · ${inc.events.length} audit events · pre-event frames: ${inc.pre_event_frame_count ?? 0}</div>
+    ${clipHtml}
     <ol class="timeline">${li}</ol>
   </section>`;
+}
+function bindSteppers() {
+  document.querySelectorAll(".clip-strip img").forEach(img => img.style.display = "none");
+  document.querySelectorAll(".clip-strip img:first-child").forEach(img => img.style.display = "block");
+  document.querySelectorAll("button.step").forEach(btn => {
+    btn.onclick = () => {
+      const incId = btn.dataset.inc;
+      const strip = document.getElementById("strip-" + incId);
+      const imgs = [...strip.querySelectorAll("img")];
+      let cur = imgs.findIndex(i => i.style.display !== "none");
+      if (cur < 0) cur = 0;
+      imgs[cur].style.display = "none";
+      cur = Math.min(imgs.length - 1, Math.max(0, cur + Number(btn.dataset.dir)));
+      imgs[cur].style.display = "block";
+      document.getElementById("pos-" + incId).textContent = (cur + 1) + "/" + imgs.length;
+    };
+  });
 }
 async function refresh() {
   const res = await fetch("/incidents");
@@ -119,9 +166,12 @@ async function refresh() {
   const parts = [];
   for (const s of list) {
     const r = await fetch("/incidents/" + s.id);
-    parts.push(renderIncident(await r.json()));
+    const inc = await r.json();
+    const frames = await loadFrames(inc);
+    parts.push(renderIncident(inc, frames));
   }
   el.innerHTML = parts.reverse().join("");
+  bindSteppers();
 }
 document.querySelectorAll(".demo-btns button").forEach(btn => {
   btn.addEventListener("click", async () => {
