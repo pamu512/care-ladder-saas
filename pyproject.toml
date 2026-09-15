@@ -13,6 +13,7 @@ dependencies = [
   "pyyaml",
   "opencv-python",
   "fastapi",
+  "python-multipart",
   "uvicorn",
   "pytest",
   "httpx2>=2.0.0",

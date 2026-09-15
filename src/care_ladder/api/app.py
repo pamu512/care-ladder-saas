@@ -8,7 +8,7 @@ from typing import Any
 
 import cv2
 import numpy as np
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -19,6 +19,7 @@ from care_ladder.ladder.orchestrator import run_incident
 from care_ladder.models import CueEvent
 from care_ladder.plan_loader import load_care_plan
 from care_ladder.vision.cues import CueDetector
+from care_ladder.vision.ingest import ingest_video, save_upload
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEMO_PLAN_PATH = _REPO_ROOT / "configs" / "demo_home.yaml"
@@ -265,6 +266,85 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             "count": len(frames),
             "frame_urls": [f"/incidents/{incident_id}/frames/{i}" for i in range(len(frames))],
         }
+
+    @application.post("/demo/upload", response_model=DemoRunResponse)
+    async def demo_upload(file: UploadFile) -> DemoRunResponse:
+        """Real video ingest: upload a clip → OpenCV decode → CueDetector → ladder.
+
+        Judges/users can drop an MP4 (person still, leaving frame, on-floor) and
+        watch the ladder run on their own footage. Frames are privacy-transformed
+        before attach; nothing raw is persisted.
+        """
+        data = await file.read()
+        if len(data) > 64 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="clip too large (max 64 MB)")
+        suffix = Path(file.filename or "clip.mp4").suffix.lower() or ".mp4"
+        if suffix not in {".mp4", ".mov", ".avi", ".m4v", ".webm"}:
+            raise HTTPException(status_code=400, detail=f"unsupported type {suffix!r}")
+
+        spilled = save_upload(data, suffix=suffix)
+        try:
+            plan = load_care_plan(_DEMO_PLAN_PATH)
+            plan.triggers.no_movement.timeout_sec = 2  # demo clock
+            detector = CueDetector.from_plan(plan, zone_id="living_room")
+            if _MODEL_PATH.exists():
+                from care_ladder.vision.mppersondet import MPPersonDet
+
+                detector.person_detector = MPPersonDet(str(_MODEL_PATH), scoreThreshold=0.3)
+
+            # Clip resolution may differ from plan zone canvas; use full-frame zone.
+            probe = cv2.VideoCapture(str(spilled))
+            ok, first = probe.read()
+            probe.release()
+            if not ok:
+                raise HTTPException(
+                    status_code=422,
+                    detail="clip could not be decoded — is it a valid video file?",
+                )
+            h, w = first.shape[:2]
+            detector.zone = np.asarray(
+                [[0, 0], [w, 0], [w, h], [0, h]], dtype=np.float32
+            )
+
+            result = ingest_video(spilled, detector)
+            if result.cue is None and detector.person_detector is not None:
+                # DNN found nobody in the whole clip (stylized/low-res footage):
+                # fall back to the contour-blob path and re-run once.
+                detector.person_detector = None
+                result = ingest_video(spilled, detector)
+        finally:
+            spilled.unlink(missing_ok=True)
+
+        if result.cue is None:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"no cue emitted from clip ({result.frame_count} frames, "
+                    f"{result.duration_sec}s) — try a clip with a still person, "
+                    "someone leaving frame, or lying on the floor"
+                ),
+            )
+
+        result.cue.detail = {
+            **result.cue.detail,
+            "source": f"uploaded_clip:{result.detector_source}",
+            "clip_frames": result.frame_count,
+            "clip_fps": result.fps,
+            "clip_duration_sec": result.duration_sec,
+        }
+        speaker = SpeakerSimulator(scripted=[])
+        dialer = StubDialer(behavior={"caregiver": "no_answer", "secondary": "answered"})
+        incident = await run_incident(
+            cue=result.cue,
+            plan=plan,
+            speaker=speaker,
+            dialer=dialer,
+            pre_event_frames=result.pre_event_frames[-4:],
+            store=application.state.store,
+            privacy_mode="blur",
+            now=DEMO_NOW,
+        )
+        return DemoRunResponse(incident_id=incident.id)
 
     @application.post("/demo/run", response_model=DemoRunResponse)
     async def demo_run(body: DemoRunRequest) -> DemoRunResponse:

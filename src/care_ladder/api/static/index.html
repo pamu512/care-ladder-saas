@@ -61,6 +61,9 @@
   .clip-strip img { max-width: 100%; max-height: 260px; border-radius: 6px; border: 1px solid var(--border); }
   .clip-note { color: var(--muted); font-size: 11px; margin-top: 6px; }
   button.step { background: var(--card); color: var(--fg); border: 1px solid var(--border); padding: 2px 10px; }
+  .upload-btn { background: var(--card); color: var(--fg); border: 1px dashed var(--accent); border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; }
+  .upload-btn:hover { background: #eef6f8; }
+  #upload-status { font-size: 13px; color: var(--muted); }
   .clip-pos { font-weight: 400; color: var(--muted); min-width: 36px; text-align: center; }
   .foot { color: var(--muted); font-size: 12px; margin: 24px 0; text-align: center; }
 </style>
@@ -74,6 +77,7 @@
     <button data-fixture="no_movement_silence">Path B: silence → escalate</button>
     <button data-fixture="opencv_stillness">OpenCV stillness</button>
     <button data-fixture="opencv_dnn_person">DNN person (real photo)</button>
+    <label class="upload-btn">Upload clip<input type="file" id="clip-input" accept="video/mp4,video/quicktime,video/x-msvideo,video/webm" hidden></label>
   </div>
 </header>
 <main>
@@ -184,6 +188,25 @@ document.querySelectorAll(".demo-btns button").forEach(btn => {
       await refresh();
     } finally { btn.disabled = false; }
   });
+});
+document.getElementById("clip-input").addEventListener("change", async (ev) => {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const status = document.createElement("span");
+  status.id = "upload-status";
+  status.textContent = `⏳ analyzing ${file.name}…`;
+  ev.target.parentElement.after(status);
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const r = await fetch("/demo/upload", { method: "POST", body: fd });
+    const body = await r.json();
+    if (!r.ok) { status.textContent = `⚠️ ${body.detail || r.statusText}`; return; }
+    status.textContent = `✅ incident ${body.incident_id.slice(0, 8)} from ${file.name}`;
+    await refresh();
+  } catch (e) {
+    status.textContent = `⚠️ ${e.message}`;
+  } finally { ev.target.value = ""; }
 });
 refresh();
 </script>
