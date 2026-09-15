@@ -21,6 +21,7 @@ import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FixturesDir = Path(__file__).resolve().parents[3] / "tests" / "fixtures"
+ClipsDir = Path(__file__).resolve().parents[3] / "clips"
 
 
 @dataclass
@@ -188,7 +189,44 @@ def build_cases() -> list[EvalCase]:
             timeout_sec=5.0,
             frames=_seq_photo_person_still,
         ),
+        EvalCase(
+            "clip_real_fall_1",
+            "KU Leuven fall re-enactment (person+pose DNN)",
+            "distress_heuristic",
+            timeout_sec=180.0,
+            frames=lambda: _seq_clip("kul_fall_1.avi", fps=30, sample_hz=5),
+        ),
+        EvalCase(
+            "clip_pedestrians_negative",
+            "OpenCV vtest pedestrians (negative control)",
+            None,
+            timeout_sec=80.0,
+            frames=lambda: _seq_clip("vtest.avi", fps=10, sample_hz=5),
+        ),
     ]
+
+
+def _seq_clip(name: str, fps: float, sample_hz: float):
+    """Decode a downloaded clip (clips/, via scripts/download_clips.sh) at a
+    reduced sample rate; empty list when the clip is absent (case skipped)."""
+    path = ClipsDir / name
+    if not path.exists():
+        return []
+    import cv2
+
+    step = max(1, int(round(fps / sample_hz)))
+    frames = []
+    cap = cv2.VideoCapture(str(path))
+    i = 0
+    while True:
+        ok, f = cap.read()
+        if not ok:
+            break
+        if i % step == 0:
+            frames.append((f, (i // step) / sample_hz))
+        i += 1
+    cap.release()
+    return frames
 
 
 def summarize(results: list[dict]) -> dict:

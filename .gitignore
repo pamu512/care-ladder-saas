@@ -3,3 +3,5 @@ models/*.onnx
 .venv/
 __pycache__/
 *.egg-info/
+clips/*.avi
+clips/meta

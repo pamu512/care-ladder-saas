@@ -66,10 +66,11 @@ class PoseHeuristics:
         *,
         upright_angle_max: float = 35.0,   # below → counts as upright
         down_angle_min: float = 55.0,      # above → counts as horizontal
-        hip_low_ratio: float = 0.60,       # hip y below this fraction of frame → low
+        hip_low_ratio: float = 0.45,       # hip y below this fraction of frame → not-standing
         upright_required_sec: float = 1.0, # must be upright this long before a fall counts
         sustain_sec: float = 2.0,          # stay down this long to fire
         gradual_window_sec: float = 4.0,   # slower than this = gradual (no fast-fall)
+        flicker_grace_sec: float = 0.8,    # brief non-down blips don't reset the clock
     ) -> None:
         self.upright_angle_max = upright_angle_max
         self.down_angle_min = down_angle_min
@@ -77,6 +78,7 @@ class PoseHeuristics:
         self.upright_required_sec = upright_required_sec
         self.sustain_sec = sustain_sec
         self.gradual_window_sec = gradual_window_sec
+        self.flicker_grace_sec = flicker_grace_sec
         self.state = PoseFallState()
 
     def observe(self, metrics: dict[str, float] | None, t: float) -> dict[str, Any] | None:
@@ -90,7 +92,7 @@ class PoseHeuristics:
 
         angle = metrics["torso_angle_deg"]
         hip_low = metrics["hip_y_ratio"] >= self.hip_low_ratio
-        is_upright = angle <= self.upright_angle_max
+        is_upright = angle <= self.upright_angle_max and not hip_low
         is_down = angle >= self.down_angle_min and hip_low
 
         if is_upright:
@@ -112,21 +114,36 @@ class PoseHeuristics:
                 left = [e["t"] for e in st.events if e["type"] == "left_upright"]
                 went = [e["t"] for e in st.events if e["type"] == "went_horizontal"]
                 sudden = bool(left and went and (went[-1] - left[-1]) <= self.gradual_window_sec)
-                detail = {
-                    "pattern": "sudden_vertical_to_horizontal" if sudden else "gradual_on_floor",
-                    "sudden": sudden,
-                    "down_sec": round(t - st.down_since, 2),
+                # Only the SUDDEN fall signature is cue-worthy. A gradual
+                # transition to on-floor (lying down, crouching, gardening) is
+                # not an incident — a still person on the floor is covered by
+                # the no_movement cue with the correct severity.
+                st.down_since = None
+                st.events = st.events[-4:]
+                if not sudden:
+                    st.events.append({"type": "gradual_on_floor_ignored", "t": round(t, 2)})
+                    return None
+                return {
+                    "pattern": "sudden_vertical_to_horizontal",
+                    "sudden": True,
+                    "down_sec": round(t - st.down_since if st.down_since else 0, 2),
                     "torso_angle_deg": angle,
                     "hip_y_ratio": metrics["hip_y_ratio"],
                     "non_clinical": True,
                     "note": "pose-geometry fall signature; not a medical diagnosis",
                 }
-                # reset so it must re-accumulate
+        elif st.down_since is not None:
+            # flicker hysteresis: a brief non-down blip (mid-fall roll, keypoint
+            # jitter) must NOT reset the sustained-down clock — a genuine
+            # recovery (upright again) does.
+            recovered_upright = is_upright
+            grace_expired = (t - st.down_since) > self.flicker_grace_sec and recovered_upright is False
+            if recovered_upright:
                 st.down_since = None
-                st.events = st.events[-4:]
-                return detail
-        else:
-            st.down_since = None
+            elif grace_expired and not is_down:
+                # ambiguous mid-state (e.g. seated) persisting past grace → reset
+                st.down_since = None
+            # else: keep the clock running (flicker tolerance)
 
         st.last_angle = angle
         return None

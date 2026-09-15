@@ -120,9 +120,12 @@ class CueDetector:
         if self.tracking_enabled:
             if self._tracker is None:
                 self._tracker = PersonTracker(w, h)
-            dets = self._detect_people_dnn(frame) if self.person_detector is not None else (
-                [dict(blob, height_ratio=blob["h"] / float(h))] if blob else []
-            )
+            if self.person_detector is not None:
+                dets = self._detect_people_dnn(frame)
+                for d in dets:
+                    d.setdefault("height_ratio", d.get("h", 0.0) / float(h))
+            else:
+                dets = [dict(blob, height_ratio=blob["h"] / float(h))] if blob else []
             tracking = self._tracker.observe(dets, t)
             self.last_tracking = tracking
 

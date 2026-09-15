@@ -38,13 +38,20 @@ def run_case(case, use_dnn: bool) -> dict:
         }
 
     detector_kwargs = {}
-    if use_dnn and MODEL.exists() and case.case_id.startswith("photo"):
+    POSE_MODEL = ROOT / "models" / "pose_estimation_mediapipe_2023mar.onnx"
+    if use_dnn and MODEL.exists() and case.case_id.startswith(("photo", "clip")):
         from care_ladder.vision.mppersondet import MPPersonDet
+        from care_ladder.vision.mppose import MPPose
 
         detector_kwargs["person_detector"] = MPPersonDet(str(MODEL), scoreThreshold=0.3)
+        if POSE_MODEL.exists():
+            detector_kwargs["pose_model"] = MPPose(str(POSE_MODEL), confThreshold=0.5)
 
     # Detector tuned per-case: stillness timeout just under the case budget.
-    timeout = min(case.timeout_sec, 3.0) if case.expect_cue == "no_movement" else 99.0
+    if case.case_id.startswith("clip"):
+        timeout = 99.0  # clip cases run real time; pose machine has its own timing
+    else:
+        timeout = min(case.timeout_sec, 3.0) if case.expect_cue == "no_movement" else 99.0
     frames_preview = case.frames()  # may be empty when photo fixture missing
     if frames_preview:
         h, w = frames_preview[0][0].shape[:2]

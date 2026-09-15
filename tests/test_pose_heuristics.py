@@ -4,7 +4,7 @@ from care_ladder.vision.pose_heuristics import PoseHeuristics, torso_metrics
 
 
 def _upright(t=0.0):
-    return {"torso_angle_deg": 8.0, "hip_y_ratio": 0.45, "keypoint_vis": 0.98}
+    return {"torso_angle_deg": 8.0, "hip_y_ratio": 0.40, "keypoint_vis": 0.98}
 
 
 def _down(t=0.0):
@@ -36,9 +36,9 @@ def test_gradual_lying_down_not_sudden():
     h.observe({"torso_angle_deg": 50.0, "hip_y_ratio": 0.55, "keypoint_vis": 0.9}, 5.0)
     h.observe(_down(), 8.0)      # transition frame
     detail = h.observe(_down(), 10.5)
-    assert detail is not None
-    assert detail["sudden"] is False
-    assert detail["pattern"] == "gradual_on_floor"
+    # gradual lying down is NOT cue-worthy — no distress detail returned
+    assert detail is None
+    assert any(e["type"] == "gradual_on_floor_ignored" for e in h.state.events)
 
 
 def test_unreliable_keypoints_never_fire():
