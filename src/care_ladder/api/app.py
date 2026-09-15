@@ -9,7 +9,10 @@ from typing import Any
 
 import cv2
 import numpy as np
+import asyncio
+
 from fastapi import FastAPI, HTTPException, Response, UploadFile
+from uuid import uuid4
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -288,6 +291,10 @@ async def _run_opencv_pose_person(store: AuditStore):
     )
 
 
+# In-flight upload analysis jobs: job_id -> {status, filename, incident_id, error}
+_UPLOAD_JOBS: dict[str, dict[str, Any]] = {}
+
+
 def create_app(store: AuditStore | None = None) -> FastAPI:
     """Build FastAPI app with injectable store (tests inject a fresh memory store)."""
     audit = store if store is not None else _default_store()
@@ -350,9 +357,11 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
     async def demo_upload(file: UploadFile) -> DemoRunResponse:
         """Real video ingest: upload a clip → OpenCV decode → CueDetector → ladder.
 
-        Judges/users can drop an MP4 (person still, leaving frame, on-floor) and
-        watch the ladder run on their own footage. Frames are privacy-transformed
-        before attach; nothing raw is persisted.
+        Returns 202 immediately with a job id; the CPU-heavy decode+DNN scan
+        runs in a worker thread (a 28 MB / 100+ s clip takes minutes on a
+        0.5-vCPU Fargate task — far past gateway timeouts — and would block
+        the event loop if awaited inline). Poll GET /demo/upload/{job_id} for
+        the resulting incident.
         """
         data = await file.read()
         if len(data) > 64 * 1024 * 1024:
@@ -362,41 +371,75 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=f"unsupported type {suffix!r}")
 
         spilled = save_upload(data, suffix=suffix)
-        try:
-            plan = load_care_plan(_DEMO_PLAN_PATH)
-            plan.triggers.no_movement.timeout_sec = 2  # demo clock
-            detector = CueDetector.from_plan(plan, zone_id="living_room")
-            if _MODEL_PATH.exists():
-                from care_ladder.vision.mppersondet import MPPersonDet
-                from care_ladder.vision.mppose import MPPose
+        job_id = uuid4().hex
+        _UPLOAD_JOBS[job_id] = {
+            "status": "processing",
+            "filename": file.filename,
+            "incident_id": None,
+            "error": None,
+        }
 
-                detector.person_detector = MPPersonDet(str(_MODEL_PATH), scoreThreshold=0.3)
-                if _POSE_MODEL_PATH.exists():
-                    detector.pose_model = MPPose(str(_POSE_MODEL_PATH), confThreshold=0.5)
+        def _process() -> None:
+            entry = _UPLOAD_JOBS[job_id]
+            try:
+                entry["incident_id"] = _run_upload_sync(spilled, application.state.store)
+                entry["status"] = "done"
+            except HTTPException as exc:
+                entry["status"] = "error"
+                entry["error"] = exc.detail
+            except Exception as exc:  # pragma: no cover - env-dependent
+                entry["status"] = "error"
+                entry["error"] = f"analysis failed: {exc}"
+            finally:
+                Path(spilled).unlink(missing_ok=True)
 
-            # Clip resolution may differ from plan zone canvas; use full-frame zone.
-            probe = cv2.VideoCapture(str(spilled))
-            ok, first = probe.read()
-            probe.release()
-            if not ok:
-                raise HTTPException(
-                    status_code=422,
-                    detail="clip could not be decoded — is it a valid video file?",
-                )
-            h, w = first.shape[:2]
-            detector.zone = np.asarray(
-                [[0, 0], [w, 0], [w, h], [0, h]], dtype=np.float32
+        loop = asyncio.get_running_loop()
+        loop.run_in_executor(None, _process)
+        return DemoRunResponse(incident_id=job_id)
+
+    @application.get("/demo/upload/{job_id}")
+    def upload_job_status(job_id: str) -> dict[str, Any]:
+        job = _UPLOAD_JOBS.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="unknown job id")
+        return job
+
+    def _run_upload_sync(spilled: Path, store: AuditStore) -> str:
+        """CPU-heavy upload analysis (runs in executor thread): decode →
+        detectors → ladder. Returns incident id; raises HTTPException on
+        undecodable/no-cue input."""
+        plan = load_care_plan(_DEMO_PLAN_PATH)
+        plan.triggers.no_movement.timeout_sec = 2  # demo clock
+        detector = CueDetector.from_plan(plan, zone_id="living_room")
+        if _MODEL_PATH.exists():
+            from care_ladder.vision.mppersondet import MPPersonDet
+            from care_ladder.vision.mppose import MPPose
+
+            detector.person_detector = MPPersonDet(str(_MODEL_PATH), scoreThreshold=0.3)
+            if _POSE_MODEL_PATH.exists():
+                detector.pose_model = MPPose(str(_POSE_MODEL_PATH), confThreshold=0.5)
+
+        # Clip resolution may differ from plan zone canvas; use full-frame zone.
+        probe = cv2.VideoCapture(str(spilled))
+        ok, first = probe.read()
+        probe.release()
+        if not ok:
+            raise HTTPException(
+                status_code=422,
+                detail="clip could not be decoded — is it a valid video file?",
             )
+        h, w = first.shape[:2]
+        detector.zone = np.asarray(
+            [[0, 0], [w, 0], [w, h], [0, h]], dtype=np.float32
+        )
 
-            result = ingest_video(spilled, detector, sample_hz=5.0, prefer_distress=True, max_seconds=180.0)
-            if result.cue is None and detector.person_detector is not None:
-                # DNN found nobody in the whole clip (stylized/low-res footage):
-                # fall back to the contour-blob path and re-run once.
-                detector.person_detector = None
-                detector.pose_model = None
-                result = ingest_video(spilled, detector)
-        finally:
-            spilled.unlink(missing_ok=True)
+        result = ingest_video(spilled, detector, sample_hz=5.0, prefer_distress=True, max_seconds=180.0)
+        if result.cue is None and detector.person_detector is not None:
+            # DNN found nobody in the whole clip (stylized/low-res footage):
+            # fall back to the contour-blob path and re-run once.
+            detector.person_detector = None
+            detector.pose_model = None
+            result = ingest_video(spilled, detector)
 
         if result.cue is None:
             raise HTTPException(
@@ -418,18 +461,20 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
         }
         speaker = SpeakerSimulator(scripted=[])
         dialer = StubDialer(behavior={"caregiver": "no_answer", "secondary": "answered"})
-        incident = await run_incident(
-            cue=result.cue,
-            plan=plan,
-            speaker=speaker,
-            dialer=dialer,
-            pre_event_frames=result.pre_event_frames[-4:],
-            store=application.state.store,
-            privacy_mode="blur",
-            now=DEMO_NOW,
+        incident = asyncio.run(
+            run_incident(
+                cue=result.cue,
+                plan=plan,
+                speaker=speaker,
+                dialer=dialer,
+                pre_event_frames=result.pre_event_frames[-4:],
+                store=store,
+                privacy_mode="blur",
+                now=DEMO_NOW,
+            )
         )
-        await _publish_cloud(incident)
-        return DemoRunResponse(incident_id=incident.id)
+        asyncio.run(_publish_cloud(incident))
+        return incident.id
 
     @application.post("/demo/run", response_model=DemoRunResponse)
     async def demo_run(body: DemoRunRequest) -> DemoRunResponse:

@@ -210,14 +210,26 @@ document.querySelectorAll("[data-fixture]").forEach(btn=>{
 document.getElementById("clip-input").addEventListener("change", async ev=>{
   const file=ev.target.files[0]; if(!file) return;
   const status=document.getElementById("upload-status");
-  status.textContent=`⏳ analyzing ${file.name}…`;
+  status.textContent=`⏳ uploading ${file.name}…`;
   try{
     const fd=new FormData(); fd.append("file",file);
     const r=await fetch("/demo/upload",{method:"POST",body:fd});
     const body=await r.json();
     if(!r.ok){ status.textContent=`⚠️ ${body.detail||r.statusText}`; return; }
-    status.textContent=`✅ incident ${body.incident_id.slice(0,8)} from ${file.name}`;
-    await refresh();
+    const jobId=body.incident_id; // async job contract
+    status.textContent=`⏳ analyzing ${file.name}…`;
+    for(let i=0;i<600;i++){
+      await new Promise(res=>setTimeout(res,1000));
+      const jr=await fetch(`/demo/upload/${jobId}`);
+      if(!jr.ok){ status.textContent=`⚠️ job lost`; return; }
+      const j=await jr.json();
+      if(j.status==="done"){
+        status.textContent=`✅ incident ${j.incident_id.slice(0,8)} from ${file.name}`;
+        await refresh(); return;
+      }
+      if(j.status==="error"){ status.textContent=`⚠️ ${j.error||"analysis failed"}`; return; }
+    }
+    status.textContent=`⚠️ analysis timed out`;
   }catch(e){ status.textContent=`⚠️ ${e.message}`; }
   finally{ ev.target.value=""; }
 });
