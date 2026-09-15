@@ -50,14 +50,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build image (amd64; proves Dockerfile contract for ECS)
+      - name: Build image (arm64; matches Fargate task-definition runtimePlatform)
         run: |
           echo "runner arch: $(uname -m)"
-          docker build --platform linux/amd64 -t care-ladder:ci .
+          docker build --platform linux/arm64 -t care-ladder:ci .
           ARCH=$(docker image inspect care-ladder:ci --format '{{.Architecture}}')
           echo "image arch: $ARCH"
-          if [ "$ARCH" != "amd64" ]; then
-            echo "::error::image is $ARCH, expected amd64 — refusing to deploy"
+          if [ "$ARCH" != "arm64" ]; then
+            echo "::error::image is $ARCH, expected arm64 (task-definition runtimePlatform) — refusing to deploy"
             exit 1
           fi
 
