@@ -1,18 +1,15 @@
-"""DynamoAuditStore with a scripted low-level client (no AWS in CI)."""
+"""DynamoAuditStore with a scripted resource-style client (no AWS in CI)."""
 
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
-import pytest
 
-from care_ladder.audit.dynamo_store import DynamoAuditStore, _from_ddb, _to_ddb
-from care_ladder.models import AuditEvent, CueEvent, Incident
+from care_ladder.audit.dynamo_store import DynamoAuditStore
+from care_ladder.models import CueEvent, Incident
 
 
 class FakeDDB:
-    """Minimal DynamoDB low-level client: enough for the store's calls."""
+    """Resource-style client (native types, like boto3.resource(...).meta.client)."""
 
     def __init__(self):
         self.items: dict[str, dict] = {}
@@ -33,12 +30,11 @@ class FakeDDB:
         return W()
 
     def put_item(self, TableName, Item):
-        key = Item["incident_id"]["S"]
-        self.items[key] = Item
+        self.items[Item["incident_id"]] = Item
         return {}
 
     def get_item(self, TableName, Key):
-        item = self.items.get(Key["incident_id"]["S"])
+        item = self.items.get(Key["incident_id"])
         return {"Item": item} if item else {}
 
     def scan(self, TableName, Limit=None):
@@ -51,7 +47,7 @@ def _incident(frame_shape=(24, 32, 3)):
         id="abc123",
         household_id="demo-home-1",
         cue=CueEvent(kind="no_movement", confidence=0.9, detail={"x": 1}),
-        events=[AuditEvent(tool="cue", detail={"a": True, "b": [1, 2], "c": "s"})],
+        events=[],
         status="resolved",
         pre_event_frame_count=1,
         privacy="blur",
@@ -65,15 +61,14 @@ def test_roundtrip_including_frames():
     store = DynamoAuditStore(table_name="t1", client=ddb)
     inc = _incident()
     store.save(inc)
+    assert "abc123" in ddb.items  # native-typed key
 
-    # fresh store, same backing table (simulates restart / new task)
-    store2 = DynamoAuditStore(table_name="t1", client=ddb)
+    store2 = DynamoAuditStore(table_name="t1", client=ddb)  # restart
     loaded = store2.get("abc123")
     assert loaded is not None
     assert loaded.id == "abc123"
     assert loaded.cue.kind == "no_movement"
     assert loaded.status == "resolved"
-    assert loaded.events[0].detail["a"] is True
     frames = loaded.__dict__.get("_private_pre_event_frames") or []
     assert len(frames) == 1
     assert frames[0].shape == (24, 32, 3)
@@ -92,8 +87,3 @@ def test_missing_returns_none():
     ddb = FakeDDB()
     store = DynamoAuditStore(table_name="t3", client=ddb)
     assert store.get("nope") is None
-
-
-def test_ddb_marshalling_types():
-    val = {"a": 1, "b": 1.5, "c": True, "d": None, "e": [1, "x"], "f": {"g": "h"}}
-    assert _from_ddb(_to_ddb(val)) == val

@@ -28,6 +28,35 @@ TABLE_NAME = os.environ.get("CARE_LADDER_DDB_TABLE", "care-ladder-incidents")
 _FRAMES_ATTR = "_frames_png_b64"
 
 
+def _to_native(value: Any) -> Any:
+    """boto3 resource clients reject floats; convert to Decimal recursively."""
+    from decimal import Decimal
+
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, float):
+        return Decimal(str(value))
+    if isinstance(value, list):
+        return [_to_native(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _to_native(v) for k, v in value.items()}
+    return value
+
+
+def _from_native(value: Any) -> Any:
+    """Decimal → float/int for pydantic round-trips."""
+    from decimal import Decimal
+
+    if isinstance(value, Decimal):
+        f = float(value)
+        return int(f) if f == int(f) and abs(f) < 1e15 else f
+    if isinstance(value, list):
+        return [_from_native(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _from_native(v) for k, v in value.items()}
+    return value
+
+
 def _frames_to_b64(frames: list[Any]) -> list[str]:
     out = []
     for f in frames:
@@ -82,8 +111,11 @@ class DynamoAuditStore(AuditStore):
         if frames:
             item[_FRAMES_ATTR] = _frames_to_b64(frames)
         item["saved_at"] = int(time.time())
-        ddb_item = {"incident_id": {"S": incident.id}}
-        ddb_item.update(_to_ddb(item)["M"])
+        # boto3 resource-style clients expect NATIVE types (str/int/list/dict),
+        # not low-level AttributeValue maps — the manual marshaller wrapped the
+        # key as {"S": ...} which boto3 re-wrapped as a Map, breaking the schema.
+        ddb_item = _to_native(dict(item))
+        ddb_item["incident_id"] = incident.id
         try:
             self._client.put_item(TableName=self._table, Item=ddb_item)
         except Exception as exc:  # pragma: no cover - env-dependent
@@ -96,11 +128,11 @@ class DynamoAuditStore(AuditStore):
         local = super().get(incident_id)
         if local is not None:
             return local
-        resp = self._client.get_item(TableName=self._table, Key={"incident_id": {"S": incident_id}})
+        resp = self._client.get_item(TableName=self._table, Key={"incident_id": incident_id})
         item = resp.get("Item")
         if not item:
             return None
-        data = {k: _from_ddb(v) for k, v in item.items()}
+        data = _from_native(dict(item))
         data.pop("incident_id", None)
         frames_b64 = data.pop(_FRAMES_ATTR, None)
         incident = Incident.model_validate(data)
@@ -116,7 +148,7 @@ class DynamoAuditStore(AuditStore):
         resp = self._client.scan(TableName=self._table, Limit=100)
         out = []
         for item in resp.get("Items", []):
-            data = {k: _from_ddb(v) for k, v in item.items()}
+            data = _from_native(dict(item))
             data.pop("incident_id", None)
             data.pop(_FRAMES_ATTR, None)
             out.append(Incident.model_validate(data))
@@ -124,34 +156,3 @@ class DynamoAuditStore(AuditStore):
 
 
 # -- DynamoDB low-level (AttributeValue) marshalling, boto3-free -----------
-
-def _to_ddb(value: Any) -> Any:
-    if isinstance(value, bool):
-        return {"BOOL": value}
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return {"N": str(value)}
-    if isinstance(value, str):
-        return {"S": value}
-    if value is None:
-        return {"NULL": True}
-    if isinstance(value, list):
-        return {"L": [_to_ddb(v) for v in value]}
-    if isinstance(value, dict):
-        return {"M": {k: _to_ddb(v) for k, v in value.items()}}
-    raise TypeError(f"unsupported type {type(value)!r}")
-
-
-def _from_ddb(av: dict) -> Any:
-    (tag,) = av.keys()
-    val = av[tag]
-    if tag in {"S", "N", "BOOL"}:
-        if tag == "N":
-            return float(val) if "." in val else int(val)
-        return val
-    if tag == "NULL":
-        return None
-    if tag == "L":
-        return [_from_ddb(v) for v in val]
-    if tag == "M":
-        return {k: _from_ddb(v) for k, v in val.items()}
-    raise TypeError(f"unsupported tag {tag!r}")
