@@ -50,14 +50,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build image (arm64; matches Fargate task-definition runtimePlatform)
+      - name: Build image (amd64; matches Fargate task-definition runtimePlatform X86_64)
         run: |
           echo "runner arch: $(uname -m)"
-          docker build --platform linux/arm64 -t care-ladder:ci .
+          docker build --platform linux/amd64 -t care-ladder:ci .
           ARCH=$(docker image inspect care-ladder:ci --format '{{.Architecture}}')
           echo "image arch: $ARCH"
-          if [ "$ARCH" != "arm64" ]; then
-            echo "::error::image is $ARCH, expected arm64 (task-definition runtimePlatform) — refusing to deploy"
+          if [ "$ARCH" != "amd64" ]; then
+            echo "::error::image is $ARCH, expected amd64 (task-definition runtimePlatform) — refusing to deploy"
             exit 1
           fi
 
@@ -71,5 +71,7 @@ jobs:
           aws ecr get-login-password | docker login --username AWS --password-stdin 367597235216.dkr.ecr.us-east-1.amazonaws.com
           docker tag care-ladder:ci 367597235216.dkr.ecr.us-east-1.amazonaws.com/care-ladder:demo
           docker push 367597235216.dkr.ecr.us-east-1.amazonaws.com/care-ladder:demo
-          aws ecs update-service --cluster care-ladder-demo --service care-ladder-demo --force-new-deployment
-          echo "deploy triggered: image pushed to ECR :demo, ECS rolling restart initiated"
+          # register the current task-def (runtimePlatform X86_64) and point the service at it
+          NEW_TD=$(aws ecs register-task-definition --cli-input-json file://infra/task-definition.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          aws ecs update-service --cluster care-ladder-demo --service care-ladder-demo --task-definition "$NEW_TD" --force-new-deployment
+          echo "deploy triggered: image pushed to ECR :demo, task-def $NEW_TD, ECS rolling restart initiated"
