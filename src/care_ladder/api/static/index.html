@@ -6,207 +6,220 @@
 <title>Care Ladder — Caregiver Console</title>
 <style>
   :root {
-    --fg: #1a2332; --muted: #64748b; --accent: #0e7490; --border: #e2e8f0;
-    --card: #ffffff; --bg: #f5f7fa; --ok: #15803d; --warn: #b45309; --bad: #b91c1c;
+    --fg:#0f172a; --muted:#64748b; --faint:#94a3b8; --accent:#0e7490; --accent-soft:#e0f2fe;
+    --border:#e2e8f0; --card:#fff; --bg:#f8fafc; --ok:#15803d; --ok-soft:#dcfce7;
+    --warn:#b45309; --warn-soft:#fef3c7; --bad:#b91c1c; --bad-soft:#fee2e2;
+    --info:#075985; --info-soft:#e0f2fe;
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--fg);
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  }
-  header {
-    background: var(--card); border-bottom: 1px solid var(--border);
-    padding: 14px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  }
-  header h1 { font-size: 18px; margin: 0; }
-  header .sub { color: var(--muted); font-size: 13px; }
-  .demo-btns { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
-  button {
-    background: var(--accent); color: #fff; border: 0; border-radius: 8px;
-    padding: 8px 14px; font-size: 13px; cursor: pointer;
-  }
-  button:hover { filter: brightness(1.08); }
-  button:disabled { opacity: .5; cursor: default; }
-  main { max-width: 860px; margin: 24px auto; padding: 0 16px; }
-  .incident {
-    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-    padding: 16px 20px; margin-bottom: 16px;
-  }
-  .incident h2 { font-size: 15px; margin: 0 0 4px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .badge {
-    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px;
-    border-radius: 999px; padding: 2px 10px;
-  }
-  .badge.resolved { background: #dcfce7; color: var(--ok); }
-  .badge.escalated { background: #fee2e2; color: var(--bad); }
-  .badge.suppressed, .badge.open { background: #fef3c7; color: var(--warn); }
-  .badge.cue { background: #e0f2fe; color: #075985; }
-  .meta { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
-  .timeline { list-style: none; margin: 0; padding: 0; }
-  .timeline li {
-    display: grid; grid-template-columns: 130px 1fr; gap: 12px;
-    padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px;
-  }
-  .timeline li:first-child { border-top: 0; }
-  .tool { font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
-  .tool.cue { color: #075985; }
-  .tool.jump { color: var(--warn); }
-  .tool.resolve { color: var(--ok); }
-  .tool.dial_contact { color: var(--bad); }
-  .detail { color: var(--muted); font-size: 13px; }
-  .rung { color: var(--muted); font-size: 12px; }
-  .empty { color: var(--muted); text-align: center; padding: 40px 0; }
-  .clip { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
-  .clip-head { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .clip-strip img { max-width: 100%; max-height: 260px; border-radius: 6px; border: 1px solid var(--border); }
-  .clip-note { color: var(--muted); font-size: 11px; margin-top: 6px; }
-  button.step { background: var(--card); color: var(--fg); border: 1px solid var(--border); padding: 2px 10px; }
-  .upload-btn { background: var(--card); color: var(--fg); border: 1px dashed var(--accent); border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; }
-  .upload-btn:hover { background: #eef6f8; }
-  #upload-status { font-size: 13px; color: var(--muted); }
-  .clip-pos { font-weight: 400; color: var(--muted); min-width: 36px; text-align: center; }
-  .foot { color: var(--muted); font-size: 12px; margin: 24px 0; text-align: center; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--fg); font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  header { background:var(--card); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; }
+  .hwrap { max-width:960px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .logo { display:flex; align-items:center; gap:10px; }
+  .logo-mark { width:30px; height:30px; border-radius:8px; background:linear-gradient(135deg,var(--accent),#155e75); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:13px; }
+  .logo h1 { font-size:16px; font-weight:650; }
+  .logo .env { font-size:11px; color:var(--muted); }
+  .actions { margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .btn { border:1px solid var(--border); background:var(--card); color:var(--fg); border-radius:8px; padding:7px 13px; font-size:13px; cursor:pointer; transition:all .12s; white-space:nowrap; }
+  .btn:hover { border-color:var(--accent); color:var(--accent); }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn.primary:hover { filter:brightness(1.08); }
+  .btn:disabled { opacity:.45; cursor:default; }
+  .upload-label { border-style:dashed; border-color:var(--accent); color:var(--accent); }
+  main { max-width:960px; margin:0 auto; padding:24px 20px 60px; }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+  .stat { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  .stat .n { font-size:26px; font-weight:700; letter-spacing:-.5px; }
+  .stat .l { font-size:12px; color:var(--muted); margin-top:2px; }
+  .stat.alert .n { color:var(--bad); }
+  .empty { background:var(--card); border:1px dashed var(--border); border-radius:12px; text-align:center; padding:56px 20px; color:var(--muted); }
+  .empty .big { font-size:34px; margin-bottom:8px; }
+  .incident { background:var(--card); border:1px solid var(--border); border-radius:14px; margin-bottom:18px; overflow:hidden; }
+  .inc-head { padding:16px 20px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; border-bottom:1px solid var(--border); }
+  .inc-head .id { font-family:ui-monospace,Menlo,monospace; font-size:13px; color:var(--muted); }
+  .badge { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.4px; border-radius:999px; padding:3px 10px; }
+  .b-resolved { background:var(--ok-soft); color:var(--ok); }
+  .b-open, .b-suppressed { background:var(--warn-soft); color:var(--warn); }
+  .b-cue { background:var(--info-soft); color:var(--info); }
+  .b-count { background:var(--accent-soft); color:var(--accent); font-family:ui-monospace,Menlo,monospace; text-transform:none; }
+  .inc-meta { margin-left:auto; font-size:12px; color:var(--faint); }
+  .clip { padding:14px 20px; background:#f1f5f9; border-bottom:1px solid var(--border); }
+  .clip-head { display:flex; align-items:center; gap:10px; font-size:13px; margin-bottom:10px; }
+  .clip-strip { position:relative; background:#0f172a; border-radius:8px; overflow:hidden; }
+  .clip-strip img { display:block; width:100%; max-height:280px; object-fit:contain; }
+  .clip-note { font-size:11px; color:var(--muted); margin-top:8px; }
+  .step-btn { padding:3px 11px; font-size:13px; }
+  .clip-pos { color:var(--muted); min-width:40px; text-align:center; font-variant-numeric:tabular-nums; }
+  .timeline { list-style:none; padding:6px 0; }
+  .timeline li { display:grid; grid-template-columns:150px 1fr; gap:14px; padding:9px 20px; font-size:14px; }
+  .timeline li + li { border-top:1px solid #f1f5f9; }
+  .t-tool { font-weight:600; font-family:ui-monospace,Menlo,monospace; font-size:12.5px; display:flex; align-items:baseline; gap:8px; }
+  .t-rung { color:var(--faint); font-size:11px; font-family:ui-monospace,Menlo,monospace; }
+  .t-detail { color:var(--muted); font-size:13px; }
+  .c-cue { color:var(--info); } .c-resolve{color:var(--ok);} .c-jump{color:var(--warn);} .c-dial{color:var(--bad);}
+  .tracks { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+  .track-chip { font-size:11px; font-family:ui-monospace,Menlo,monospace; background:var(--accent-soft); color:var(--accent); border-radius:6px; padding:2px 8px; }
+  footer { text-align:center; color:var(--faint); font-size:11.5px; padding:20px; }
+  #upload-status { font-size:12.5px; color:var(--muted); }
+  @media (max-width:720px){ .stats{grid-template-columns:repeat(2,1fr);} .timeline li{grid-template-columns:110px 1fr;} }
 </style>
 </head>
 <body>
 <header>
-  <h1>Care Ladder</h1>
-  <span class="sub">Caregiver console — incident timeline (demo: stub dialer, speaker simulator, reserved phones)</span>
-  <div class="demo-btns">
-    <button data-fixture="no_movement_ok">Path A: verbal OK</button>
-    <button data-fixture="no_movement_silence">Path B: silence → escalate</button>
-    <button data-fixture="opencv_stillness">OpenCV stillness</button>
-    <button data-fixture="opencv_dnn_person">DNN person (real photo)</button>
-    <label class="upload-btn">Upload clip<input type="file" id="clip-input" accept="video/mp4,video/quicktime,video/x-msvideo,video/webm" hidden></label>
+  <div class="hwrap">
+    <div class="logo">
+      <div class="logo-mark">CL</div>
+      <div><h1>Care Ladder</h1><div class="env">Caregiver console · demo household</div></div>
+    </div>
+    <div class="actions">
+      <button class="btn primary" data-fixture="no_movement_ok">✓ Path A · verbal OK</button>
+      <button class="btn primary" data-fixture="no_movement_silence">↗ Path B · escalation</button>
+      <button class="btn" data-fixture="opencv_dnn_person">DNN · real photo</button>
+      <button class="btn" data-fixture="opencv_stillness">Stillness</button>
+      <label class="btn upload-label">⇪ Upload clip<input type="file" id="clip-input" accept="video/mp4,video/quicktime,video/x-msvideo,video/webm" hidden></label>
+      <span id="upload-status"></span>
+    </div>
   </div>
 </header>
 <main>
-  <div id="incidents"><div class="empty">No incidents yet — run a demo fixture above.</div></div>
-  <p class="foot">
-    Not a medical device. Privacy: frames are blurred/silhouette before persistence.
-    Emergency rung fail-closed; demo contacts are reserved NANP fiction (NPA-555-01XX).
-  </p>
+  <div class="stats" id="stats" hidden>
+    <div class="stat"><div class="n" id="s-total">0</div><div class="l">Incidents</div></div>
+    <div class="stat"><div class="n" id="s-resolved">0</div><div class="l">Resolved</div></div>
+    <div class="stat"><div class="n" id="s-open">0</div><div class="l">Open</div></div>
+    <div class="stat alert"><div class="n" id="s-esc">0</div><div class="l">Escalated to dial</div></div>
+  </div>
+  <div id="incidents"><div class="empty"><div class="big">🪜</div><div>No incidents yet</div><div style="font-size:13px;margin-top:4px;">Run a demo path or upload a clip above.</div></div></div>
+  <footer>
+    Not a medical device · no real telephony (reserved NANP fiction) · emergency fail-closed ·
+    frames privacy-transformed (blur/silhouette) before persist · person tracking uses shape geometry only, never identity.
+  </footer>
 </main>
 <script>
 const TOOL_LABEL = {
-  cue: "OpenCV cue", reperceive: "re-perceive", speaker_prompt: "speaker check-in",
-  wait: "wait", jump: "jump (logged)", dial_contact: "dial", emergency: "emergency",
-  notify: "notify", resolve: "resolve", suppress: "quiet hours",
+  cue:"OpenCV cue", reperceive:"re-perceive", speaker_prompt:"speaker check-in",
+  wait:"wait", jump:"jump (logged)", dial_contact:"dial", emergency:"emergency",
+  notify:"notify", resolve:"resolve", suppress:"quiet hours",
 };
-function detailText(ev) {
-  const d = ev.detail || {};
-  const bits = [];
-  if (d.text) bits.push("“" + d.text + "”");
-  if (d.reply_kind) bits.push("reply: " + d.reply_kind + (d.reply_raw ? ` ("${d.reply_raw}")` : ""));
-  if (d.status) bits.push("status: " + d.status);
-  if (d.result) bits.push("result: " + d.result);
-  if (d.contact) bits.push("contact: " + d.contact + " " + (d.phone_e164 || ""));
-  if (d.reason) bits.push("reason: " + d.reason + (d.skipped_rung_id ? ` (skipped ${d.skipped_rung_id})` : ""));
-  if (d.confidence != null) bits.push("confidence: " + d.confidence);
-  if (d.source) bits.push("source: " + d.source);
-  if (d.privacy) bits.push("privacy: " + d.privacy);
-  return bits.join(" · ");
+function esc(s){const d=document.createElement("div");d.textContent=s??"";return d.innerHTML;}
+function detailText(ev){
+  const d = ev.detail||{}; const b=[];
+  if(d.text) b.push("“"+d.text+"”");
+  if(d.reply_kind) b.push("reply: "+d.reply_kind+(d.reply_raw?` ("${d.reply_raw}")`:""));
+  if(d.status) b.push("status: "+d.status);
+  if(d.result) b.push("result: "+d.result);
+  if(d.contact) b.push("contact: "+d.contact+" "+(d.phone_e164||""));
+  if(d.reason) b.push("reason: "+d.reason+(d.skipped_rung_id?` (skipped ${d.skipped_rung_id})`:""));
+  if(d.confidence!=null) b.push("confidence: "+d.confidence);
+  if(d.source) b.push("source: "+d.source);
+  if(d.privacy) b.push("privacy: "+d.privacy);
+  return b.join(" · ");
 }
-function esc(s) { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
-async function loadFrames(inc) {
-  try {
-    const r = await fetch("/incidents/" + inc.id + "/frames");
-    if (!r.ok) return null;
-    return await r.json();
-  } catch { return null; }
+function trackChips(cueDetail){
+  const out = [];
+  if(cueDetail.person_count != null) out.push(`<span class="badge b-count">people: ${cueDetail.person_count}</span>`);
+  for(const t of cueDetail.tracks||[]){
+    out.push(`<span class="track-chip">t${t.track_id} h=${t.height_ratio} a=${t.aspect}</span>`);
+  }
+  for(const e of cueDetail.track_events||[]){
+    if(e.type==="enter"||e.type==="leave") out.push(`<span class="track-chip">${e.type} t${e.track_id} @${e.t}s</span>`);
+  }
+  return out.length?`<div class="tracks">${out.join("")}</div>`:"";
 }
-function renderIncident(inc, frames) {
-  const li = inc.events.map(ev => `
+async function loadFrames(id){
+  try{ const r=await fetch(`/incidents/${id}/frames`); return r.ok?await r.json():null; }catch{return null;}
+}
+function renderIncident(inc, frames){
+  const rows = inc.events.map(ev=>`
     <li>
-      <div><span class="tool ${ev.tool}">${esc(TOOL_LABEL[ev.tool] || ev.tool)}</span><br>
-      <span class="rung">${esc(ev.rung_id || "")}</span></div>
-      <div><div>${esc(detailText(ev))}</div></div>
+      <div class="t-tool"><span class="c-${ev.tool}">${esc(TOOL_LABEL[ev.tool]||ev.tool)}</span><span class="t-rung">${esc(ev.rung_id||"")}</span></div>
+      <div><div class="t-detail">${esc(detailText(ev))}</div></div>
     </li>`).join("");
-  let clipHtml = "";
-  if (frames && frames.count > 0) {
-    const imgs = frames.frame_urls.map((u, i) =>
-      `<img src="${u}" data-idx="${i}" alt="pre-event frame ${i}" loading="lazy">`).join("");
-    clipHtml = `
-    <div class="clip">
-      <div class="clip-head">Pre-event clip · <span class="badge cue">privacy: ${esc(frames.privacy || "?")}</span>
-        <button class="step" data-inc="${esc(inc.id)}" data-dir="-1">◀</button>
+  let clip="";
+  if(frames && frames.count>0){
+    const imgs = frames.frame_urls.map((u,i)=>`<img src="${u}" data-i="${i}" alt="frame ${i}" ${i?'style="display:none"':''}>`).join("");
+    clip = `<div class="clip">
+      <div class="clip-head">
+        <strong>Pre-event clip</strong>
+        <span class="badge b-cue">privacy: ${esc(frames.privacy||"?")}</span>
+        <span style="margin-left:auto"></span>
+        <button class="btn step-btn" data-inc="${esc(inc.id)}" data-dir="-1">◀</button>
         <span class="clip-pos" id="pos-${esc(inc.id)}">1/${frames.count}</span>
-        <button class="step" data-inc="${esc(inc.id)}" data-dir="1">▶</button>
+        <button class="btn step-btn" data-inc="${esc(inc.id)}" data-dir="1">▶</button>
       </div>
       <div class="clip-strip" id="strip-${esc(inc.id)}">${imgs}</div>
-      <div class="clip-note">Frames shown are the privacy-transformed copies persisted with the incident — raw video never leaves the device path.</div>
+      <div class="clip-note">Frames are the privacy-transformed copies persisted with this incident — raw video never leaves the device path.</div>
     </div>`;
   }
   return `<section class="incident">
-    <h2>${esc(inc.id.slice(0, 8))} <span class="badge ${esc(inc.status)}">${esc(inc.status)}</span>
-      <span class="badge cue">cue: ${esc(inc.cue.kind)}</span></h2>
-    <div class="meta">household ${esc(inc.household_id)} · ${inc.events.length} audit events · pre-event frames: ${inc.pre_event_frame_count ?? 0}</div>
-    ${clipHtml}
-    <ol class="timeline">${li}</ol>
+    <div class="inc-head">
+      <span class="id">${esc(inc.id.slice(0,10))}</span>
+      <span class="badge b-${esc(inc.status)}">${esc(inc.status)}</span>
+      <span class="badge b-cue">cue: ${esc(inc.cue.kind)}</span>
+      ${trackChips(inc.cue.detail||{})}
+      <span class="inc-meta">household ${esc(inc.household_id)} · ${inc.events.length} events</span>
+    </div>
+    ${clip}
+    <ol class="timeline">${rows}</ol>
   </section>`;
 }
-function bindSteppers() {
-  document.querySelectorAll(".clip-strip img").forEach(img => img.style.display = "none");
-  document.querySelectorAll(".clip-strip img:first-child").forEach(img => img.style.display = "block");
-  document.querySelectorAll("button.step").forEach(btn => {
-    btn.onclick = () => {
-      const incId = btn.dataset.inc;
-      const strip = document.getElementById("strip-" + incId);
-      const imgs = [...strip.querySelectorAll("img")];
-      let cur = imgs.findIndex(i => i.style.display !== "none");
-      if (cur < 0) cur = 0;
-      imgs[cur].style.display = "none";
-      cur = Math.min(imgs.length - 1, Math.max(0, cur + Number(btn.dataset.dir)));
-      imgs[cur].style.display = "block";
-      document.getElementById("pos-" + incId).textContent = (cur + 1) + "/" + imgs.length;
+function bindSteppers(){
+  document.querySelectorAll("button.step-btn").forEach(btn=>{
+    btn.onclick=()=>{
+      const id=btn.dataset.inc, strip=document.getElementById("strip-"+id);
+      const imgs=[...strip.querySelectorAll("img")];
+      let cur=imgs.findIndex(i=>i.style.display!=="none"); if(cur<0)cur=0;
+      imgs[cur].style.display="none";
+      cur=Math.min(imgs.length-1,Math.max(0,cur+Number(btn.dataset.dir)));
+      imgs[cur].style.display="block";
+      document.getElementById("pos-"+id).textContent=(cur+1)+"/"+imgs.length;
     };
   });
 }
-async function refresh() {
-  const res = await fetch("/incidents");
-  const list = await res.json();
+async function refresh(){
+  const list = await (await fetch("/incidents")).json();
   const el = document.getElementById("incidents");
-  if (!list.length) { el.innerHTML = '<div class="empty">No incidents yet — run a demo fixture above.</div>'; return; }
-  const parts = [];
-  for (const s of list) {
-    const r = await fetch("/incidents/" + s.id);
-    const inc = await r.json();
-    const frames = await loadFrames(inc);
+  document.getElementById("stats").hidden = false;
+  const esc2dial = list.filter(s=>s.status!=="suppressed").length; // placeholder, refined below
+  document.getElementById("s-total").textContent = list.length;
+  document.getElementById("s-resolved").textContent = list.filter(s=>s.status==="resolved").length;
+  document.getElementById("s-open").textContent = list.filter(s=>s.status==="open"||s.status==="escalated").length;
+  if(!list.length){
+    el.innerHTML = `<div class="empty"><div class="big">🪜</div><div>No incidents yet</div><div style="font-size:13px;margin-top:4px;">Run a demo path or upload a clip above.</div></div>`;
+    return;
+  }
+  const parts=[]; let dialCount=0;
+  for(const s of [...list].reverse()){
+    const inc = await (await fetch("/incidents/"+s.id)).json();
+    if(inc.events.some(e=>e.tool==="dial_contact")) dialCount++;
+    const frames = await loadFrames(s.id);
     parts.push(renderIncident(inc, frames));
   }
-  el.innerHTML = parts.reverse().join("");
+  document.getElementById("s-esc").textContent = dialCount;
+  el.innerHTML = parts.join("");
   bindSteppers();
 }
-document.querySelectorAll(".demo-btns button").forEach(btn => {
-  btn.addEventListener("click", async () => {
-    btn.disabled = true;
-    try {
-      await fetch("/demo/run", {
-        method: "POST", headers: {"content-type": "application/json"},
-        body: JSON.stringify({fixture: btn.dataset.fixture}),
-      });
+document.querySelectorAll("[data-fixture]").forEach(btn=>{
+  btn.addEventListener("click", async ()=>{
+    btn.disabled=true;
+    try{
+      await fetch("/demo/run",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({fixture:btn.dataset.fixture})});
       await refresh();
-    } finally { btn.disabled = false; }
+    } finally { btn.disabled=false; }
   });
 });
-document.getElementById("clip-input").addEventListener("change", async (ev) => {
-  const file = ev.target.files[0];
-  if (!file) return;
-  const status = document.createElement("span");
-  status.id = "upload-status";
-  status.textContent = `⏳ analyzing ${file.name}…`;
-  ev.target.parentElement.after(status);
-  try {
-    const fd = new FormData();
-    fd.append("file", file);
-    const r = await fetch("/demo/upload", { method: "POST", body: fd });
-    const body = await r.json();
-    if (!r.ok) { status.textContent = `⚠️ ${body.detail || r.statusText}`; return; }
-    status.textContent = `✅ incident ${body.incident_id.slice(0, 8)} from ${file.name}`;
+document.getElementById("clip-input").addEventListener("change", async ev=>{
+  const file=ev.target.files[0]; if(!file) return;
+  const status=document.getElementById("upload-status");
+  status.textContent=`⏳ analyzing ${file.name}…`;
+  try{
+    const fd=new FormData(); fd.append("file",file);
+    const r=await fetch("/demo/upload",{method:"POST",body:fd});
+    const body=await r.json();
+    if(!r.ok){ status.textContent=`⚠️ ${body.detail||r.statusText}`; return; }
+    status.textContent=`✅ incident ${body.incident_id.slice(0,8)} from ${file.name}`;
     await refresh();
-  } catch (e) {
-    status.textContent = `⚠️ ${e.message}`;
-  } finally { ev.target.value = ""; }
+  }catch(e){ status.textContent=`⚠️ ${e.message}`; }
+  finally{ ev.target.value=""; }
 });
 refresh();
 </script>
