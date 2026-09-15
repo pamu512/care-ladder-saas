@@ -37,6 +37,7 @@ def ingest_video(
     max_seconds: float = 120.0,
     pre_event_seconds: float = 3.0,
     sample_hz: float | None = None,
+    prefer_distress: bool = False,
     use_dnn: Any | None = None,
 ) -> VideoIngestResult:
     """Decode ``path`` and observe frames through ``detector``.
@@ -49,6 +50,10 @@ def ingest_video(
     frame at 30 fps): timestamps stay in real seconds — validated on the
     KU Leuven fall clips (sudden-fall signature survives 5 Hz sampling) —
     while DNN cost drops ~6x for CPU-bound containers.
+
+    ``prefer_distress`` keeps scanning after a non-distress cue and returns
+    the distress cue if one fires later in the clip (a fall anywhere in an
+    upload outranks an earlier stillness cue); otherwise the first cue wins.
     """
     cap = cv2.VideoCapture(str(path))
     if not cap.isOpened():
@@ -82,6 +87,9 @@ def ingest_video(
             observed = candidate.observe(frame, t=t)
             if observed is not None and cue is None:
                 cue = observed
+            elif prefer_distress and observed is not None and observed.kind == "distress_heuristic":
+                # a fall anywhere in the clip outranks an earlier stillness cue
+                cue = observed
 
             # rolling pre-event window (raw in memory only)
             window.append((t, frame))
@@ -89,7 +97,7 @@ def ingest_video(
             while window and window[0][0] < cutoff:
                 window.pop(0)
 
-            if cue is not None:
+            if cue is not None and (cue.kind == "distress_heuristic" or not prefer_distress):
                 break
 
         duration = seen / fps

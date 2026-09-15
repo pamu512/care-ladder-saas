@@ -388,7 +388,7 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
                 [[0, 0], [w, 0], [w, h], [0, h]], dtype=np.float32
             )
 
-            result = ingest_video(spilled, detector, sample_hz=5.0)
+            result = ingest_video(spilled, detector, sample_hz=5.0, prefer_distress=True, max_seconds=180.0)
             if result.cue is None and detector.person_detector is not None:
                 # DNN found nobody in the whole clip (stylized/low-res footage):
                 # fall back to the contour-blob path and re-run once.
@@ -410,7 +410,8 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
 
         result.cue.detail = {
             **result.cue.detail,
-            "source": f"uploaded_clip:{result.detector_source}",
+            # keep the more specific pose label when the pose path fired
+            "source": result.cue.detail.get("source", f"uploaded_clip:{result.detector_source}"),
             "clip_frames": result.frame_count,
             "clip_fps": result.fps,
             "clip_duration_sec": result.duration_sec,
