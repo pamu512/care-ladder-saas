@@ -61,6 +61,7 @@ class CueDetector:
 
         self._prev_gray: np.ndarray | None = None
         self._seen_in_zone = False
+        self._presence_frames = 0
         self._still_since: float | None = None
         self._distress_since: float | None = None
         self.last_detection_source: str | None = None
@@ -120,15 +121,21 @@ class CueDetector:
         self._prev_gray = gray.copy()
 
         if in_zone:
-            self._seen_in_zone = True
-            if self._still_since is None or motion > self.motion_mean_threshold:
-                self._still_since = t
-            if self._is_distress_pose(blob, h):
-                if self._distress_since is None:
-                    self._distress_since = t
-            else:
-                self._distress_since = None
+            self._presence_frames += 1
+            # Require sustained presence before latching: single-frame noise
+            # blobs (highlights, sensor noise) must not arm no_visibility.
+            if not self._seen_in_zone and self._presence_frames >= 2:
+                self._seen_in_zone = True
+            if self._seen_in_zone:
+                if self._still_since is None or motion > self.motion_mean_threshold:
+                    self._still_since = t
+                if self._is_distress_pose(blob, h):
+                    if self._distress_since is None:
+                        self._distress_since = t
+                else:
+                    self._distress_since = None
         else:
+            self._presence_frames = 0
             self._still_since = None
             self._distress_since = None
             if self._seen_in_zone and self.enable_no_visibility:
@@ -215,15 +222,21 @@ class CueDetector:
         return sorted(out, key=lambda b: -b["score"])
 
     def _largest_blob(self, gray: np.ndarray) -> dict[str, Any] | None:
+        # Otsu picks the threshold from the frame histogram, so detection works
+        # on realistic multi-tone scenes, not only dark-bg/bright-person demos.
         _, mask = cv2.threshold(
-            gray, self.binary_threshold, 255, cv2.THRESH_BINARY
+            gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
         )
         contours, _ = cv2.findContours(
             mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
-        if not contours:
+        frame_area = float(gray.shape[0]) * float(gray.shape[1])
+        # Reject background slabs: a contour covering a large fraction of the
+        # frame is the scene (floor/wall boundary), not a person.
+        candidates = [c for c in contours if cv2.contourArea(c) < 0.2 * frame_area]
+        if not candidates:
             return None
-        contour = max(contours, key=cv2.contourArea)
+        contour = max(candidates, key=cv2.contourArea)
         area = float(cv2.contourArea(contour))
         if area < self.min_blob_area:
             return None

@@ -1,0 +1,51 @@
+{
+  "cases": 7,
+  "cue_recall": 1.0,
+  "false_escalation_rate": 0.0,
+  "mean_time_to_confirm_sec": 3.0,
+  "per_case": [
+    {
+      "case_id": "still_person",
+      "expect": "no_movement",
+      "emitted": "no_movement",
+      "time_to_cue_sec": 3.5
+    },
+    {
+      "case_id": "active_person",
+      "expect": null,
+      "emitted": null,
+      "time_to_cue_sec": null
+    },
+    {
+      "case_id": "leaves_zone",
+      "expect": "no_visibility",
+      "emitted": "no_visibility",
+      "time_to_cue_sec": 2.5
+    },
+    {
+      "case_id": "on_floor",
+      "expect": "distress_heuristic",
+      "emitted": "distress_heuristic",
+      "time_to_cue_sec": 2.5
+    },
+    {
+      "case_id": "pet_motion",
+      "expect": null,
+      "emitted": null,
+      "time_to_cue_sec": null
+    },
+    {
+      "case_id": "light_shift",
+      "expect": null,
+      "emitted": null,
+      "time_to_cue_sec": null
+    },
+    {
+      "case_id": "photo_person_still",
+      "expect": "no_movement",
+      "emitted": "no_movement",
+      "time_to_cue_sec": 3.5
+    }
+  ],
+  "dnn": true
+}

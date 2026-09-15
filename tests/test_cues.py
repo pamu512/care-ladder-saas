@@ -12,6 +12,7 @@ def test_no_movement_after_timeout_with_static_person_blob():
     frame = _blank()
     frame[40:80, 60:100] = 200
     assert det.observe(frame, t=0.0) is None
+    assert det.observe(frame, t=0.5) is None  # presence gate (2 frames)
     assert det.observe(frame, t=1.0) is None
     cue = det.observe(frame, t=3.5)
     assert cue is not None
@@ -25,6 +26,7 @@ def test_no_visibility_when_blob_leaves_zone():
     right = _blank()
     right[40:80, 100:140] = 200
     det.observe(left, t=0.0)
+    det.observe(left, t=0.5)  # presence gate (2 frames)
     cue = det.observe(right, t=1.0)
     assert cue is not None
     assert cue.kind == "no_visibility"
@@ -41,6 +43,7 @@ def test_distress_heuristic_wide_low_blob():
     # Wide (80px) and short (20px), near bottom of frame (y=90:110)
     frame[90:110, 40:120] = 200
     assert det.observe(frame, t=0.0) is None
+    assert det.observe(frame, t=0.5) is None  # presence gate (2 frames)
     cue = det.observe(frame, t=1.5)
     assert cue is not None
     assert cue.kind == "distress_heuristic"
@@ -54,6 +57,7 @@ def test_no_visibility_latches_does_not_refire_every_frame():
     right = _blank()
     right[40:80, 100:140] = 200
     det.observe(left, t=0.0)
+    det.observe(left, t=0.5)  # presence gate (2 frames)
     cue1 = det.observe(right, t=1.0)
     assert cue1 is not None and cue1.kind == "no_visibility"
     cue2 = det.observe(right, t=2.0)
@@ -65,6 +69,7 @@ def test_no_movement_latches_until_motion_resets():
     frame = _blank()
     frame[40:80, 60:100] = 200
     assert det.observe(frame, t=0.0) is None
+    assert det.observe(frame, t=0.5) is None  # presence gate (2 frames)
     cue1 = det.observe(frame, t=3.5)
     assert cue1 is not None and cue1.kind == "no_movement"
     # Immediately after latch, same still frame must not re-fire
@@ -103,6 +108,7 @@ def test_from_plan_uses_timeout_and_zone():
     frame = _blank(w=640, h=480)
     frame[200:280, 300:380] = 200
     assert det.observe(frame, t=0.0) is None
+    assert det.observe(frame, t=0.5) is None  # presence gate (2 frames)
     cue = det.observe(frame, t=2.5)
     assert cue is not None
     assert cue.kind == "no_movement"
