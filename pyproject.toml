@@ -14,6 +14,7 @@ dependencies = [
   "opencv-python",
   "fastapi",
   "python-multipart",
+  "boto3",
   "uvicorn",
   "pytest",
   "httpx2>=2.0.0",

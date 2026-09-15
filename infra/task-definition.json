@@ -14,6 +14,7 @@
       "environment": [
         { "name": "CARE_LADDER_ENV", "value": "demo" },
         { "name": "AWS_REGION", "value": "us-east-1" },
+        { "name": "CARE_LADDER_STORE", "value": "dynamodb" },
         { "name": "CLIP_BUCKET", "value": "care-ladder-demo-367597235216" },
         { "name": "EVENT_BUS_NAME", "value": "care-ladder" }
       ],

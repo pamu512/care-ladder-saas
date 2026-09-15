@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from care_ladder.audit.store import AuditStore
 from care_ladder.channels.dial import StubDialer
+from care_ladder.cloud.sinks import CloudSinks
 from care_ladder.channels.speaker import SpeakerSimulator
 from care_ladder.ladder.orchestrator import run_incident
 from care_ladder.models import CueEvent
@@ -209,9 +211,31 @@ async def _run_opencv_dnn_person(store: AuditStore):
     return incident
 
 
+def _default_store() -> AuditStore:
+    """dynamodb when CARE_LADDER_STORE=dynamodb (and boto3 present), else memory."""
+    if os.environ.get("CARE_LADDER_STORE", "").lower() == "dynamodb":
+        try:
+            from care_ladder.audit.dynamo_store import DynamoAuditStore
+
+            return DynamoAuditStore()
+        except Exception as exc:  # pragma: no cover - env-dependent
+            print(f"WARNING: CARE_LADDER_STORE=dynamodb failed ({exc}); using memory")
+    return AuditStore()
+
+
+async def _publish_cloud(incident) -> None:
+    """Best-effort S3 clip upload + EventBridge cue emission (no-ops locally)."""
+    sinks = CloudSinks()
+    if not sinks.enabled:
+        return
+    frames = incident.__dict__.get("_private_pre_event_frames") or []
+    uris = sinks.upload_clip_frames(incident.id, frames, incident.privacy)
+    sinks.emit_cue(incident, uris)
+
+
 def create_app(store: AuditStore | None = None) -> FastAPI:
-    """Build FastAPI app with injectable in-memory AuditStore (tests use a fresh store)."""
-    audit = store if store is not None else AuditStore()
+    """Build FastAPI app with injectable store (tests inject a fresh memory store)."""
+    audit = store if store is not None else _default_store()
     application = FastAPI(
         title="Care Ladder",
         description="Incident timeline + demo trigger (reserved phones; emergency fail-closed).",
@@ -344,6 +368,7 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             privacy_mode="blur",
             now=DEMO_NOW,
         )
+        await _publish_cloud(incident)
         return DemoRunResponse(incident_id=incident.id)
 
     @application.post("/demo/run", response_model=DemoRunResponse)
@@ -363,6 +388,7 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             incident = await _run_opencv_dnn_person(application.state.store)
         else:  # pragma: no cover - guarded by SUPPORTED_FIXTURES
             raise HTTPException(status_code=400, detail="unsupported fixture")
+        await _publish_cloud(incident)
         return DemoRunResponse(incident_id=incident.id)
 
     return application
