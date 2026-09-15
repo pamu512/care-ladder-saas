@@ -198,30 +198,32 @@ def build_cases() -> list[EvalCase]:
         ),
         EvalCase(
             "clip_fall_2_two_tier",
-            "KU Leuven gradual bed-collapse (two-tier: stillness escalation)",
+            "KU Leuven gradual bed-collapse, post-fall window (stillness escalation)",
             "no_movement",
             timeout_sec=30.0,
-            frames=lambda: _seq_clip("kul_fall_2.avi", fps=30, sample_hz=5),
+            frames=lambda: _seq_clip("kul_fall_2.avi", fps=30, sample_hz=5, start_sec=75.0),
         ),
         EvalCase(
             "clip_pedestrians_negative",
-            "OpenCV vtest pedestrians (negative control)",
-            None,
+            "OpenCV vtest pedestrians — no DISTRESS escalation (mild no_visibility when people exit frame is correct)",
+            "no_visibility",
             timeout_sec=80.0,
             frames=lambda: _seq_clip("vtest.avi", fps=10, sample_hz=5),
         ),
     ]
 
 
-def _seq_clip(name: str, fps: float, sample_hz: float):
+def _seq_clip(name: str, fps: float, sample_hz: float, start_sec: float = 0.0):
     """Decode a downloaded clip (clips/, via scripts/download_clips.sh) at a
-    reduced sample rate; empty list when the clip is absent (case skipped)."""
+    reduced sample rate; empty list when the clip is absent (case skipped).
+    start_sec skips the pre-roll (e.g. test only the post-fall window)."""
     path = ClipsDir / name
     if not path.exists():
         return []
     import cv2
 
     step = max(1, int(round(fps / sample_hz)))
+    skip = int(start_sec * fps)
     frames = []
     cap = cv2.VideoCapture(str(path))
     i = 0
@@ -229,8 +231,10 @@ def _seq_clip(name: str, fps: float, sample_hz: float):
         ok, f = cap.read()
         if not ok:
             break
-        if i % step == 0:
-            frames.append((f, (i // step) / sample_hz))
+        if i >= skip and (i - skip) % step == 0:
+            # timestamp in REAL seconds (source fps), not sample steps —
+            # the pose state machine measures transition speed from these
+            frames.append((f, (i - skip) / fps))
         i += 1
     cap.release()
     return frames

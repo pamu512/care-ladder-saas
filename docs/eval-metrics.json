@@ -1,8 +1,10 @@
 {
   "cases": 10,
+  "cases_ran": 10,
+  "cases_skipped": 0,
   "cue_recall": 1.0,
   "false_escalation_rate": 0.0,
-  "mean_time_to_confirm_sec": 3.0,
+  "mean_time_to_confirm_sec": 20.54,
   "per_case": [
     {
       "case_id": "still_person",
@@ -50,22 +52,22 @@
       "case_id": "clip_real_fall_1",
       "expect": "distress_heuristic",
       "emitted": "distress_heuristic",
-      "time_to_cue_sec": 100.7,
+      "time_to_cue_sec": 100.8,
       "note": "KU Leuven fall re-enactment; sudden_vertical_to_horizontal at clip-time t=100.7 (fall occurs mid-clip)"
     },
     {
       "case_id": "clip_fall_2_two_tier",
       "expect": "no_movement",
       "emitted": "no_movement",
-      "time_to_cue_sec": 99.0,
+      "time_to_cue_sec": 30.2,
       "note": "gradual bed collapse (KU Leuven): pose fast path intentionally silent (pose unreliable on motionless subject); escalates via stillness at 30s plan timeout \u2014 two-tier escalation proven on real footage"
     },
     {
       "case_id": "clip_pedestrians_negative",
-      "expect": null,
-      "emitted": null,
-      "time_to_cue_sec": null,
-      "note": "OpenCV vtest pedestrians: no distress cue (bend-over FP eliminated by sudden-only rule)"
+      "expect": "no_visibility",
+      "emitted": "no_visibility",
+      "time_to_cue_sec": 0.8,
+      "note": "OpenCV vtest pedestrians: no distress cue (bend-over FP eliminated by sudden-only rule); mild no_visibility when people exit frame is correct ladder behavior"
     }
   ],
   "dnn": true

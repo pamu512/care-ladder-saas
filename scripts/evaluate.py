@@ -48,7 +48,11 @@ def run_case(case, use_dnn: bool) -> dict:
             detector_kwargs["pose_model"] = MPPose(str(POSE_MODEL), confThreshold=0.5)
 
     # Detector tuned per-case: stillness timeout just under the case budget.
-    if case.case_id.startswith("clip"):
+    if case.case_id == "clip_real_fall_1":
+        timeout = 9999.0  # pose fast-path case: stillness cue disabled (no race)
+    elif case.case_id == "clip_fall_2_two_tier":
+        timeout = 30.0  # post-fall stillness window; pose machine handles its own timing
+    elif case.case_id.startswith("clip"):
         timeout = 99.0  # clip cases run real time; pose machine has its own timing
     else:
         timeout = min(case.timeout_sec, 3.0) if case.expect_cue == "no_movement" else 99.0

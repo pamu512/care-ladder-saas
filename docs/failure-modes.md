@@ -23,7 +23,7 @@ Clips fetched by `scripts/download_clips.sh` (attribution in `clips/README.md`);
 | --- | --- | --- | --- |
 | `kul_fall_1.avi` | Hard fall to floor | `distress_heuristic` sudden_vertical_to_horizontal at t=100.7s | ✅ instant escalation |
 | `kul_fall_2.avi` | Gradual collapse onto bed | Pose fast path silent (pose unreliable on motionless subject); `no_movement` stillness fires at plan timeout (t=99s @30s timeout) | ✅ two-tier escalation |
-| `vtest.avi` | Pedestrians walking, bending | No cue of any kind | ✅ negative control holds |
+| `vtest.avi` | Pedestrians walking, bending | No **distress** cue; mild `no_visibility` when pedestrians exit frame (correct ladder behavior at that instant) | ✅ negative control holds |
 
 ## Ladder / channel failure modes
 

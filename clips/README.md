@@ -7,7 +7,7 @@ setup (not committed — run `scripts/download_clips.sh`); sizes ~40 MB.
 | --- | --- | --- | --- |
 | `kul_fall_1.avi` | KU Leuven Advise "High Quality Fall Simulation Data" (800×480, 30fps) | Nursing-home fall re-enactment | `distress_heuristic` (sudden fall signature) fires |
 | `kul_fall_2.avi` | same | Fall onto bed (camera angle variant) | fires (sudden or sustained-down) |
-| `vtest.avi` | OpenCV samples (`samples/data/vtest.avi`) | Pedestrians walking | **no** distress cue (negative control) |
+| `vtest.avi` | OpenCV samples (`samples/data/vtest.avi`) | Pedestrians walking | **no** distress cue (mild `no_visibility` when they exit frame is correct; negative control) |
 
 ## Attribution / licenses
 
