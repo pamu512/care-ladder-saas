@@ -71,7 +71,7 @@ class DynamoAuditStore(AuditStore):
             BillingMode="PAY_PER_REQUEST",
         )
         waiter = self._client.get_waiter("table_exists")
-        waiter.wait(TableName=self._table, WaiterSeconds=30)
+        waiter.wait(TableName=self._table, WaiterConfig={"Delay": 2, "MaxAttempts": 15})
 
     # -- store API ---------------------------------------------------------
 
