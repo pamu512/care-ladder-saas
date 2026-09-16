@@ -97,6 +97,7 @@ demo fixtures:
 - **Path B: silence → escalate** (`no_movement_silence`) — dials walk stubs, jumps logged.
 - **OpenCV stillness** (`opencv_stillness`) — synthetic frames through `CueDetector`.
 
+Why this design (cited research): [`docs/research-brief.md`](docs/research-brief.md).
 Known failure modes and limitations: [`docs/failure-modes.md`](docs/failure-modes.md).
 Competitive landscape: [`docs/competitive-landscape.md`](docs/competitive-landscape.md).
 

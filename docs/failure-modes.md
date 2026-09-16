@@ -37,7 +37,15 @@ Clips fetched by `scripts/download_clips.sh` (attribution in `clips/README.md`);
 - Demo/simulator stack: no live camera, stub telephony, scripted speaker.
 - No medical claims; not a substitute for 911 or professional monitoring.
 - Privacy: frames are blurred/silhouette before persistence; raw identifiable video never leaves the device path.
-- Metrics claims limited to labeled synthetic fixtures (time-to-confirm, audit-trace completeness); no "99.x% accurate" claims.
+- Metrics claims limited to the labeled harness (synthetic fixtures + the three real-footage cases: one hard fall, one gradual collapse, one pedestrian negative); no "99.x% accurate" claims — the dataset is demo-scale, not a clinical study.
+
+## Product-level limitations (vs. the market)
+
+- **No live camera pipeline.** The demo ingests uploaded clips; a production build runs continuously on-device. AltumView-class edge hardware does this today.[3]
+- **Telephony is a stub.** Competitors route to staffed 24/7 centers (Aloe Care).[4] Care Ladder's dial rungs are audited simulations with reserved numbers.
+- **Single-camera, single-person assumptions.** Shape-geometry tracking, never identity/face recognition — multi-person households are out of scope.
+- **Demo-scale validation.** Two real falls + one negative control in CI. Honest evidence of correct behavior, not sensitivity/specificity.
+- **Upload latency.** ~5 min cloud analysis of a 100 s clip at 5 Hz on 0.5 vCPU (an edge deployment would analyze continuously at lower cost).
 
 ## Mitigations implemented
 
@@ -45,3 +53,10 @@ Clips fetched by `scripts/download_clips.sh` (attribution in `clips/README.md`);
 - Confirm-before-escalate ladder: a verbal OK at rung 2 clears without any dial.
 - Every skip/jump is audited; suppressed incidents are recorded, not dropped.
 - Reserved NANP fiction phones only in demo plans; emergency fail-closed in plan **and** code.
+
+## Sources
+
+- [3] AltumView — https://altumview.com
+- [4] Aloe Care Health — https://aloecare.com
+
+Full cited research: [`research-brief.md`](research-brief.md).
