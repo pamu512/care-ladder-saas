@@ -24,6 +24,7 @@ documented in [`failure-modes.md`](failure-modes.md).
 | Component | OpenCV 5 modules | Role |
 | --- | --- | --- |
 | Person detection | `cv.dnn.readNet` + MediaPipe person-detector ONNX (OpenCV Zoo), `cv.dnn.NMSBoxes`, `cv.resize`, `cv.copyMakeBorder` | Real person localization on frames; three OpenCV 5 portability fixes were required (below) |
+| **Pose fall signature** | `cv.dnn.readNet` + MediaPipe BlazePose ONNX (OpenCV Zoo), `cv.dnn.NMSBoxes`, `resize`, `minMaxLoc` | 17 keypoints on the detected person → torso angle + hip height → temporal state machine: **sudden** vertical→horizontal = fall; gradual = not cue-worthy (two-tier, below) |
 | Presence / zones | `findContours`, `contourArea`, `moments`, `boundingRect`, `pointPolygonTest`, `THRESH_OTSU` | Otsu adaptive segmentation + contour blobs vs plan-zone polygons |
 | Motion | `createBackgroundSubtractorMOG2`, `absdiff` | MOG2 foreground ratio (robust to illumination drift) with frame-diff fallback |
 | Morphology | `morphologyEx` (OPEN/CLOSE), `getStructuringElement(MORPH_ELLIPSE)` | Mask cleanup for privacy + blob paths |
@@ -42,7 +43,8 @@ adapted from OpenCV Zoo's Apache-2.0 `mp_persondet.py`):
 ```
 frames ──▶ CueDetector ──▶ CueEvent ──▶ run_incident (orchestrator)
              │  DNN person box / contour blob         │
-             │  MOG2 motion                            ├─ rung 1: reperceive (re-check)
+             │  BlazePose keypoints → torso/hip        ├─ rung 1: reperceive (re-check)
+             │    sudden v→h = FALL (fast path)       │
              │  zone polygon test                      ├─ rung 2: speaker_prompt ── "ok" ─▶ resolve
              │                                         │            └ "call_caregiver" ─▶ jump to dial
              │                                         ├─ rung 3: wait (skipped if listen window consumed — jump logged)
@@ -62,9 +64,22 @@ non-distress cues inside the window — suppression itself is audited.
 
 | Metric | Result |
 | --- | --- |
-| Cue recall (positive cases) | **1.00** (4/4: still person, leaves zone, on-floor, real photo via DNN) |
-| False-escalation rate (negative cases) | **0.00** (active person, pet motion, illumination ramp) |
-| Mean time-to-confirm | **3.0 s** (demo timeouts; plan timeouts are user-configured) |
+| Cue recall (positive cases) | **1.00** (7/7: still person, leaves zone, on-floor, real photo via DNN, **real fall clip**, post-fall stillness, pedestrians-exit) |
+| False-escalation rate (negative cases) | **0.00** (active person, pet motion, illumination ramp, pedestrian bend-overs) |
+| Mean time-to-confirm | **20.5 s** across cases (incl. real clips; synthetic-only cases ≈3 s; plan timeouts user-configured) |
+
+**Real-footage validation** (clips fetched by `scripts/download_clips.sh`, cases run in CI):
+
+| Clip | Ground truth | System behavior |
+| --- | --- | --- |
+| KU Leuven `kul_fall_1` (nursing-home fall re-enactment) | hard fall to floor | `distress_heuristic` · `sudden_vertical_to_horizontal` at t=100.8 s |
+| KU Leuven `kul_fall_2` | gradual collapse onto bed | pose fast path silent (keypoints unreliable on a motionless subject) → `no_movement` stillness escalation at plan timeout |
+| OpenCV `vtest` | pedestrians walking/bending | **no distress cue**; mild `no_visibility` only when people exit frame (correct) |
+
+Two-tier escalation is deliberate design: sudden falls escalate instantly past the
+verbal rung; gradual collapses (and deliberate lying down — crouching, bending) are
+covered by the stillness ladder rather than the fall signature. Tuning the fall path
+on the real clips is what eliminated the pedestrian bend-over false positive.
 
 The harness (`src/care_ladder/vision/eval_cases.py`) synthesizes noisy-room sequences
 with textured person stand-ins and sensor-noise + light-drift backgrounds; the negative
@@ -77,14 +92,20 @@ area rejection; single-frame noise arming `no_visibility` → sustained-presence
 | Service | Use | Evidence |
 | --- | --- | --- |
 | **ECR** | Image registry, scan-on-push | `367597235216.dkr.ecr.us-east-1.amazonaws.com/care-ladder:demo` |
-| **ECS Fargate (Graviton/ARM64)** | Runs OpenCV 5 DNN + FastAPI | cluster `care-ladder-demo`, service desired=1, self-healing |
+| **ECS Fargate (X86_64)** | Runs OpenCV 5 DNN pair + FastAPI | cluster `care-ladder-demo`, service desired=1, self-healing |
+| **DynamoDB** | Durable incident store (audit trail) | table `care-ladder-incidents` |
 | **S3** | Pre-event clips (privacy-transformed only) | `care-ladder-demo-367597235216`, public access blocked |
-| **EventBridge** | Cue bus (`CareLadderCue` detail-type) | bus `care-ladder` |
+| **EventBridge** | Cue bus (`CareLadderCue`) + archive rule | bus `care-ladder` → `/aws/events/care-ladder-cues` |
+| **CloudFront + ALB** | HTTPS front (stable URL) | `https://d2u7pls4da2poz.cloudfront.net` |
 | **CloudWatch Logs** | Observability | `/ecs/care-ladder-demo` |
 
-Task definition: `infra/task-definition.json` (0.5 vCPU / 1 GB, awsvpc, container health
-check). The DNN person-detection fixture runs **inside** the Fargate task — verified live:
-incident cue tagged `opencv_dnn_person_detector` from the public endpoint.
+Task definition: `infra/task-definition.json` (0.5 vCPU / 1 GB, awsvpc). CI (GitHub
+Actions) runs tests + clip evals, builds the image **natively amd64 with an
+architecture gate**, pushes to ECR, re-registers the task def and rolls the service —
+a push to `main` is a verified deploy. The full pose fall path runs inside Fargate:
+uploading the real fall clip via the public endpoint yields
+`distress_heuristic` / `sudden_vertical_to_horizontal` / `source: pose_heuristics`
+(~5 min async job at 5 Hz sampling on 0.5 vCPU).
 
 ## 6. Responsible use
 
@@ -97,9 +118,10 @@ incident cue tagged `opencv_dnn_person_detector` from the public endpoint.
 
 ```bash
 python3 -m venv .venv && uv pip install -e ".[dev]"   # or pip
-./scripts/download_models.sh                            # 12 MB person-detector ONNX
-python -m pytest -q                                     # 46 tests
-python scripts/evaluate.py --dnn --json docs/eval-metrics.json
+./scripts/download_models.sh                            # person-detector + pose ONNX (18 MB)
+./scripts/download_clips.sh                             # KU Leuven fall clips + vtest (40 MB)
+python -m pytest -q                                     # 70 tests
+python scripts/evaluate.py --dnn --json docs/eval-metrics.json   # includes real-footage cases
 ./scripts/run_demo.sh                                   # local API + /ui/ console
 ```
 
