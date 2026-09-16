@@ -149,6 +149,34 @@ CF_DNS=$(aws cloudfront list-distributions --profile "$PROFILE" \
   --query "DistributionList.Items[?Origins.Items[0].DomainName=='$ALB_DNS'].DomainName" --output text)
 echo "CloudFront: $CF_DNS"
 
+# ---------- 8. EventBridge cue archive (bus -> CloudWatch Logs) ----------
+# The API PutEvents cues to bus "$BUS" (source care.ladder). Without a rule
+# they vanish; archive them so judges can inspect delivered events.
+BUS="care-ladder"
+if ! aws events list-rules --profile "$PROFILE" --event-bus-name "$BUS" --query 'Rules[].Name' --output text | grep -q care-ladder-cue-archive; then
+  aws logs create-log-group --profile "$PROFILE" --log-group-name /aws/events/care-ladder-cues 2>/dev/null || true
+  aws events put-rule --profile "$PROFILE" --event-bus-name "$BUS" \
+    --name care-ladder-cue-archive --event-pattern '{"source":["care.ladder"]}' >/dev/null
+  aws events put-targets --profile "$PROFILE" --event-bus-name "$BUS" \
+    --rule care-ladder-cue-archive \
+    --targets "Id"="cues-to-logs","Arn"="arn:aws:logs:${REGION}:${ACCOUNT_ID}:log-group:/aws/events/care-ladder-cues" >/dev/null
+  python3 - "$REGION" "$ACCOUNT_ID" <<'PYEOF'
+import json, subprocess, sys
+region, account = sys.argv[1], sys.argv[2]
+policy = {"Statement": [{
+    "Action": ["logs:CreateLogStream", "logs:PutLogEvents"],
+    "Effect": "Allow",
+    "Principal": {"Service": "events.amazonaws.com"},
+    "Resource": f"arn:aws:logs:{region}:{account}:log-group:/aws/events/care-ladder-cues:*",
+    "Sid": "TrustEventsToWriteLogGroup",
+}], "Version": "2012-10-17"}
+subprocess.run(["aws", "logs", "put-resource-policy", "--profile", "care-ladder",
+                "--policy-name", "care-ladder-eventbridge-to-logs",
+                "--policy-document", json.dumps(policy)], check=True, capture_output=True)
+PYEOF
+fi
+echo "eventbridge archive: bus $BUS -> /aws/events/care-ladder-cues"
+
 echo
 echo "stack ready:"
 echo "  health:   curl http://$ALB_DNS/v1/health"
