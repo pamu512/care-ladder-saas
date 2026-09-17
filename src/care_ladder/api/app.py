@@ -46,6 +46,10 @@ _MODEL_PATH = _REPO_ROOT / "models" / "person_detection_mediapipe_2023mar.onnx"
 DEMO_NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
 
 
+class CheckoutRequest(BaseModel):
+    plan: str
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str
@@ -438,6 +442,53 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
         return application.state.tenant_stores.setdefault(
             session.tenant_id, AuditStore()
         )
+
+    # ---- billing (Task 8) ---------------------------------------------------
+    _BILLING_TENANTS: dict[str, dict[str, Any]] = {
+        "demo-home": {"mode": "home", "plan": "home", "status": "active"},
+        "demo-facility": {"mode": "facility", "plan": "demo", "status": "demo"},
+    }
+    application.state.billing_tenants = _BILLING_TENANTS
+
+    @application.post("/billing/checkout")
+    def billing_checkout(body: CheckoutRequest):
+        from care_ladder.billing.stripe_checkout import BillingError, create_checkout_url
+
+        try:
+            url = create_checkout_url(body.plan, tenant_id="demo-facility")
+        except BillingError as exc:
+            raise HTTPException(status_code=503, detail=str(exc))
+        return {"url": url}
+
+    @application.get("/billing/stub-success")
+    def billing_stub_success(plan: str, tenant: str = "demo-facility"):
+        t = application.state.billing_tenants.setdefault(
+            tenant, {"mode": "facility", "plan": "demo", "status": "demo"}
+        )
+        t["plan"] = plan
+        t["status"] = "active"
+        return {"ok": True, "plan": plan, "note": "demo stub checkout; no card was charged"}
+
+    @application.post("/billing/webhook")
+    async def billing_webhook(request: Request):
+        import json as _json
+
+        from care_ladder.billing.stripe_checkout import apply_subscription_event, verify_webhook
+
+        payload = await request.body()
+        signature = request.headers.get("stripe-signature", "")
+        if not verify_webhook(payload, signature):
+            raise HTTPException(status_code=400, detail="webhook verification failed")
+        event = _json.loads(payload or b"{}")
+        result = apply_subscription_event(event, application.state.billing_tenants)
+        return result
+
+    @application.get("/billing/tenant/{tenant_id}")
+    def billing_tenant(tenant_id: str):
+        t = application.state.billing_tenants.get(tenant_id)
+        if t is None:
+            raise HTTPException(status_code=404, detail="unknown tenant")
+        return t
 
     @application.get("/demo/context")
     def demo_context():

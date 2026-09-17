@@ -22,6 +22,7 @@ dependencies = [
   "alembic",
   "bcrypt",
   "itsdangerous",
+  "stripe",
 ]
 
 [project.optional-dependencies]
