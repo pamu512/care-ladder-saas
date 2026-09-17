@@ -131,6 +131,8 @@ async def run_incident(
     pre_event_frames: list[Any] | None = None,
     *,
     store: AuditStore | None = None,
+    notifier=None,
+    supervisor_notifier=None,
     max_wait_sec: float = 0.05,
     privacy_mode: PrivacyMode = "blur",
     now: datetime | None = None,
@@ -295,6 +297,30 @@ async def run_incident(
                 cue_kind=cue.kind,
                 rung_id=rung.id,
                 detail={"sec": sec, "slept_sec": slept},
+            )
+            idx += 1
+            continue
+
+        if tool in ("notify_channel", "notify_supervisor"):
+            from care_ladder.channels.notify import NotifyChannelAdapter
+
+            if tool == "notify_channel":
+                adapter = notifier
+            else:
+                adapter = supervisor_notifier if supervisor_notifier is not None else notifier
+            if adapter is None:
+                adapter = NotifyChannelAdapter()  # honest stub; audit records adapter
+            message = str(rung.params.get("message", f"{tool} triggered by {cue.kind}"))
+            try:
+                result = adapter.notify(message)
+            except Exception as exc:
+                result = {"adapter": "stub", "delivered": False, "error": str(exc), "message": message}
+            _append(
+                events,
+                tool=tool,
+                cue_kind=cue.kind,
+                rung_id=rung.id,
+                detail=dict(result),
             )
             idx += 1
             continue
