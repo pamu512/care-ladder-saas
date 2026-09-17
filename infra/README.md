@@ -1,4 +1,4 @@
-# Care Ladder — AWS deployment sketch
+# Care Ladder - AWS deployment sketch
 
 **Status:** LIVE. Deployed on AWS (account 367597235216, us-east-1): ECS/Fargate service `care-ladder-demo` behind an internet-facing ALB (`care-ladder-demo-2017970097.us-east-1.elb.amazonaws.com`) with CloudFront HTTPS in front (`https://d2u7pls4da2poz.cloudfront.net`). Local FastAPI (`./scripts/run_demo.sh` → `care_ladder.api.app:app`) remains the fallback judge demo.
 

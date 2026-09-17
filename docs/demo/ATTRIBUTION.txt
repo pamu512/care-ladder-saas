@@ -1,0 +1,5 @@
+Care Ladder demo video
+VO: Resemble Chatterbox TTS (open-source)
+Fall footage: KU Leuven Advise "High quality fall simulation data" — nursing-home re-enactments, research use.
+Models: OpenCV Zoo MediaPipe person-detection + BlazePose ONNX (Apache-2.0)
+Repo: https://github.com/pamu512/opencv-care-ladder

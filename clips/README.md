@@ -1,7 +1,7 @@
 # Demo / evaluation clips
 
 Real-footage clips for the fall-detection demo and evaluation. Downloaded at
-setup (not committed — run `scripts/download_clips.sh`); sizes ~40 MB.
+setup (not committed - run `scripts/download_clips.sh`); sizes ~40 MB.
 
 | File | Source | Content | Expected |
 | --- | --- | --- | --- |
@@ -11,10 +11,10 @@ setup (not committed — run `scripts/download_clips.sh`); sizes ~40 MB.
 
 ## Attribution / licenses
 
-- **KU Leuven — Advise / Intelligent Sensing Systems**: "High quality fall
+- **KU Leuven - Advise / Intelligent Sensing Systems**: "High quality fall
   simulation data", recorded in a nursing-home setting by re-enacting actual
   falls. Publicly offered for research on the group's datasets page:
-  https://iiw.kuleuven.be/onderzoek/advise/datasets — cited in our technical
+  https://iiw.kuleuven.be/onderzoek/advise/datasets - cited in our technical
   report and submission. Non-clinical research footage.
 - **vtest.avi**: classic OpenCV sample video (Apache-2.0, opencv/opencv repo).
 
@@ -27,5 +27,5 @@ python scripts/evaluate.py --dnn --clips   # (see eval_cases for clip-based case
 
 The pose path uses OpenCV 5 DNN with MediaPipe person-detection + pose ONNX
 models from OpenCV Zoo; only the SUDDEN vertical→horizontal signature raises
-`distress_heuristic` — gradual lying-down is deliberately not cue-worthy
+`distress_heuristic` - gradual lying-down is deliberately not cue-worthy
 (no_movement covers stillness with the right severity).

@@ -1,4 +1,4 @@
-# Care Ladder — Technical Report
+# Care Ladder - Technical Report
 
 **OpenCV AI Competition 2026, powered by AWS** · Agentic Vision path · Team: Care Ladder (Anoop Pamu)
 
@@ -6,8 +6,8 @@
 
 Care Ladder is a remote wellness monitor for seniors and recovering people. OpenCV 5
 perception emits structured cues (`no_movement`, `no_visibility`, `distress_heuristic`);
-an agent walks a **configurable YAML escalation ladder** — re-perceive → smart-speaker
-check-in → wait → dial primary → dial secondary → gated emergency — with **every step,
+an agent walks a **configurable YAML escalation ladder** - re-perceive → smart-speaker
+check-in → wait → dial primary → dial secondary → gated emergency - with **every step,
 skip, and jump written to an audit trail** surfaced as a caregiver incident timeline.
 
 **Core claim (Agentic Vision bar):** vision output *changes what the system does next*.
@@ -33,10 +33,10 @@ documented in [`failure-modes.md`](failure-modes.md).
 
 **OpenCV 5 portability findings** (vendored wrapper: `src/care_ladder/vision/mppersondet.py`,
 adapted from OpenCV Zoo's Apache-2.0 `mp_persondet.py`):
-1. `Net.getInputs()` no longer exists in OpenCV 5 — input size must be known (224×224).
+1. `Net.getInputs()` no longer exists in OpenCV 5 - input size must be known (224×224).
 2. The new DNN graph engine returns the two output blobs in swapped order vs the 4.x
    wrapper; detected by trailing dimension (scores=1, deltas=12).
-3. `NMSBoxes` returns a flattened index array — reshape before fancy-indexing.
+3. `NMSBoxes` returns a flattened index array - reshape before fancy-indexing.
 
 ## 3. Agentic workflow (perception → decision → action)
 
@@ -47,16 +47,16 @@ frames ──▶ CueDetector ──▶ CueEvent ──▶ run_incident (orchestr
              │    sudden v→h = FALL (fast path)       │
              │  zone polygon test                      ├─ rung 2: speaker_prompt ── "ok" ─▶ resolve
              │                                         │            └ "call_caregiver" ─▶ jump to dial
-             │                                         ├─ rung 3: wait (skipped if listen window consumed — jump logged)
+             │                                         ├─ rung 3: wait (skipped if listen window consumed - jump logged)
              │                                         ├─ rung 4/5: dial_contact ── answered ─▶ resolve
              │                                         │                └ no_answer ─▶ next dial (jump logged)
-             │                                         └─ rung 6: emergency — FAIL-CLOSED (audit-only even if enabled)
+             │                                         └─ rung 6: emergency - FAIL-CLOSED (audit-only even if enabled)
              └── privacy transform (blur/silhouette) ──▶ pre-event frames attached to incident
 ```
 
 Branching is driven by cue kind + channel replies; every jump emits an audit event with
 `from_index`/`to_index`/`reason`. Quiet hours (`soft_suppress_non_distress`) suppress
-non-distress cues inside the window — suppression itself is audited.
+non-distress cues inside the window - suppression itself is audited.
 
 ## 4. Evaluation (labeled fixtures, reproducible)
 
@@ -77,7 +77,7 @@ non-distress cues inside the window — suppression itself is audited.
 | OpenCV `vtest` | pedestrians walking/bending | **no distress cue**; mild `no_visibility` only when people exit frame (correct) |
 
 Two-tier escalation is deliberate design: sudden falls escalate instantly past the
-verbal rung; gradual collapses (and deliberate lying down — crouching, bending) are
+verbal rung; gradual collapses (and deliberate lying down - crouching, bending) are
 covered by the stillness ladder rather than the fall signature. Tuning the fall path
 on the real clips is what eliminated the pedestrian bend-over false positive.
 
@@ -101,7 +101,7 @@ area rejection; single-frame noise arming `no_visibility` → sustained-presence
 
 Task definition: `infra/task-definition.json` (0.5 vCPU / 1 GB, awsvpc). CI (GitHub
 Actions) runs tests + clip evals, builds the image **natively amd64 with an
-architecture gate**, pushes to ECR, re-registers the task def and rolls the service —
+architecture gate**, pushes to ECR, re-registers the task def and rolls the service -
 a push to `main` is a verified deploy. The full pose fall path runs inside Fargate:
 uploading the real fall clip via the public endpoint yields
 `distress_heuristic` / `sudden_vertical_to_horizontal` / `source: pose_heuristics`
@@ -109,7 +109,7 @@ uploading the real fall clip via the public endpoint yields
 
 ## 6. Responsible use
 
-- Emergency rung **fail-closed** by default; even enabled it audits only — code cannot place a real emergency call.
+- Emergency rung **fail-closed** by default; even enabled it audits only - code cannot place a real emergency call.
 - Demo contacts restricted to NANP reserved fiction (NPA-555-01XX); the plan loader **rejects** other numbers in demo env.
 - Privacy transform enforced at attach: a non-zero pre-event frame count without blur/silhouette is refused; the caregiver API serves only transformed copies.
 - No identity biometrics; no medical claims; failure modes and demo-vs-real boundaries documented.
