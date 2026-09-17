@@ -20,6 +20,8 @@ dependencies = [
   "httpx2>=2.0.0",
   "sqlalchemy>=2",
   "alembic",
+  "bcrypt",
+  "itsdangerous",
 ]
 
 [project.optional-dependencies]

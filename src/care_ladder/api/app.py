@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 import asyncio
 
-from fastapi import FastAPI, HTTPException, Response, UploadFile
+from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
 from uuid import uuid4
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -42,6 +42,11 @@ _POSE_MODEL_PATH = _REPO_ROOT / "models" / "pose_estimation_mediapipe_2023mar.on
 _MODEL_PATH = _REPO_ROOT / "models" / "person_detection_mediapipe_2023mar.onnx"
 # Midday UTC so quiet_hours soft-suppress does not hide the judge demo ladder.
 DEMO_NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
 
 
 class DemoRunRequest(BaseModel):
@@ -294,6 +299,20 @@ async def _run_opencv_pose_person(store: AuditStore):
 # In-flight upload analysis jobs: job_id -> {status, filename, incident_id, error}
 _UPLOAD_JOBS: dict[str, dict[str, Any]] = {}
 
+# bcrypt hashes for the seeded demo users (computed once; passwords are in
+# tenancy.service and only ever live in demo mode)
+_DEMO_HASHES: dict[str, str] = {}
+
+
+def _demo_hash(email: str) -> str:
+    from care_ladder.auth.passwords import hash_password
+    from care_ladder.tenancy.service import find_demo_user
+
+    if email not in _DEMO_HASHES:
+        user = find_demo_user(email)
+        _DEMO_HASHES[email] = hash_password(user.password) if user else "!"
+    return _DEMO_HASHES[email]
+
 
 def create_app(store: AuditStore | None = None) -> FastAPI:
     """Build FastAPI app with injectable store (tests inject a fresh memory store)."""
@@ -308,13 +327,110 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
     static_dir = Path(__file__).resolve().parent / "static"
     application.mount("/ui", StaticFiles(directory=static_dir, html=True), name="ui")
 
+    # ---- SaaS auth (Task 2) -------------------------------------------------
+    # CARE_LADDER_AUTH=on requires a session on /demo/* and /incidents*;
+    # unauthenticated = 401 (no shared anonymous tenant). AUTH off (default)
+    # keeps the upstream open demo behavior untouched.
+    from care_ladder.auth.sessions import COOKIE_NAME, read_session_token
+
+    def _auth_on() -> bool:
+        return os.environ.get("CARE_LADDER_AUTH", "off").lower() in ("on", "1", "true")
+
+    def _session_secret() -> str:
+        return os.environ.get("SESSION_SECRET", "")
+
+    def _require_session(request: Request):
+        """Returns SessionData or None; None => caller must 401 (when auth on)."""
+        if not _auth_on():
+            return None
+        token = request.cookies.get(COOKIE_NAME, "")
+        if not token or not _session_secret():
+            raise HTTPException(status_code=401, detail="authentication required")
+        data = read_session_token(token, secret=_session_secret())
+        if data is None:
+            raise HTTPException(status_code=401, detail="invalid or expired session")
+        return data
+
+    @application.post("/auth/login")
+    def auth_login(body: LoginRequest, response: Response):
+        from care_ladder.tenancy.service import find_demo_user
+
+        user = find_demo_user(body.email)
+        from care_ladder.auth.passwords import verify_password
+
+        if user is None or not verify_password(body.password, _demo_hash(user.email)):
+            raise HTTPException(status_code=401, detail="invalid email or password")
+        from care_ladder.auth.sessions import SessionData, create_session_token
+
+        token = create_session_token(
+            SessionData(user_id=user.email, tenant_id=user.tenant_id, email=user.email),
+            secret=_session_secret(),
+        )
+        response.set_cookie(
+            COOKIE_NAME, token, max_age=7 * 24 * 3600, httponly=True, samesite="lax"
+        )
+        return {
+            "email": user.email,
+            "tenant": {
+                "id": user.tenant_id,
+                "mode": user.tenant_mode,
+                "plan": user.tenant_plan,
+            },
+        }
+
+    @application.post("/auth/logout")
+    def auth_logout(response: Response):
+        response.delete_cookie(COOKIE_NAME)
+        return {"ok": True}
+
+    @application.get("/auth/me")
+    def auth_me(request: Request):
+        session = _require_session(request)
+        if session is None:
+            raise HTTPException(status_code=401, detail="authentication required")
+        from care_ladder.tenancy.service import find_demo_user
+
+        user = find_demo_user(session.email)
+        if user is None:
+            raise HTTPException(status_code=401, detail="unknown session user")
+        return {
+            "email": user.email,
+            "tenant": {
+                "id": user.tenant_id,
+                "mode": user.tenant_mode,
+                "plan": user.tenant_plan,
+            },
+        }
+
+    def _tenant_store(request: Request):
+        """Per-tenant store when auth on: memory mode keeps a dict of stores;
+        a shared store (Postgres-backed) is scoped at construction elsewhere."""
+        session = _require_session(request)
+        if session is None:
+            return application.state.store
+        if not hasattr(application.state, "tenant_stores"):
+            application.state.tenant_stores = {}
+        return application.state.tenant_stores.setdefault(
+            session.tenant_id, AuditStore()
+        )
+
+    @application.get("/demo/context")
+    def demo_context():
+        """Unauthenticated landing context (Render health check target)."""
+        return {
+            "auth": _auth_on(),
+            "demo_login_available": True,
+        }
+
     @application.get("/incidents")
-    def list_incidents() -> list[dict[str, Any]]:
-        return [_incident_summary(i) for i in application.state.store.list_incidents()]
+    def list_incidents(request: Request) -> list[dict[str, Any]]:
+        store = _tenant_store(request)
+        return [_incident_summary(i) for i in store.list_incidents()]
 
     @application.get("/incidents/{incident_id}")
-    def get_incident(incident_id: str) -> dict[str, Any]:
-        incident = application.state.store.get(incident_id)
+    def get_incident(incident_id: str, request: Request) -> dict[str, Any]:
+        store = _tenant_store(request)
+        incident = store.get(incident_id)
         if incident is None:
             raise HTTPException(status_code=404, detail="incident not found")
         # Full timeline JSON: ordered audit events (cue → tools → resolve/jump).
@@ -477,22 +593,23 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
         return incident.id
 
     @application.post("/demo/run", response_model=DemoRunResponse)
-    async def demo_run(body: DemoRunRequest) -> DemoRunResponse:
+    async def demo_run(body: DemoRunRequest, request: Request) -> DemoRunResponse:
+        store = _tenant_store(request)
         if body.fixture not in SUPPORTED_FIXTURES:
             raise HTTPException(
                 status_code=400,
                 detail=f"unknown fixture {body.fixture!r}; supported: {sorted(SUPPORTED_FIXTURES)}",
             )
         if body.fixture == "no_movement_ok":
-            incident = await _run_no_movement_ok(application.state.store)
+            incident = await _run_no_movement_ok(store)
         elif body.fixture == "no_movement_silence":
-            incident = await _run_no_movement_silence(application.state.store)
+            incident = await _run_no_movement_silence(store)
         elif body.fixture == "opencv_stillness":
-            incident = await _run_opencv_stillness(application.state.store)
+            incident = await _run_opencv_stillness(store)
         elif body.fixture == "opencv_dnn_person":
-            incident = await _run_opencv_dnn_person(application.state.store)
+            incident = await _run_opencv_dnn_person(store)
         elif body.fixture == "opencv_pose_person":
-            incident = await _run_opencv_pose_person(application.state.store)
+            incident = await _run_opencv_pose_person(store)
         else:  # pragma: no cover - guarded by SUPPORTED_FIXTURES
             raise HTTPException(status_code=400, detail="unsupported fixture")
         await _publish_cloud(incident)
