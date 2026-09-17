@@ -1,0 +1,57 @@
+household_id: demo-facility-1
+mode: facility
+caregiver:
+  display_name: Alex
+  phone_e164: "+12125550101"   # reserved fiction in demos
+monitored:
+  display_name: Pat
+supervisor:
+  display_name: Floor Lead
+  slack_user_id: "U0DEMO"
+  phone_e164: "+12125550103"   # reserved fiction in demos
+notifications:
+  slack:
+    enabled: true
+    channel: "#floor-ops"
+zones:
+  - id: common_room
+    polygon: [[0, 0], [640, 0], [640, 480], [0, 480]]
+triggers:
+  no_movement:
+    enabled: true
+    timeout_sec: 900
+  no_visibility:
+    enabled: true
+  distress_heuristic:
+    enabled: true
+rungs:
+  - id: reperceive
+    tool: reperceive
+    params: { roi: auto }
+  - id: ask_ok
+    tool: speaker_prompt
+    params:
+      text: "Are you okay? Press or say OK, or your floor lead will be notified."
+      channel: nest_or_alexa_then_phone
+  - id: wait_reply
+    tool: wait
+    params: { sec: 120 }
+  - id: notify_ops
+    tool: notify_channel
+    params:
+      channel: slack
+      message: "check-in silence in common_room; escalating to floor lead"
+  - id: notify_lead
+    tool: notify_supervisor
+    params:
+      message: "resident unresponsive in common_room; calling primary caregiver"
+  - id: dial_primary
+    tool: dial_contact
+    params: { contact: caregiver }
+  - id: emergency
+    tool: emergency
+    params: { enabled: false }   # fail-closed unless explicitly true
+quiet_hours:
+  start: "22:00"
+  end: "07:00"
+  policy: soft_suppress_non_distress

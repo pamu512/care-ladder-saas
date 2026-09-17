@@ -8,6 +8,19 @@ from pydantic import BaseModel, Field
 class Contact(BaseModel):
     display_name: str
     phone_e164: str | None = None
+    slack_user_id: str | None = None
+
+
+TenantMode = Literal["home", "facility"]
+
+
+class SlackNotifications(BaseModel):
+    enabled: bool = False
+    channel: str | None = None
+
+
+class Notifications(BaseModel):
+    slack: SlackNotifications = Field(default_factory=SlackNotifications)
 
 
 class NoMovementTrigger(BaseModel):
@@ -55,6 +68,9 @@ class CarePlan(BaseModel):
     rungs: list[Rung]
     quiet_hours: QuietHours | None = None
     secondary: Contact | None = None
+    mode: TenantMode = "home"
+    supervisor: Contact | None = None
+    notifications: Notifications | None = None
 
 
 class CueEvent(BaseModel):

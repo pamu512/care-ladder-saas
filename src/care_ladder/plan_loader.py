@@ -39,6 +39,8 @@ def validate_demo_phones(plan: CarePlan) -> None:
     contacts: list[Contact] = [plan.caregiver, plan.monitored]
     if plan.secondary is not None:
         contacts.append(plan.secondary)
+    if plan.supervisor is not None:
+        contacts.append(plan.supervisor)
 
     for contact in contacts:
         phone = contact.phone_e164
@@ -56,6 +58,36 @@ def validate_demo_phones(plan: CarePlan) -> None:
             )
 
 
+_FACILITY_TOOLS = frozenset({"notify_channel", "notify_supervisor"})
+
+
+def validate_mode_coherence(plan: CarePlan) -> None:
+    """Facility/home mode must be coherent with the plan's rungs and blocks.
+
+    - facility rungs (notify_channel / notify_supervisor) require mode=facility
+      and a supervisor + notifications block
+    - mode=facility with notify rungs but notifications disabled is invalid
+      (a notify rung that can never deliver is a silent stub)
+    - home plans must not carry facility rungs
+    """
+    tools = {r.tool for r in plan.rungs}
+    has_facility_rungs = bool(tools & _FACILITY_TOOLS)
+
+    if plan.mode == "home" and has_facility_rungs:
+        raise ValueError(
+            "home mode plan must not contain notify rungs "
+            f"(found {sorted(tools & _FACILITY_TOOLS)}); use mode: facility"
+        )
+    if plan.mode == "facility" and has_facility_rungs:
+        if plan.supervisor is None:
+            raise ValueError("facility notify rungs require a supervisor contact")
+        if plan.notifications is None or not plan.notifications.slack.enabled:
+            raise ValueError(
+                "facility notify rungs require notifications.slack.enabled: true "
+                "(a notify rung that cannot deliver is a silent stub)"
+            )
+
+
 def load_care_plan(path: Path, *, env: str | None = None) -> CarePlan:
     """Load a household care plan YAML into a validated CarePlan model.
 
@@ -67,4 +99,5 @@ def load_care_plan(path: Path, *, env: str | None = None) -> CarePlan:
     mode = (env if env is not None else os.environ.get("CARE_LADDER_ENV", "demo")).lower()
     if mode == "demo":
         validate_demo_phones(plan)
+    validate_mode_coherence(plan)
     return plan
