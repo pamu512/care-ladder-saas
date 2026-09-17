@@ -36,8 +36,10 @@ SUPPORTED_FIXTURES = frozenset(
         "opencv_stillness",
         "opencv_dnn_person",
         "opencv_pose_person",
+        "facility_notify_silence",
     }
 )
+_FACILITY_PLAN_PATH = _REPO_ROOT / "configs" / "demo_facility.yaml"
 _POSE_MODEL_PATH = _REPO_ROOT / "models" / "pose_estimation_mediapipe_2023mar.onnx"
 _MODEL_PATH = _REPO_ROOT / "models" / "person_detection_mediapipe_2023mar.onnx"
 # Midday UTC so quiet_hours soft-suppress does not hide the judge demo ladder.
@@ -119,6 +121,29 @@ def _synthetic_stillness_frames(
         frame[40:80, 60:100] = 200
         frames.append(frame)
     return frames
+
+
+async def _run_facility_notify_silence(store: AuditStore):
+    """Facility fixture: check-in silence -> notify ops -> supervisor -> dial primary."""
+    from care_ladder.channels.notify import NotifyChannelAdapter
+    from care_ladder.channels.supervisor import NotifySupervisorAdapter
+
+    plan = load_care_plan(_FACILITY_PLAN_PATH)
+    cue = CueEvent(kind="no_movement", confidence=0.9, detail={"fixture": "facility_notify_silence"})
+    speaker = SpeakerSimulator(scripted=[])  # silence
+    dialer = StubDialer(behavior={"caregiver": "answered"})
+    incident = await run_incident(
+        cue=cue,
+        plan=plan,
+        speaker=speaker,
+        dialer=dialer,
+        pre_event_frames=[],
+        store=store,
+        notifier=NotifyChannelAdapter(),
+        supervisor_notifier=NotifySupervisorAdapter(supervisor=plan.supervisor),
+        now=DEMO_NOW,
+    )
+    return incident
 
 
 async def _run_opencv_stillness(store: AuditStore):
@@ -610,6 +635,8 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             incident = await _run_opencv_dnn_person(store)
         elif body.fixture == "opencv_pose_person":
             incident = await _run_opencv_pose_person(store)
+        elif body.fixture == "facility_notify_silence":
+            incident = await _run_facility_notify_silence(store)
         else:  # pragma: no cover - guarded by SUPPORTED_FIXTURES
             raise HTTPException(status_code=400, detail="unsupported fixture")
         await _publish_cloud(incident)
