@@ -1,12 +1,15 @@
-# Care Ladder SaaS (Galuxium Nexus V2)
+# Care Ladder - Development
 
-Multi-tenant hosted SaaS build of [Care Ladder](https://github.com/pamu512/opencv-care-ladder) for the
-[Galuxium Nexus V2](https://galuxium-nexus-v2-29411.devpost.com/) hackathon (deadline Oct 31, 2026 IST).
+Non-SaaS development branch of [Care Ladder](https://github.com/pamu512/opencv-care-ladder).
+Forked from the OpenCV AI Competition 2026 build at commit `87b6f3e` (repo name predates the
+repurpose). This is the playground for anything that is NOT the OpenCV submission and NOT the
+Galuxium SaaS filing: experiments, vision work, tooling, spikes.
 
-Forked from the OpenCV AI Competition 2026 build at commit `87b6f3e`. The upstream repo remains the
-OpenCV submission; this repo diverges here with tenancy, facility workflows, and billing.
+The upstream `opencv-care-ladder` repo stays the clean, deployed OpenCV submission (deadline
+Oct 26). The Galuxium SaaS plan (`docs/superpowers/plans/2026-09-17-galuxium-care-ladder-saas.md`)
+is parked here for reference but is NOT being executed in this repo.
 
-## What this fork adds (per spec)
+## Development notes (originally the SaaS fork scope, kept for reference)
 
 - Multi-tenant Postgres (`Tenant`/`User`/`IncidentRow`/`AuditEventRow`/`Subscription`) behind a
   `PostgresAuditStore` that preserves the `AuditStore` surface
