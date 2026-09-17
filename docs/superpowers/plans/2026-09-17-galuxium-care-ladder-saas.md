@@ -17,12 +17,17 @@
 - Privacy: blur/silhouette before persisting frames
 - StubDialer unless secret-gated real provider
 - notify adapters: real Slack webhook when env set, else audit `adapter=stub`
-- ReadyPup is RevenueCat — do not build ReadyPup here
+- ReadyPup is RevenueCat - do not build ReadyPup here
 - Hunt/Tarka out of scope
 - YAGNI: no incident overage metering, no native mobile, no HIPAA claims
 - TDD: failing test → implement → pass → commit per task
 - Path A (`no_movement_ok`) and Path B (`no_movement_silence`) must remain unchanged for home mode
-- Mac-shaped API shape required: `/ui`, fixtures `no_movement_ok` / `no_movement_silence`, `/demo/upload` (box may be thinner — implement full surface)
+- Mac-shaped API shape required: `/ui`, fixtures `no_movement_ok` / `no_movement_silence`, `/demo/upload` (box may be thinner - implement full surface)
+- REPO ISOLATION: this fork (`care-ladder-saas`) never deploys to and never modifies resources of the upstream OpenCV repo. Upstream `Dockerfile` is untouchable; the fork uses `Dockerfile.saas` (its own image) and its own CI without any AWS deploy step until Render exists
+- Upstream stays frozen as the Oct 26 OpenCV submission source until final pass; cross-cutting fixes land upstream first, then cherry-pick here
+- Billing safety: Stripe webhook verification is fail-closed (unset secret in non-demo env = reject POSTs, not accept); stub checkout URL only when `CARE_LADDER_ENV=demo`
+- Anonymous API behavior under `CARE_LADDER_AUTH=on`: `/demo/run` and `/incidents` require a session; judges use the landing demo login. Unauthenticated = 401, never a shared anonymous tenant
+- Documentation style: no em dashes in any docs or generated copy (repo-wide standing rule)
 
 ---
 
@@ -30,46 +35,46 @@
 
 ```
 configs/
-  demo_home.yaml                          # KEEP — home Path A/B (unchanged rungs)
-  demo_facility.yaml                      # CREATE — facility ladder with notify + supervisor
+  demo_home.yaml                          # KEEP - home Path A/B (unchanged rungs)
+  demo_facility.yaml                      # CREATE - facility ladder with notify + supervisor
 
 src/care_ladder/
-  models.py                               # MODIFY — CarePlan mode/supervisor/notifications; TenantMode
-  plan_loader.py                          # MODIFY — validate facility notify/supervisor fields + demo phones on supervisor
+  models.py                               # MODIFY - CarePlan mode/supervisor/notifications; TenantMode
+  plan_loader.py                          # MODIFY - validate facility notify/supervisor fields + demo phones on supervisor
   db/
     __init__.py                           # CREATE
-    base.py                               # CREATE — SQLAlchemy DeclarativeBase + engine helpers
-    models.py                             # CREATE — Tenant, User, IncidentRow, AuditEventRow, Subscription
-    session.py                            # CREATE — SessionLocal / get_session
+    base.py                               # CREATE - SQLAlchemy DeclarativeBase + engine helpers
+    models.py                             # CREATE - Tenant, User, IncidentRow, AuditEventRow, Subscription
+    session.py                            # CREATE - SessionLocal / get_session
   audit/
     store.py                              # KEEP protocol surface (save/get/list_incidents)
-    postgres_store.py                     # CREATE — PostgresAuditStore implementing AuditStore API + tenant_id
+    postgres_store.py                     # CREATE - PostgresAuditStore implementing AuditStore API + tenant_id
   auth/
     __init__.py                           # CREATE
-    passwords.py                          # CREATE — hash/verify
-    sessions.py                           # CREATE — sign/unsign session cookie
-    deps.py                               # CREATE — FastAPI Depends: require_user, require_tenant
+    passwords.py                          # CREATE - hash/verify
+    sessions.py                           # CREATE - sign/unsign session cookie
+    deps.py                               # CREATE - FastAPI Depends: require_user, require_tenant
   tenancy/
     __init__.py                           # CREATE
-    service.py                            # CREATE — create_tenant, get_tenant, seed_demo_tenants
+    service.py                            # CREATE - create_tenant, get_tenant, seed_demo_tenants
   billing/
     __init__.py                           # CREATE
-    stripe_checkout.py                    # CREATE — create Checkout Session, Customer Portal URL
-    webhook.py                            # CREATE — verify + apply subscription events
-    plans.py                              # CREATE — PlanId enum + feature gates (home / facility_starter)
+    stripe_checkout.py                    # CREATE - create Checkout Session, Customer Portal URL
+    webhook.py                            # CREATE - verify + apply subscription events
+    plans.py                              # CREATE - PlanId enum + feature gates (home / facility_starter)
   channels/
-    dial.py                               # KEEP — StubDialer
+    dial.py                               # KEEP - StubDialer
     speaker.py                            # KEEP
-    notify.py                             # CREATE — NotifyChannelAdapter (Slack webhook / stub)
-    supervisor.py                         # CREATE — NotifySupervisorAdapter (Slack DM stub / webhook)
+    notify.py                             # CREATE - NotifyChannelAdapter (Slack webhook / stub)
+    supervisor.py                         # CREATE - NotifySupervisorAdapter (Slack DM stub / webhook)
   ladder/
-    orchestrator.py                       # MODIFY — handle notify_channel + notify_supervisor rungs
+    orchestrator.py                       # MODIFY - handle notify_channel + notify_supervisor rungs
   api/
-    app.py                                # MODIFY — mount auth, billing, tenant-scoped incidents, facility fixture, landing
-    deps.py                               # CREATE — wire store/session from app.state
+    app.py                                # MODIFY - mount auth, billing, tenant-scoped incidents, facility fixture, landing
+    deps.py                               # CREATE - wire store/session from app.state
     static/
-      index.html                          # MODIFY — mode badge, notify/supervisor labels, facility demo button
-      landing.html                        # CREATE — problem → facility wedge → pricing → demo login
+      index.html                          # MODIFY - mode badge, notify/supervisor labels, facility demo button
+      landing.html                        # CREATE - problem → facility wedge → pricing → demo login
   migrations/                             # CREATE (Alembic) OR scripts/migrate_saas.py for MVP single upgrade
     env.py
     versions/001_saas_tenancy.py
@@ -87,16 +92,42 @@ tests/
   # existing tests must keep passing for home Path A/B
 
 docs/
-  demo-video-script.md                    # MODIFY — add facility notify beat (shot list only)
+  demo-video-script.md                    # MODIFY - add facility notify beat (shot list only)
   galuxium/
-    executive-briefing.md                 # CREATE — Devpost About draft
-  README.md (repo root)                   # MODIFY — Galuxium section: architecture, schema, fiscal, deploy
+    executive-briefing.md                 # CREATE - Devpost About draft
+  README.md (repo root)                   # MODIFY - Galuxium section: architecture, schema, fiscal, deploy
 
-Dockerfile                                # MODIFY — install SaaS deps, CARE_LADDER_STORE=postgres
-fly.toml OR render.yaml                   # CREATE — public HTTPS host + Postgres
-.env.example                              # CREATE — DATABASE_URL, SESSION_SECRET, STRIPE_*, SLACK_WEBHOOK_URL
-pyproject.toml                            # MODIFY — sqlalchemy, alembic, bcrypt, itsdangerous, stripe, httpx
+Dockerfile                                # MODIFY - install SaaS deps, CARE_LADDER_STORE=postgres
+fly.toml OR render.yaml                   # CREATE - public HTTPS host + Postgres
+.env.example                              # CREATE - DATABASE_URL, SESSION_SECRET, STRIPE_*, SLACK_WEBHOOK_URL
+pyproject.toml                            # MODIFY - sqlalchemy, alembic, bcrypt, itsdangerous, stripe, httpx
 ```
+
+---
+
+### Task 0: Pre-flight - CI for the fork, review fixes applied to docs, safety net
+
+Executed before any code task. No product code changes.
+
+**Files:**
+- Create: `.github/workflows/ci.yml` (adapted from upstream: tests + eval gate + docker build of `Dockerfile.saas`; **no AWS deploy, no AWS secrets**)
+- Create: `Dockerfile.saas` (copy of upstream Dockerfile; Task 10 modifies this, never upstream `Dockerfile`)
+- Modify: this plan + spec docs (fixes below)
+
+**Steps:**
+- [ ] 0.1 Copy upstream CI, strip AWS deploy + secrets. Verify a green run on the fork's `main`.
+- [ ] 0.2 Create `Dockerfile.saas` (verbatim copy of upstream image build) so Task 10 has its own target and upstream `Dockerfile` is never edited in this fork. CI builds `Dockerfile.saas`.
+- [ ] 0.3 Apply review fixes to this plan + spec:
+  - C3: Task 3 test expectation `+121****0103` (matches facility YAML), reserved-fiction shape everywhere
+  - C2 (already added to Global Constraints): fail-closed webhook; stub checkout gated on `CARE_LADDER_ENV=demo` - reflect in Task 8's steps and test
+  - H1 (constraint added): anonymous = 401; reflect in Task 2's tests
+  - H2: add cross-tenant API test to Task 2 (tenant A authed fetch of tenant B incident → 404)
+  - M1/M2: spec §2.1 - care plans stay YAML templates (no plan_templates table); storage section says "add Postgres store for hosted SaaS; OpenCV filing keeps its DynamoDB path" (not "replace process-local store")
+  - M4: Task 11 targets a new `docs/galuxium/demo-video-galuxium.md`; upstream cut's script untouched
+  - M6: em-dash sweep of both docs (rule now in Global Constraints)
+- [ ] 0.4 Commit: `chore(saas): fork pre-flight - CI, Dockerfile.saas, plan/spec review fixes`
+
+**Definition of done:** fork CI green with zero AWS references; both docs consistent with each other and with the review; `Dockerfile.saas` exists and builds.
 
 ---
 
@@ -274,6 +305,32 @@ def test_login_sets_cookie_and_me_returns_tenant(monkeypatch):
     body = me.json()
     assert body["email"] == "demo@careladder.local"
     assert body["tenant"]["mode"] in ("home", "facility")
+
+
+def test_anonymous_gets_401_when_auth_on(monkeypatch):
+    # H1: no shared anonymous tenant - judges use the demo login
+    monkeypatch.setenv("SESSION_SECRET", "test-secret-not-for-prod")
+    monkeypatch.setenv("CARE_LADDER_AUTH", "on")
+    app = create_app(store=AuditStore())
+    client = TestClient(app)
+    assert client.post("/demo/run", json={"fixture": "no_movement_ok"}).status_code == 401
+    assert client.get("/incidents").status_code == 401
+
+
+def test_cross_tenant_incident_isolation(monkeypatch):
+    # H2: tenant A authed fetch of tenant B's incident is 404, never 200
+    monkeypatch.setenv("SESSION_SECRET", "test-secret-not-for-prod")
+    monkeypatch.setenv("CARE_LADDER_AUTH", "on")
+    app = create_app(store=AuditStore())
+    client_a = TestClient(app)
+    client_a.post("/auth/login", json={"email": "demo@careladder.local", "password": "demo-pass-home"})
+    r = client_a.post("/demo/run", json={"fixture": "no_movement_ok"})
+    assert r.status_code == 200
+    inc_id = r.json()["incident_id"]
+    client_b = TestClient(app)
+    client_b.post("/auth/login", json={"email": "facility@careladder.local", "password": "demo-pass-facility"})
+    assert client_b.get(f"/incidents/{inc_id}").status_code == 404
+    assert all(i["id"] != inc_id for i in client_b.get("/incidents").json())
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -338,7 +395,7 @@ def test_loads_demo_facility_with_notify_and_supervisor():
     assert plan.mode == "facility"
     assert plan.supervisor is not None
     assert plan.supervisor.display_name == "Floor Lead"
-    assert plan.supervisor.phone_e164.startswith("+121255501")
+    assert plan.supervisor.phone_e164.startswith("+121****0103")
     assert plan.notifications is not None
     assert plan.notifications.slack.enabled is True
     tools = [r.tool for r in plan.rungs]
@@ -474,7 +531,7 @@ git commit -m "feat(saas): facility care-plan template and loader validation"
   - `class NotifyChannelAdapter: async def notify(self, *, channel: str, template: str, incident_id: str, plan: CarePlan) -> NotifyResult`
   - Behavior: if `channel=="slack"` and `os.environ.get(plan.notifications.slack.webhook_env)` non-empty → POST JSON payload via httpx; `adapter="slack"`, `status="sent"`. Else → `adapter="stub"`, `status="stubbed"`. Teams MVP: always stub with `adapter="stub"` (spec allows Teams stub-only).
   - Orchestrator: on `tool == "notify_channel"`, call adapter, `_append(..., tool="notify_channel", detail={..., "adapter": result.adapter})`, continue to next rung (does not resolve).
-  - `run_incident(..., notifier: NotifyChannelAdapter | None = None)` — default constructs `NotifyChannelAdapter()`.
+  - `run_incident(..., notifier: NotifyChannelAdapter | None = None)` - default constructs `NotifyChannelAdapter()`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -577,7 +634,7 @@ if tool == "notify_channel":
     continue
 ```
 
-Add `notifier` optional kwarg to `run_incident` signature. Payload text must not claim medical diagnosis — e.g. `"Care Ladder incident {id} opened (cue={kind}). Not a medical alert."`.
+Add `notifier` optional kwarg to `run_incident` signature. Payload text must not claim medical diagnosis - e.g. `"Care Ladder incident {id} opened (cue={kind}). Not a medical alert."`.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -597,7 +654,7 @@ git commit -m "feat(saas): notify_channel Slack webhook with stub adapter"
 
 **Files:**
 - Create: `src/care_ladder/channels/supervisor.py`, `tests/test_notify_supervisor.py`
-- Modify: `src/care_ladder/ladder/orchestrator.py` (handle `notify_supervisor`), `src/care_ladder/channels/dial.py` (`next_rung_after_no_answer` may skip notify rungs already passed — no change required if notify sits before dial)
+- Modify: `src/care_ladder/ladder/orchestrator.py` (handle `notify_supervisor`), `src/care_ladder/channels/dial.py` (`next_rung_after_no_answer` may skip notify rungs already passed - no change required if notify sits before dial)
 
 **Interfaces:**
 - Consumes: `plan.supervisor`, rung params `{contact: "supervisor"}`
@@ -803,7 +860,7 @@ git commit -m "feat(saas): facility_notify_silence demo fixture; Path A/B unchan
 
 ---
 
-### Task 7: UI — mode badge + notify/supervisor timeline + facility demo button
+### Task 7: UI - mode badge + notify/supervisor timeline + facility demo button
 
 **Files:**
 - Modify: `src/care_ladder/api/static/index.html`
@@ -941,11 +998,11 @@ Expected: FAIL
 - [ ] **Step 3: Write minimal implementation**
 
 `plans.py` as interfaces.  
-`stripe_checkout.py`: if `STRIPE_SECRET_KEY` unset, return a stub checkout URL `/billing/stub-success?plan=...` for local demos (document honesty). When set, `stripe.checkout.Session.create(mode="subscription", line_items=[{price: PRICE_ID, quantity: 1}], success_url, cancel_url, metadata={tenant_id, plan})`.  
-`webhook.py`: verify signature when secret set; handle `checkout.session.completed` and `customer.subscription.updated/deleted`.  
+`stripe_checkout.py`: if `STRIPE_SECRET_KEY` unset AND `CARE_LADDER_ENV=demo`, return a stub checkout URL `/billing/stub-success?plan=...` for local demos (document honesty). In non-demo envs with the key unset, raise 503 - never fake a checkout in prod. When set, `stripe.checkout.Session.create(mode="subscription", line_items=[{price: PRICE_ID, quantity: 1}], success_url, cancel_url, metadata={tenant_id, plan})`.
+`webhook.py`: fail-closed - in non-demo envs, if `STRIPE_WEBHOOK_SECRET` is unset, reject the POST (400) outright. When set, verify signature on every request; unverified = 400, never processed. Handle `checkout.session.completed` and `customer.subscription.updated/deleted`. Add tests for both rejection paths.
 `app.py`: mount routes; gate facility fixture with `tenant_can_use_notify` when AUTH=on; demo seed tenants use `plan=demo` so judges never need a card.
 
-Indicative prices (document only): Home $29/mo, Facility Starter $199/mo, Facility Growth $499/mo (Growth checkout optional for MVP — gate enum includes it but Checkout only offers Home + Facility Starter per spec MVP).
+Indicative prices (document only): Home $29/mo, Facility Starter $199/mo, Facility Growth $499/mo (Growth checkout optional for MVP - gate enum includes it but Checkout only offers Home + Facility Starter per spec MVP).
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1038,8 +1095,8 @@ git commit -m "feat(saas): landing page with pricing and demo login"
 ### Task 10: Dockerfile / Fly-or-Render deploy + README Galuxium section
 
 **Files:**
-- Modify: `Dockerfile`, `README.md`, `pyproject.toml` (ensure httpx not httpx2 typo fixed if still present)
-- Create: `fly.toml` **or** `render.yaml` (pick one primary: **Render** web + Postgres for simplest HTTPS), `.env.example` completed, `scripts/seed_saas_demo.py`
+- Modify: `Dockerfile.saas` (NOT upstream `Dockerfile`), `README.md`, `pyproject.toml` (ensure httpx not httpx2 typo fixed if still present)
+- Create: `fly.toml` **or** `render.yaml` (pick one primary: **Render** web + Postgres for simplest HTTPS), `.env.example` completed, `scripts/bootstrap_saas_demo.py`
 
 **Interfaces:**
 - Consumes: `DATABASE_URL`, `SESSION_SECRET`, optional `STRIPE_*`, `SLACK_WEBHOOK_URL`, `CARE_LADDER_ENV=demo`, `CARE_LADDER_AUTH=on` in prod
@@ -1095,9 +1152,20 @@ databases:
     plan: basic-256mb
 ```
 
-Dockerfile: `pip install -e .`, copy `configs/demo_facility.yaml`, CMD runs `alembic upgrade head && python scripts/seed_saas_demo.py && uvicorn care_ladder.api.app:app --host 0.0.0.0 --port 8000`.
+Dockerfile.saas: `pip install -e .`, copy `configs/demo_facility.yaml`, CMD runs `alembic upgrade head && python scripts/bootstrap_saas_demo.py && uvicorn care_ladder.api.app:app --host 0.0.0.0 --port 8000`.
 
-README Galuxium section must include fiscal table (Home $29 / Facility Starter $199 / Facility Growth $499), StubDialer honesty, Slack stub-vs-real, and "RevenueCat Shipaton uses ReadyPup — not this repo filing."
+README Galuxium section must include fiscal table (Home $29 / Facility Starter $199 / Facility Growth $499), StubDialer honesty, Slack stub-vs-real, and "RevenueCat Shipaton uses ReadyPup - not this repo filing."
+
+**Deploy-day checklist (all required before the URL goes in the Devpost form):**
+- [ ] Render Postgres `basic-256mb` created; `DATABASE_URL` wired via `fromDatabase`
+- [ ] `SESSION_SECRET` generated; `CARE_LADDER_ENV=demo`, `CARE_LADDER_AUTH=on` set
+- [ ] Stripe test mode: create products Home $29/mo and Facility Starter $199/mo (console, test mode); record the two price IDs as `STRIPE_PRICE_HOME` / `STRIPE_PRICE_FACILITY` in Render env
+- [ ] Register the webhook endpoint in the Stripe dashboard (test mode) pointing at `https://<render-url>/billing/webhook`; copy the signing secret to `STRIPE_WEBHOOK_SECRET` in Render env. If the secret is unset in a non-demo env the endpoint must reject (fail-closed, Global Constraints)
+- [ ] First deploy: health check green (`/demo/context` must remain unauthenticated for Render probes), `alembic upgrade head` succeeded in logs, `bootstrap_saas_demo.py` created the demo tenant + facility fixture (idempotent on restart)
+- [ ] Post-deploy smoke: landing demo login → run Path A fixture → facility fixture shows notify + supervisor rungs → checkout button resolves to Stripe test page → webhook sets `plan` (use Stripe CLI `trigger checkout.session.completed` if needed)
+- [ ] Note in README: upload job status is process-local (a mid-analysis redeploy orphans a job); Render starter is single-instance MVP
+
+**Known Render-free-tier caveats:** managed Postgres sleeps after idle; first request after wake can be slow (migrations are idempotent, no data loss). Basic-256mb avoids this on paid starter.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1113,14 +1181,15 @@ git commit -m "chore(saas): Render/Fly deploy config and Galuxium README"
 
 ---
 
-### Task 11: Demo video shot list — facility notify beat (docs only)
+### Task 11: Demo video shot list - facility notify beat (docs only)
 
 **Files:**
-- Modify: `docs/demo-video-script.md`
+- Create: `docs/galuxium/demo-video-galuxium.md` (standalone Galuxium cut: shot list adapted from the OpenCV script plus the facility beat; the OpenCV cut's `docs/demo-video-script.md` is NOT modified - it is the production record of a finished video)
+- Create: `tests/test_demo_video_facility_beat.py` reading the Galuxium path
 
 **Interfaces:**
-- Consumes: existing shot list (Path A/B, DNN, fall)
-- Produces: added shot row for facility notify → supervisor → dial; mute-test note that notify/supervisor rows are readable without VO; no video file creation in this task
+- Consumes: existing shot list structure (Path A/B, DNN, fall) as the template
+- Produces: standalone Galuxium shot list with the facility notify → supervisor → dial beat; mute-test note that notify/supervisor rows are readable without VO; no video file creation in this task
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1128,11 +1197,16 @@ git commit -m "chore(saas): Render/Fly deploy config and Galuxium README"
 # tests/test_demo_video_facility_beat.py
 from pathlib import Path
 
-def test_demo_video_script_includes_facility_notify_beat():
-    text = Path("docs/demo-video-script.md").read_text(encoding="utf-8")
+def test_galuxium_demo_script_includes_facility_notify_beat():
+    text = Path("docs/galuxium/demo-video-galuxium.md").read_text(encoding="utf-8")
     assert "facility" in text.lower()
     assert "notify" in text.lower()
     assert "supervisor" in text.lower()
+
+def test_opencv_script_untouched():
+    # the OpenCV cut's production script must not grow a facility beat
+    text = Path("docs/demo-video-script.md").read_text(encoding="utf-8")
+    assert "notify_supervisor" not in text
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1146,7 +1220,7 @@ Insert a new shot after Path B (adjust times so total stays 2–5 min for Galuxi
 
 | # | Time | On screen | VO |
 | --- | --- | --- | --- |
-| 5b | (Galuxium cut) | `/ui/` mode badge **Facility** → click **Facility · notify → supervisor** → timeline shows `notify_channel` (`adapter: stub` or slack) then `notify_supervisor` (Floor Lead) then dial | "For assisted living, the ladder is leaner ops: after check-in silence, ops get a Slack ping, the floor lead is escalated, then the primary caregiver is dialed — still confirm-before-escalate, still no live 911, still not a medical diagnosis." |
+| 5b | (Galuxium cut) | `/ui/` mode badge **Facility** → click **Facility · notify → supervisor** → timeline shows `notify_channel` (`adapter: stub` or slack) then `notify_supervisor` (Floor Lead) then dial | "For assisted living, the ladder is leaner ops: after check-in silence, ops get a Slack ping, the floor lead is escalated, then the primary caregiver is dialed - still confirm-before-escalate, still no live 911, still not a medical diagnosis." |
 
 Add mute-test checklist bullet: cue → notify → supervisor → dial → resolve readable without VO.
 
@@ -1158,8 +1232,8 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add docs/demo-video-script.md tests/test_demo_video_facility_beat.py
-git commit -m "docs(galuxium): facility notify beat in demo video shot list"
+git add docs/galuxium/demo-video-galuxium.md tests/test_demo_video_facility_beat.py
+git commit -m "docs(galuxium): standalone Galuxium demo shot list with facility notify beat"
 ```
 
 ---
@@ -1199,14 +1273,14 @@ Expected: FAIL (file missing)
 Write `docs/galuxium/executive-briefing.md` with these exact section headings and concrete copy (no placeholders):
 
 ```markdown
-# Care Ladder — Galuxium Nexus V2 Executive Briefing
+# Care Ladder - Galuxium Nexus V2 Executive Briefing
 
 ## Market friction
 Families and facilities need remote eyes without a human glued to camera walls. Raw motion alerts are noisy; Care Ladder turns vision cues into a configurable escalation ladder that confirms before escalating.
 
 ## Dual ICP
-- Home-care: family / private caregiver — check-in → call primary (optional secondary).
-- Facility (primary Galuxium story): assisted living ops — check-in → Slack/Teams notify → supervisor → dial primary caregiver. Leaner floors/nights: staff are not screen-glued.
+- Home-care: family / private caregiver - check-in → call primary (optional secondary).
+- Facility (primary Galuxium story): assisted living ops - check-in → Slack/Teams notify → supervisor → dial primary caregiver. Leaner floors/nights: staff are not screen-glued.
 
 ## Architecture (hosted SaaS)
 Browser caregiver console → HTTPS → FastAPI (auth, billing webhooks, orchestrator) → Postgres audit store → notify adapters (Slack webhook or stub) → StubDialer (secret-gated real telephony later) → Stripe Checkout. Vision path: fixtures + upload (OpenCV); no mandatory live RTSP for Galuxium MVP.
@@ -1243,6 +1317,20 @@ git commit -m "docs(galuxium): Devpost executive briefing draft"
 
 ---
 
+## Task 13: Final submission pass (pre-Devpost)
+
+Run in the final week before the Galuxium deadline, after Task 12.
+
+- [ ] Full test suite green in fork CI; no AWS references in fork CI or code
+- [ ] Live Render URL passes the Task 10 deploy-day checklist (Stripe test checkout, webhook fail-closed check, bootstrap tenant present)
+- [ ] Fresh browser session: landing → demo login → Path A → Path B → facility fixture → checkout, all without console errors; 10-min human click-through of the landing page (responsive check at 1280 and 375 widths)
+- [ ] Video: Galuxium cut recorded per `docs/galuxium/demo-video-galuxium.md`, ≤5 min, mute-test readable; QA'd (duration, audio presence, ending)
+- [ ] Devpost form: live URL, video URL, repo link, team, briefing text pasted from `docs/galuxium/executive-briefing.md`; all links resolve
+- [ ] Attribution + demo-data honesty notes in submission text (reserved phones, stub telephony, KU Leuven clip if used)
+- [ ] Cost check: Render + Stripe test mode = $0 expected; AWS OpenCV stack untouched (tear-down decision happens after OpenCV judging ends, not here)
+
+---
+
 ## Self-review (author checklist)
 
 **Spec coverage**
@@ -1260,11 +1348,11 @@ git commit -m "docs(galuxium): Devpost executive briefing draft"
 | Path A/B unchanged | 6 |
 | emergency fail-closed / reserved phones / privacy / StubDialer | Global + 3, 4, 5 |
 | ReadyPup / Hunt / Tarka / overage / mobile / HIPAA out of scope | Global + 10, 12 |
-| Object storage for privacy frames | Existing `CloudSinks`; deploy README documents optional S3 — not reimplemented (reuse) |
+| Object storage for privacy frames | Existing `CloudSinks`; deploy README documents optional S3 - not reimplemented (reuse) |
 
 **Placeholder scan:** none intentionally left (no TBD/TODO/"similar to Task N").
 
 **Type consistency:** `NotifyChannelAdapter.notify` / `NotifySupervisorAdapter.notify` / `run_incident(..., notifier=, supervisor_notifier=)` / `tenant_can_use_notify` / fixture id `facility_notify_silence` used consistently across tasks 4–8.
 
-**Note on object storage:** Spec §2.1 mentions S3-compatible storage; the repo already has `care_ladder.cloud.sinks.CloudSinks`. Galuxium MVP reuses it — no new object-store module in this plan (YAGNI). Document env vars in README Task 10.
+**Note on object storage:** Spec §2.1 mentions S3-compatible storage; the repo already has `care_ladder.cloud.sinks.CloudSinks`. Galuxium MVP reuses it - no new object-store module in this plan (YAGNI). Document env vars in README Task 10.
 

@@ -1,9 +1,9 @@
-# Care Ladder Hosted SaaS — Galuxium Nexus V2 Design Spec
+# Care Ladder Hosted SaaS - Galuxium Nexus V2 Design Spec
 
 **Date:** 2026-09-17  
-**Hackathon:** Galuxium Nexus V2 — [galuxium-nexus-v2-29411.devpost.com](https://galuxium-nexus-v2-29411.devpost.com/)  
+**Hackathon:** Galuxium Nexus V2 - [galuxium-nexus-v2-29411.devpost.com](https://galuxium-nexus-v2-29411.devpost.com/)  
 **Deadline:** 2026-10-31 17:00 IST (~19:30 HKT)  
-**Approach lock:** A — Care Ladder hosted SaaS (not Tarka Hunt)  
+**Approach lock:** A - Care Ladder hosted SaaS (not Tarka Hunt)  
 **Related:** OpenCV Care Ladder product (`opencv-care-ladder`); RevenueCat Shipaton uses **ReadyPup**, not this filing.
 
 ## 1. Problem and buyer (approved)
@@ -53,8 +53,8 @@ Vision spots the moment; the ladder picks the next human-safe step with an opera
 [Billing: Stripe Checkout + Customer Portal]
 ```
 
-- **Public cloud host** required (Fly.io, Railway, Render, or AWS ECS). Single region OK for MVP.  
-- **Postgres** for tenants, users, care plans, incidents, audit events (replace process-local `AuditStore`).  
+- **Public cloud host** required (Fly.io, Railway, Render, or AWS ECS). Single region OK for MVP. Primary: **Render** (managed Postgres + simplest HTTPS). The repo's existing AWS ECS pipeline belongs to the OpenCV filing and stays untouched; the SaaS fork deploys independently. Two stacks coexist until after OpenCV judging.
+- **Postgres** for tenants, users, incidents, audit events (a third store alongside the existing in-memory and DynamoDB paths; the OpenCV filing keeps its DynamoDB store). Care plans stay YAML templates keyed by tenant mode - no plan_templates table (YAGNI).
 - **Object storage** (S3-compatible) for privacy-transformed clip frames only (blur/silhouette), never raw faces by default.  
 - **Auth:** email magic-link or password + session cookie; tenant_id on every row.  
 - **Modes:** `tenant.mode ∈ {home, facility}` selects default care-plan template and which notify/dial rungs are allowed.
@@ -115,7 +115,7 @@ Keep existing cue detector + privacy + orchestrator. Galuxium MVP may run **fixt
 | **Facility Growth** | $499/mo per site | 25 seats, 30d retention, priority support placeholder |
 
 - **Engine:** Stripe Checkout (subscription) + Customer Portal; webhook updates `tenant.plan` / `subscription_status`.  
-- **Metering (optional later):** per-incident overage — **out of Galuxium MVP** (YAGNI).  
+- **Metering (optional later):** per-incident overage - **out of Galuxium MVP** (YAGNI).  
 - Free **judge demo tenant** with fixture buttons, no card required.  
 - Document fiscal design in README + Devpost “Fiscal Architecture” section.
 
@@ -157,7 +157,7 @@ Keep existing cue detector + privacy + orchestrator. Galuxium MVP may run **fixt
 | Hackathon | Project | Do not mix |
 | --- | --- | --- |
 | RevenueCat Shipaton (Oct 1) | **ReadyPup** | Not Care Ladder |
-| OpenCV AI 2026 (Oct 27) | Care Ladder vision track | Emphasize OpenCV + AWS sketch |
+| OpenCV AI 2026 (Oct 26, 11:45 pm PDT) | Care Ladder vision track | Emphasize OpenCV + AWS live deploy |
 | Galuxium Nexus V2 (Oct 31) | Care Ladder **hosted SaaS** | Emphasize tenancy, facility ladder, payments |
 
 Same codebase may power OpenCV + Galuxium; packaging and claims differ.
