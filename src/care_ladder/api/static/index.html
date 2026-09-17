@@ -66,7 +66,8 @@
   .b-distress { background:var(--bad-soft); color:var(--bad); }
   .fall-banner { display:flex; align-items:center; gap:10px; background:var(--bad-soft); color:var(--bad); font-size:13px; font-weight:600; padding:10px 20px; border-bottom:1px solid #fecaca; }
   .pose-chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
-  .pose-chip { font-size:11px; font-family:ui-monospace,Menlo,monospace; background:#fef2f2; color:#991b1b; border:1px solid #fecaca; border-radius:6px; padding:2px 8px; }
+  .b-facility { background:#eef2ff; color:#4338ca; border:1px solid #c7d2fe; }
+.pose-chip { font-size:11px; font-family:ui-monospace,Menlo,monospace; background:#fef2f2; color:#991b1b; border:1px solid #fecaca; border-radius:6px; padding:2px 8px; }
   .t-time { color:var(--faint); font-size:11px; font-family:ui-monospace,Menlo,monospace; }
   .clip-strip:focus { outline:2px solid var(--accent); }
   .upload-live { display:inline-flex; align-items:center; gap:8px; }
@@ -87,6 +88,7 @@
       <button class="btn primary" data-fixture="no_movement_silence">↗ Path B · escalation</button>
       <button class="btn" data-fixture="opencv_dnn_person">DNN · real photo</button>
       <button class="btn" data-fixture="opencv_stillness">Stillness</button>
+      <button class="btn" data-fixture="facility_notify_silence">🏥 Facility · notify → supervisor</button>
       <label class="btn upload-label">⇪ Upload clip<input type="file" id="clip-input" accept="video/mp4,video/quicktime,video/x-msvideo,video/webm" hidden></label>
       <span id="upload-status"></span>
     </div>
@@ -110,6 +112,7 @@ const TOOL_LABEL = {
   cue:"OpenCV cue", reperceive:"re-perceive", speaker_prompt:"speaker check-in",
   wait:"wait", jump:"jump (logged)", dial_contact:"dial", emergency:"emergency",
   notify:"notify", resolve:"resolve", suppress:"quiet hours",
+  notify_channel:"notify ops (Slack)", notify_supervisor:"escalate supervisor",
 };
 function esc(s){const d=document.createElement("div");d.textContent=s??"";return d.innerHTML;}
 function detailText(ev){
@@ -179,6 +182,7 @@ function renderIncident(inc, frames){
       ${isDistress?`<span class="badge b-distress">fall signature</span>`:`<span class="badge b-cue">cue: ${esc(inc.cue.kind)}</span>`}
       ${trackChips(inc.cue.detail||{})}
       <span class="inc-meta">household ${esc(inc.household_id)} · ${inc.events.length} events</span>
+      ${inc.cue.detail&&inc.cue.detail.fixture==="facility_notify_silence"?'<span class="badge b-facility">facility</span>':""}
     </div>
     ${banner}
     ${poseChips}
