@@ -51,3 +51,18 @@ def test_render_yaml_pins_demo_env_and_db():
     assert "CARE_LADDER_AUTH" in cfg and "on" in cfg
     assert "fromDatabase" in cfg
     assert "SESSION_SECRET" in cfg
+
+
+def test_pyproject_declares_psycopg_binary_driver():
+    """Dockerfile.saas does `pip install -e .`; Render Postgres needs this extra."""
+    text = Path("pyproject.toml").read_text(encoding="utf-8")
+    assert "psycopg[binary]" in text
+
+
+def test_render_postgres_url_loads_psycopg_dialect():
+    """SQLAlchemy 2.1 maps postgresql:// to dialect postgresql.psycopg."""
+    from care_ladder.db.base import create_engine_from_url
+
+    engine = create_engine_from_url("postgresql://u:p@127.0.0.1:5432/care")
+    assert engine.dialect.driver == "psycopg"
+    import psycopg  # noqa: F401 — the package create_engine imports
