@@ -1,0 +1,34 @@
+# Render blueprint: Care Ladder SaaS (Galuxium Nexus V2). Primary deploy
+# target per plan Task 10 - web service + managed Postgres, HTTPS included.
+# Deploy-day env (Stripe price IDs, webhook secret, Slack webhook) is set in
+# the Render dashboard; only non-secret env lives here.
+services:
+  - type: web
+    name: care-ladder-saas
+    runtime: docker
+    dockerfilePath: ./Dockerfile.saas
+    plan: starter
+    healthCheckPath: /demo/context
+    envVars:
+      - key: CARE_LADDER_ENV
+        value: demo
+      - key: CARE_LADDER_AUTH
+        value: "on"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: care-ladder-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SLACK_WEBHOOK_URL
+        sync: false
+      - key: STRIPE_PRICE_HOME
+        sync: false
+      - key: STRIPE_PRICE_FACILITY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+databases:
+  - name: care-ladder-db
+    plan: basic-256mb
