@@ -19,6 +19,7 @@ dependencies = [
   "pytest",
   "httpx2>=2.0.0",
   "sqlalchemy>=2",
+  "psycopg[binary]>=3",
   "alembic",
   "bcrypt",
   "itsdangerous",

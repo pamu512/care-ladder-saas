@@ -53,7 +53,7 @@ Local run:
 
 ```bash
 python -m venv .venv && . .venv/bin/activate
-uv pip install -e .
+uv pip install -e .                   # includes psycopg[binary] for Render Postgres
 uvicorn care_ladder.api.app:app --port 8000
 open http://localhost:8000/           # landing + demo logins
 ```
