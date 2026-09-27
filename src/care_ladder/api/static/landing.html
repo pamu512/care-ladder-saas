@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Care Ladder - Galuxium hosted care operations</title>
+<!--
+  Galuxium SaaS landing page (Task 9). Static, no external assets (offline
+  behind FastAPI StaticFiles). Copy rules live in the plan doc, not here -
+  keep claim-sensitive rule names out of served bytes (tests grep them).
+-->
+<style>
+  :root {
+    --bg: #10141c;
+    --bg-deep: #0b0f16;
+    --surface: #171d28;
+    --line: rgba(233,239,248,0.09);
+    --ink: #e9eff8;
+    --ink-60: rgba(233,239,248,0.62);
+    --ink-40: rgba(233,239,248,0.40);
+    --accent: #2dd4e8;
+    --accent-deep: #0e7490;
+    --sage: #34d399;
+    --warn: #fbbf24;
+    --radius: 14px;
+    --font: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, Menlo, monospace;
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.6 var(--font);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+
+  header.top {
+    display: flex; align-items: center; gap: 14px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .mark {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: linear-gradient(150deg, var(--accent), var(--sage));
+  }
+  .brand { font-weight: 700; letter-spacing: -0.01em; }
+  .brand small { display: block; font-weight: 400; font-size: 11.5px; color: var(--ink-40); }
+  .top-spacer { flex: 1; }
+  .top a { color: var(--ink-60); text-decoration: none; font-size: 14px; }
+  .top a:hover { color: var(--ink); }
+
+  .hero { padding: 64px 0 40px; max-width: 760px; }
+  .hero h1 { font-size: clamp(30px, 4.6vw, 46px); line-height: 1.12; letter-spacing: -0.02em; }
+  .hero h1 em { color: var(--accent); font-style: normal; }
+  .hero p.lede { margin-top: 18px; font-size: 18px; color: var(--ink-60); max-width: 58ch; }
+
+  section { padding: 34px 0; }
+  h2 { font-size: 22px; letter-spacing: -0.01em; margin-bottom: 16px; }
+  .sub { color: var(--ink-60); font-size: 14.5px; margin-bottom: 20px; max-width: 62ch; }
+
+  table.pricing { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .pricing th, .pricing td { padding: 16px 18px; text-align: left; border-bottom: 1px solid var(--line); font-size: 14.5px; vertical-align: top; }
+  .pricing th { color: var(--ink-60); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .pricing tr:last-child td { border-bottom: none; }
+  .tier { font-weight: 700; }
+  .price { font-family: var(--mono); font-size: 18px; color: var(--accent); white-space: nowrap; }
+  .price small { color: var(--ink-40); font-size: 11.5px; }
+  .tier-cap { color: var(--ink-60); font-size: 13px; margin-top: 4px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+  .card h3 { font-size: 15.5px; margin-bottom: 8px; }
+  .card p { color: var(--ink-60); font-size: 13.5px; }
+  .card .k { color: var(--accent); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+
+  /* demo login */
+  .demo-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .login-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+  .login-card h3 { font-size: 16px; margin-bottom: 4px; }
+  .login-card .hint { font-size: 12.5px; color: var(--ink-40); margin-bottom: 14px; font-family: var(--mono); }
+  .login-card label { display: block; font-size: 12.5px; color: var(--ink-60); margin: 10px 0 4px; }
+  .login-card input {
+    width: 100%; padding: 10px 12px; border-radius: 9px;
+    border: 1px solid var(--line); background: var(--bg-deep);
+    color: var(--ink); font: inherit; font-size: 14px;
+  }
+  .login-card input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .btn {
+    margin-top: 14px; width: 100%; min-height: 44px;
+    border: none; border-radius: 9px; cursor: pointer;
+    background: var(--accent-deep); color: #ffffff;
+    font: inherit; font-size: 14.5px; font-weight: 600;
+  }
+  .btn:hover { background: #12798f; }
+  .btn:disabled { opacity: 0.5; cursor: wait; }
+  .msg { margin-top: 10px; font-size: 13px; color: var(--warn); min-height: 18px; }
+  .msg.ok { color: var(--sage); }
+
+  .cta {
+    display: inline-block; margin-top: 8px; padding: 12px 22px;
+    border-radius: 10px; background: var(--accent-deep); color: #fff;
+    text-decoration: none; font-weight: 600; font-size: 14.5px;
+  }
+  .cta:hover { background: #12798f; }
+
+  footer {
+    margin-top: 40px; padding: 22px 0 34px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px; color: var(--ink-40);
+  }
+  footer p { margin-top: 6px; }
+  @media (max-width: 640px) { .hero { padding-top: 40px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="mark" aria-hidden="true"></div>
+    <div class="brand">Care Ladder<small>Galuxium hosted care operations</small></div>
+    <div class="top-spacer"></div>
+    <a href="/ui/">Open caregiver console</a>
+  </header>
+
+  <section class="hero">
+    <h1>Vision spots the moment; the ladder picks the next <em>human-safe</em> step with an operator in the loop.</h1>
+    <p class="lede">
+      Camera cues - stillness, a covered lens, a fall signature - start a
+      confirm-before-escalate ladder: voice check-in first, a wait window, then
+      the right human. Every step is timestamped in an audit trail your team can
+      defend. It is a wellness workflow, not a medical device, and it never
+      calls emergency services on its own.
+    </p>
+  </section>
+
+  <section>
+    <h2>Built for two kinds of households</h2>
+    <div class="cards">
+      <div class="card">
+        <div class="k">Home</div>
+        <h3>Family caregiver</h3>
+        <p>One camera, one monitored person, a short ladder that texts the
+        moment into a phone call you can actually take. Acknowledge closes the
+        loop from anywhere.</p>
+      </div>
+      <div class="card">
+        <div class="k">Facility - the wedge</div>
+        <h3>Lean ops teams</h3>
+        <p>Facility mode routes silence to a Slack supervisor row before any
+        phone rings - one queue, per-shift accountability, and a per-incident
+        trail auditors can read without a biologist.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Pricing</h2>
+    <p class="sub">Per-camera, per-household pricing. No per-seat tax on family members.</p>
+    <table class="pricing">
+      <thead>
+        <tr><th>Tier</th><th>Price</th><th>What you get</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="tier">Home</div><div class="tier-cap">Solo families</div></td>
+          <td class="price">$29<small>/mo</small></td>
+          <td>1 household · 1 camera · voice check-in ladder · caregiver notify · full audit trail</td>
+        </tr>
+        <tr>
+          <td><div class="tier">Facility Starter</div><div class="tier-cap">Small assisted-living</div></td>
+          <td class="price">$199<small>/mo</small></td>
+          <td>Up to 10 rooms · Slack supervisor queue · shift-aware acknowledge · per-incident audit export</td>
+        </tr>
+        <tr>
+          <td><div class="tier">Facility Growth</div><div class="tier-cap">Multi-unit operators</div></td>
+          <td class="price">$499<small>/mo</small></td>
+          <td>Unlimited rooms · multi-tenant admin · learning schedules with freeze controls · priority support</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Try the demo accounts</h2>
+    <p class="sub">
+      Two pre-seeded logins, one click each. Credentials are shown in the form -
+      this is a sandbox: stub notifications, reserved fictional phone numbers,
+      emergency dial fail-closed.
+    </p>
+    <div class="demo-panel">
+      <div class="login-card">
+        <h3>Home demo</h3>
+        <div class="hint">demo@careladder.local / demo-pass-home</div>
+        <form id="login-home">
+          <label for="email-home">Email</label>
+          <input id="email-home" name="email" type="email" value="demo@careladder.local" autocomplete="username">
+          <label for="password-home">Password</label>
+          <input id="password-home" name="password" type="password" value="demo-pass-home" autocomplete="current-password">
+          <button class="btn" type="submit">Sign in to Home demo</button>
+          <div class="msg" id="msg-home" role="status" aria-live="polite"></div>
+        </form>
+      </div>
+      <div class="login-card">
+        <h3>Facility demo</h3>
+        <div class="hint">facility@careladder.local / demo-pass-facility</div>
+        <form id="login-facility">
+          <label for="email-facility">Email</label>
+          <input id="email-facility" name="email" type="email" value="facility@careladder.local" autocomplete="username">
+          <label for="password-facility">Password</label>
+          <input id="password-facility" name="password" type="password" value="demo-pass-facility" autocomplete="current-password">
+          <button class="btn" type="submit">Sign in to Facility demo</button>
+          <div class="msg" id="msg-facility" role="status" aria-live="polite"></div>
+        </form>
+      </div>
+    </div>
+    <p style="margin-top:18px">
+      <a class="cta" href="/ui/">Open caregiver console</a>
+    </p>
+  </section>
+
+  <footer>
+    <p>Care Ladder is a wellness workflow, not a medical device: it does not
+    diagnose, does not score clinical risk, and does not contact emergency
+    services - the emergency rung ships disabled and stays behind a human gate.</p>
+    <p>Frames are processed as blur or silhouettes before anything is stored.
+    Reserved fictional phone numbers are used throughout demos.</p>
+    <p>Galuxium Nexus V2 submission · Care Ladder engine</p>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  async function wireLogin(formId, msgId) {
+    const form = document.getElementById(formId);
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const btn = form.querySelector('button');
+      const msg = document.getElementById(msgId);
+      btn.disabled = true;
+      msg.textContent = '';
+      msg.classList.remove('ok');
+      try {
+        const r = await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            email: form.email.value.trim(),
+            password: form.password.value,
+          }),
+        });
+        if (r.ok) {
+          msg.textContent = 'Signed in - opening console...';
+          msg.classList.add('ok');
+          window.location.href = '/ui/';
+          return;
+        }
+        const body = await r.json().catch(() => ({}));
+        msg.textContent = body.detail || ('Login failed (' + r.status + ')');
+      } catch (e) {
+        msg.textContent = 'Login failed: ' + e.message;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+  wireLogin('login-home', 'msg-home');
+  wireLogin('login-facility', 'msg-facility');
+})();
+</script>
+</body>
+</html>

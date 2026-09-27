@@ -356,6 +356,14 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
     static_dir = Path(__file__).resolve().parent / "static"
     application.mount("/ui", StaticFiles(directory=static_dir, html=True), name="ui")
 
+    # Landing page (Task 9): GET / serves the SaaS landing (pricing + demo
+    # login); the caregiver console stays at /ui/.
+    from fastapi.responses import FileResponse
+
+    @application.get("/", include_in_schema=False)
+    def landing() -> FileResponse:
+        return FileResponse(static_dir / "landing.html")
+
     # ---- SaaS auth (Task 2) -------------------------------------------------
     # CARE_LADDER_AUTH=on requires a session on /demo/* and /incidents*;
     # unauthenticated = 401 (no shared anonymous tenant). AUTH off (default)
