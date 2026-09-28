@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Care Ladder · Facility floor console</title>
+<style>
+  :root{
+    --bg:#0b0f14;--card:#121820;--card2:#0e141b;--border:#1f2a36;--text:#e8eef4;--muted:#8b9bab;
+    --accent:#4f9cf9;--accent-ink:#0b0f14;--ok:#34c98e;--warn:#f5b544;--p1:#f4574d;--p2:#f5a044;--p3:#5b8def;
+    --radius:12px;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--text)}
+  header{position:sticky;top:0;z-index:5;background:rgba(11,15,20,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+  .hwrap{max-width:1280px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .logo{display:flex;gap:10px;align-items:center;margin-right:auto}
+  .logo-mark{width:34px;height:34px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center}
+  .logo h1{font-size:16px} .logo .env{color:var(--muted);font-size:12px}
+  .clock{color:var(--muted);font-variant-numeric:tabular-nums}
+  .btn{background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:9px;cursor:pointer;font-size:13px}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+  .btn.subtle{font-size:12px;padding:5px 10px}
+  nav.tabs{display:flex;gap:6px;padding:0 20px;max-width:1280px;margin:0 auto}
+  .tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:10px 14px;cursor:pointer;font-size:14px;display:flex;gap:8px;align-items:center}
+  .tab[aria-selected="true"]{color:var(--text);border-bottom-color:var(--accent)}
+  .tab .count{background:var(--card);border:1px solid var(--border);border-radius:999px;font-size:11px;padding:1px 8px;color:var(--text)}
+  .tab .count.p1{border-color:var(--p1);color:var(--p1)}
+  main{max-width:1280px;margin:0 auto;padding:20px;display:grid;gap:16px}
+  section[hidden]{display:none}
+  .banner{background:linear-gradient(90deg,#122131,#101826);border:1px solid #23405c;border-radius:var(--radius);padding:12px 16px;color:#bcd8f2;font-size:13px}
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+  .card h3{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em}
+  .alert{background:var(--card);border:1px solid var(--border);border-left-width:4px;border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;cursor:pointer}
+  .alert:hover{border-color:var(--accent)}
+  .alert.P1{border-left-color:var(--p1)} .alert.P2{border-left-color:var(--p2)} .alert.P3{border-left-color:var(--p3)}
+  .alert .row1{display:flex;gap:10px;align-items:center}
+  .pri{font-weight:700;font-size:12px;padding:2px 8px;border-radius:6px;background:var(--card2);border:1px solid var(--border)}
+  .pri.P1{color:var(--p1)} .pri.P2{color:var(--p2)} .pri.P3{color:var(--p3)}
+  .chip{font-size:11px;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:1px 8px}
+  .muted{color:var(--muted)} .small{font-size:12px}
+  .detail{position:sticky;top:120px}
+  .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .kpi .n{font-size:24px;font-weight:700} .kpi .l{color:var(--muted);font-size:12px}
+  .bars{display:grid;gap:8px;margin-top:6px}
+  .bar{display:grid;grid-template-columns:130px 1fr 34px;gap:10px;align-items:center;font-size:13px}
+  .bar .track{height:8px;background:var(--card2);border-radius:4px;overflow:hidden}
+  .bar .fill{height:100%;background:var(--accent)}
+  .staff{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+  .staff:last-child{border-bottom:none}
+  .avatar{width:30px;height:30px;border-radius:50%;background:var(--card2);border:1px solid var(--border);display:grid;place-items:center;font-size:11px;color:var(--muted)}
+  .status{font-size:11px;padding:1px 8px;border-radius:999px;border:1px solid var(--border)}
+  .status.available{color:var(--ok)} .status.on_break{color:var(--warn)} .status.on_case{color:var(--accent)}
+  select,.btn.mini{font-size:12px}
+  select{background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:4px 8px}
+  textarea{width:100%;min-height:70px;background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit}
+  footer{max-width:1280px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);font-size:12px}
+  .demo-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+  @media (max-width:1020px){ .grid{grid-template-columns:1fr} .detail{position:static} .kpi{grid-template-columns:repeat(2,1fr)} }
+</style>
+</head>
+<body>
+<header>
+  <div class="hwrap">
+    <div class="logo">
+      <div class="logo-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 4h12M4 9h7M4 14h12M4 19h7"/></svg>
+      </div>
+      <div><h1>Care Ladder</h1><div class="env">Floor console · <span id="tenant-label">facility</span></div></div>
+    </div>
+    <div class="clock" id="clock"></div>
+    <a class="btn subtle" href="/ui/">Caregiver console</a>
+    <button class="btn subtle" id="logout">Sign out</button>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Console sections">
+    <button class="tab" role="tab" id="tab-alerts" aria-selected="true" data-tab="alerts">Alert center <span class="count" id="count-alerts">0</span></button>
+    <button class="tab" role="tab" id="tab-cases" aria-selected="false" data-tab="cases">Cases <span class="count" id="count-cases">0</span></button>
+    <button class="tab" role="tab" id="tab-audit" aria-selected="false" data-tab="audit">Audit</button>
+  </nav>
+</header>
+<main>
+  <div class="demo-actions">
+    <button class="btn" data-fixture="facility_negative_reply">Demo · negative reply (P1)</button>
+    <button class="btn" data-fixture="facility_positive_reply">Demo · resident answers OK</button>
+    <button class="btn" data-fixture="facility_notify_silence">Demo · silence escalation</button>
+  </div>
+  <div class="banner" id="reply-banner" hidden></div>
+
+  <section id="sec-alerts" role="tabpanel" aria-labelledby="tab-alerts">
+    <div class="grid">
+      <div>
+        <div id="alert-queue"></div>
+        <div class="card">
+          <h3>Resolved by resident response</h3>
+          <div id="resident-resolved" class="muted small">None yet today.</div>
+        </div>
+      </div>
+      <div class="card detail" id="alert-detail">
+        <h3>Detail</h3>
+        <p class="muted small">Select an alert to see the reply, ladder, and actions.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="sec-cases" role="tabpanel" aria-labelledby="tab-cases" hidden>
+    <div class="grid">
+      <div>
+        <div class="card" style="margin-bottom:16px"><h3>Open cases</h3><div id="open-cases"></div></div>
+        <div class="card"><h3>Closed today</h3><div id="closed-cases" class="muted small">None yet.</div></div>
+      </div>
+      <div class="card detail">
+        <h3>Shift capacity</h3>
+        <div id="staff-roster"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="sec-audit" role="tabpanel" aria-labelledby="tab-audit" hidden>
+    <div class="card">
+      <h3>Today</h3>
+      <div class="kpi" id="kpi"></div>
+      <h3 style="margin-top:18px">Outcome mix</h3>
+      <div class="bars" id="outcome-bars"></div>
+      <p class="muted small" style="margin-top:14px" id="overrides-line"></p>
+    </div>
+  </section>
+</main>
+<footer>
+  Care Ladder is not a medical device. Telephony is stubbed in this demo; video is blurred before persistence.
+  <a href="/" style="color:var(--muted)">Landing</a>
+</footer>
+<script>
+"use strict";
+const $ = (s,el)=> (el||document).querySelector(s);
+const state = { alerts:[], resident:[], cases:{open:[],closed_today:[]}, staff:[], selected:null };
+
+async function api(path, opts){
+  const r = await fetch(path, Object.assign({headers:{"Content-Type":"application/json"}}, opts));
+  if (r.status === 401){ location.href = "/ui/"; throw new Error("auth"); }
+  return r;
+}
+async function japi(path, opts){ const r = await api(path, opts); return {status:r.status, body: await r.json().catch(()=>({}))}; }
+
+function tick(){ const n = new Date(); $("#clock").textContent = n.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}); }
+setInterval(tick, 30000); tick();
+
+document.querySelectorAll(".tab").forEach(t=> t.addEventListener("click", ()=>{
+  document.querySelectorAll(".tab").forEach(x=> x.setAttribute("aria-selected", String(x===t)));
+  document.querySelectorAll("main section").forEach(s=> s.hidden = s.id !== "sec-"+t.dataset.tab);
+}));
+
+async function refresh(){
+  const [al, cs, st] = await Promise.all([japi("/facility/alerts"), japi("/facility/cases"), japi("/facility/staff")]);
+  if (al.status===200){ state.alerts = al.body.queue||[]; state.resident = al.body.resident_resolved||[];
+    $("#count-alerts").textContent = String(state.alerts.length);
+    $("#count-alerts").className = "count" + (state.alerts.some(a=>a.priority==="P1") ? " p1" : "");
+    renderAlerts(); renderResolved();
+  }
+  if (cs.status===200){ state.cases = cs.body; $("#count-cases").textContent = String((cs.body.open||[]).length); renderCases(); }
+  if (st.status===200){ state.staff = st.body.staff||[]; renderRoster(); }
+  if (state.selected) loadDetail(state.selected);
+}
+
+function renderAlerts(){
+  const el = $("#alert-queue");
+  if (!state.alerts.length){ el.innerHTML = '<div class="card muted">No open alerts. Run a demo scenario above.</div>'; return; }
+  el.innerHTML = state.alerts.map(a=>`
+    <div class="alert ${a.priority}" data-incident="${a.incident_id}">
+      <div class="row1">
+        <span class="pri ${a.priority}">${a.priority}</span>
+        <strong>${a.title}</strong>
+        <span class="muted small">room ${a.room_label}</span>
+        <span style="margin-left:auto" class="muted small">${a.case.human_id}</span>
+      </div>
+      <div class="row1" style="margin-top:6px">${(a.chips||[]).map(c=>`<span class="chip">${c}</span>`).join("")}</div>
+    </div>`).join("");
+  el.querySelectorAll(".alert").forEach(x=> x.addEventListener("click", ()=> loadDetail(x.dataset.incident)));
+}
+
+function renderResolved(){
+  const el = $("#resident-resolved");
+  el.innerHTML = state.resident.length
+    ? state.resident.map(r=>`<div class="staff"><span class="chip">positive</span> room ${r.room_label||"204"} <span class="muted small">resident answered OK; no case opened</span></div>`).join("")
+    : "None yet today.";
+}
+
+async function loadDetail(incidentId){
+  state.selected = incidentId;
+  const {body} = await japi(`/facility/alerts/${incidentId}`);
+  const d = $("#alert-detail");
+  const c = body.case||{};
+  const rungs = (body.rungs||[]).join(" → ");
+  d.innerHTML = `
+    <h3>${c.human_id||"Alert"} · room ${c.room_label||"-"}</h3>
+    <p class="small" style="margin-bottom:6px">Reply: <strong>${body.reply_class||"silence"}</strong></p>
+    <p class="muted small" style="margin-bottom:10px">${rungs||"ladder pending"}</p>
+    <div class="row1" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      ${["P1","P2","P3"].map(p=>`<button class="btn subtle" data-pri="${p}">${p}</button>`).join("")}
+    </div>
+    <label class="muted small">Assign</label>
+    <div style="display:flex;gap:8px;margin:6px 0 12px">
+      <select id="assign-select">${(body.assign_candidates||[]).map(s=>`<option value="${s.id}" ${s.assignable?"":"disabled"}>${s.initials} ${s.display_name} (${s.status})</option>`).join("")}</select>
+      <button class="btn subtle" id="assign-btn">Assign</button>
+    </div>
+    <label class="muted small" style="display:flex;gap:6px;align-items:center">
+      <input type="checkbox" id="pull_off_break"> pull off break (logged override)
+    </label>
+    <a class="btn subtle" style="display:inline-block;margin-top:10px" href="${c.slack_thread_url||"#"}" target="_blank" rel="noopener">Open chat thread (stub)</a>`;
+  d.querySelectorAll("[data-pri]").forEach(b=> b.addEventListener("click", ()=> japi(`/facility/alerts/${incidentId}/priority`, {method:"POST", body:JSON.stringify({priority:b.dataset.pri})}).then(refresh)));
+  $("#assign-btn").addEventListener("click", ()=>{
+    const staff_id = $("#assign-select").value;
+    const pull_off_break = $("#pull_off_break").checked;
+    japi(`/facility/alerts/${incidentId}/assign`, {method:"POST", body:JSON.stringify({staff_id, pull_off_break})}).then(refresh);
+  });
+}
+
+function renderCases(){
+  const open = $("#open-cases");
+  open.innerHTML = (state.cases.open||[]).length ? state.cases.open.map(c=>`
+    <div class="staff" style="align-items:flex-start">
+      <span class="pri ${c.priority}">${c.priority}</span>
+      <div style="flex:1">
+        <div><strong>${c.human_id}</strong> · ${c.title} <span class="muted small">room ${c.room_label}</span></div>
+        <div class="muted small">state ${c.state} · SLA ack 120s / handling 900s · owner ${c.owner_staff_id?("staff "+c.owner_staff_id.split("-").pop()):"unassigned"}</div>
+        ${c.state!=="closed"?`
+        <textarea class="small" style="margin-top:8px" data-doc="${c.id}" placeholder="Closing documentation (required, min 20 chars)"></textarea>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button class="btn subtle" data-ack="${c.id}">Acknowledge</button>
+          <button class="btn subtle" data-close="${c.id}">Close with docs</button>
+        </div>`:""}
+      </div>
+    </div>`).join("") : '<p class="muted small">No open cases.</p>';
+  const closed = $("#closed-cases");
+  closed.innerHTML = (state.cases.closed_today||[]).length ? state.cases.closed_today.map(c=>`
+    <div class="staff"><span class="pri ${c.priority}">${c.priority}</span>
+      <div style="flex:1"><div><strong>${c.human_id}</strong> · ${c.title}</div>
+      <div class="muted small">${c.documentation||""}</div></div></div>`).join("") : "None yet.";
+  open.querySelectorAll("[data-ack]").forEach(b=> b.addEventListener("click", ()=> japi(`/facility/cases/${b.dataset.ack}/ack`, {method:"POST", body:"{}"}).then(refresh)));
+  open.querySelectorAll("[data-close]").forEach(b=> b.addEventListener("click", ()=>{
+    const doc = open.querySelector(`[data-doc="${b.dataset.close}"]`).value;
+    japi(`/facility/cases/${b.dataset.close}/close`, {method:"POST", body:JSON.stringify({documentation:doc})}).then(refresh);
+  }));
+}
+
+function renderRoster(){
+  $("#staff-roster").innerHTML = state.staff.map(s=>`
+    <div class="staff">
+      <div class="avatar">${s.initials}</div>
+      <div style="flex:1"><div>${s.display_name} <span class="muted small">${s.role}</span></div></div>
+      <span class="status ${s.status}">${s.status.replace("_"," ")}</span>
+      <button class="btn subtle" data-break="${s.id}" data-to="${s.status==="on_break"?"off":"on"}">${s.status==="on_break"?"End break":"Break 15m"}</button>
+    </div>`).join("");
+  $("#staff-roster").querySelectorAll("[data-break]").forEach(b=> b.addEventListener("click", ()=>{
+    const on = b.dataset.to === "on";
+    japi(`/facility/staff/${b.dataset.break}/break`, {method:"POST", body:JSON.stringify({on_break:on, minutes:15})}).then(refresh);
+  }));
+}
+
+async function renderAudit(){
+  const {body} = await japi("/facility/audit/summary");
+  const k = $("#kpi");
+  const kpis = [["Open cases",body.cases_open],["Closed today",body.cases_closed_today],["Resident-resolved",body.resident_resolved_today],["Overrides",body.overrides_today]];
+  k.innerHTML = kpis.map(([l,n])=>`<div><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+  const out = body.outcomes||{};
+  const total = Object.values(out).reduce((a,b)=>a+b,0)||1;
+  $("#outcome-bars").innerHTML = Object.entries(out).map(([k2,v])=>`
+    <div class="bar"><span>${k2}</span><div class="track"><div class="fill" style="width:${Math.round(100*v/total)}%"></div></div><span class="muted">${v}</span></div>`).join("") || '<p class="muted small">No cases yet today.</p>';
+  $("#overrides-line").textContent = `${body.overrides_today||0} logged override(s) today (priority changes, pull-off-break).`;
+}
+
+document.querySelectorAll("[data-tab]").forEach(t=> t.addEventListener("click", ()=>{ if(t.dataset.tab==="audit") renderAudit(); }));
+
+document.querySelectorAll("[data-fixture]").forEach(b=> b.addEventListener("click", async ()=>{
+  b.disabled = true;
+  const {status, body} = await japi("/demo/run", {method:"POST", body:JSON.stringify({fixture:b.dataset.fixture})});
+  b.disabled = false;
+  const banner = $("#reply-banner");
+  if (status===200){
+    banner.hidden = false;
+    banner.textContent = b.dataset.fixture==="facility_positive_reply"
+      ? "Resident answered OK. Incident resolved by resident response; no case opened."
+      : b.dataset.fixture==="facility_negative_reply"
+        ? "Resident answered negative. Priority P1, wait rungs skipped, case opened."
+        : "Check-in silence. Ladder paging supervisors per plan.";
+  } else {
+    banner.hidden = false;
+    banner.textContent = (body&&body.detail)||"Fixture failed.";
+  }
+  refresh();
+}));
+
+$("#logout").addEventListener("click", async ()=>{ await api("/auth/logout", {method:"POST"}); location.href="/ui/"; });
+
+(async()=>{
+  const me = await japi("/auth/me").catch(()=>({status:401}));
+  if (me.status===200 && me.body.tenant){ $("#tenant-label").textContent = `${me.body.tenant.id} · ${me.body.tenant.plan}`; }
+  refresh();
+})();
+</script>
+</body>
+</html>
