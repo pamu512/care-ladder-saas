@@ -28,17 +28,21 @@ def create_checkout_url(plan: str, tenant_id: str, base_url: str = "") -> str:
         raise BillingError("billing not configured")  # caller maps to 503
     import stripe
 
+    stripe.api_key = key
     price_env = {"home": "STRIPE_PRICE_HOME", "facility_starter": "STRIPE_PRICE_FACILITY"}.get(plan)
     price_id = os.environ.get(price_env, "") if price_env else ""
     if not price_id:
         raise BillingError(f"no price configured for plan {plan}")
-    session = stripe.checkout.Session.create(
-        mode="subscription",
-        line_items=[{"price": price_id, "quantity": 1}],
-        success_url=f"{base_url}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=f"{base_url}/billing/cancel",
-        metadata={"tenant_id": tenant_id, "plan": plan},
-    )
+    try:
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            line_items=[{"price": price_id, "quantity": 1}],
+            success_url=f"{base_url}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{base_url}/billing/cancel",
+            metadata={"tenant_id": tenant_id, "plan": plan},
+        )
+    except stripe.StripeError as exc:
+        raise BillingError(str(exc)) from exc
     return session.url
 
 

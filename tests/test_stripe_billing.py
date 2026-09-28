@@ -43,6 +43,43 @@ def test_checkout_503_when_no_key_in_prod(monkeypatch):
     assert "stub" not in r.text
 
 
+def test_checkout_sets_stripe_api_key_before_session_create(monkeypatch):
+    """Live 500: key was read from env but never assigned to stripe.api_key."""
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_abc123")
+    monkeypatch.setenv("STRIPE_PRICE_HOME", "price_home_1")
+    import stripe
+    from care_ladder.billing.stripe_checkout import create_checkout_url
+
+    monkeypatch.setattr(stripe, "api_key", None)
+    captured: dict[str, str | None] = {}
+
+    class FakeSession:
+        url = "https://checkout.stripe.com/c/pay/cs_test"
+
+    def fake_create(**_kwargs):
+        captured["api_key"] = stripe.api_key
+        return FakeSession()
+
+    monkeypatch.setattr(stripe.checkout.Session, "create", fake_create)
+    url = create_checkout_url("home", "demo-facility")
+    assert captured["api_key"] == "sk_test_abc123"
+    assert url == FakeSession.url
+
+
+def test_checkout_maps_stripe_errors_to_503(monkeypatch):
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_bad")
+    monkeypatch.setenv("STRIPE_PRICE_FACILITY", "price_fac_1")
+    import stripe
+
+    def boom(**_kwargs):
+        raise stripe.AuthenticationError("Invalid API Key provided")
+
+    monkeypatch.setattr(stripe.checkout.Session, "create", boom)
+    client = TestClient(create_app(store=AuditStore()))
+    r = client.post("/billing/checkout", json={"plan": "facility_starter"})
+    assert r.status_code == 503, "Stripe auth/API errors must not leak as raw 500"
+
+
 # ---------- webhook (fail-closed: C2) ----------
 
 def test_webhook_rejects_unsigned_when_no_secret_prod(monkeypatch):
