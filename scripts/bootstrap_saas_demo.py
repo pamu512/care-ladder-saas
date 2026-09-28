@@ -72,7 +72,8 @@ def _seed_facility_staff(session) -> None:
     from care_ladder.api.app import _demo_roster_specs
 
     for spec in _demo_roster_specs("demo-facility"):
-        if session.get(StaffRow, spec["id"]) is None:
+        row = session.get(StaffRow, spec["id"])
+        if row is None:
             session.add(
                 StaffRow(
                     id=spec["id"], tenant_id="demo-facility",
@@ -81,6 +82,11 @@ def _seed_facility_staff(session) -> None:
                 )
             )
             print(f"bootstrap: seeded staff {spec['display_name']} ({spec['status']})")
+        elif row.status != spec["status"] and row.active_case_id is None:
+            # Realign drifted demo rows to the spec (same precedent as tenants),
+            # but never yank a staff member mid-case.
+            row.status = spec["status"]
+            print(f"bootstrap: realigned staff {spec['display_name']} -> {spec['status']}")
 
 
 def bootstrap(database_url: str | None = None) -> None:
