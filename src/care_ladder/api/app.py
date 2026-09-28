@@ -55,31 +55,69 @@ DEMO_NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
 _FACILITY_STATES: dict[str, "FacilityState"] = {}
 
 
-def _facility_state(tenant_id: str) -> "FacilityState":
+def _facility_state(tenant_id: str, session_factory=None) -> "FacilityState":
+    """Facility console state.
+
+    Postgres-backed persistence when a session factory exists (DATABASE_URL):
+    cases + staff survive restarts through FacilityRepository. Falls back to
+    the process-local demo state otherwise (auth-off local demos).
+    """
+    from care_ladder.db.models import StaffRow
     from care_ladder.facility.models import StaffMember
     from care_ladder.facility.service import FacilityState
 
     state = _FACILITY_STATES.get(tenant_id)
     if state is None:
         state = FacilityState()
-        if tenant_id == "demo-facility":
-            state.seed_staff(
-                [
-                    StaffMember(id="demo-facility-maria", tenant_id=tenant_id, display_name="Maria G.", role="RN", initials="MG"),
-                    StaffMember(id="demo-facility-alex", tenant_id=tenant_id, display_name="Alex R.", role="CNA", initials="AR", status="on_break"),
-                    StaffMember(id="demo-facility-jamie", tenant_id=tenant_id, display_name="Jamie D.", role="CNA", initials="JD"),
-                    StaffMember(id="demo-facility-lead", tenant_id=tenant_id, display_name="Floor Lead", role="Lead", initials="FL"),
-                ]
-            )
+        if session_factory is not None:
+            state.session_factory = session_factory
+            with session_factory() as session:
+                from care_ladder.facility.repository import FacilityRepository
+
+                repo = FacilityRepository(session, tenant_id)
+                roster = repo.list_staff()
+                if not roster:  # fresh DB: seed the demo roster rows
+                    seeds = _demo_roster_specs(tenant_id)
+                    from datetime import timedelta
+
+                    for spec in seeds:
+                        session.add(
+                            StaffRow(
+                                id=spec["id"], tenant_id=tenant_id,
+                                display_name=spec["display_name"], role=spec["role"],
+                                initials=spec["initials"], status=spec["status"],
+                            )
+                        )
+                    session.commit()
+                    roster = repo.list_staff()
+                for m in roster:
+                    state.staff[m.id] = m
+                for c in repo.list_cases():
+                    state.cases[c.id] = c
+        elif tenant_id == "demo-facility":
+            for spec in _demo_roster_specs(tenant_id):
+                state.staff[spec["id"]] = StaffMember(
+                    id=spec["id"], tenant_id=tenant_id, display_name=spec["display_name"],
+                    role=spec["role"], initials=spec["initials"], status=spec["status"],
+                )
         _FACILITY_STATES[tenant_id] = state
     return state
 
 
-def _facility_after_incident(tenant_id: str, incident, fixture: str) -> None:
+def _demo_roster_specs(tenant_id: str) -> list[dict[str, str]]:
+    return [
+        {"id": "demo-facility-maria", "display_name": "Maria G.", "role": "RN", "initials": "MG", "status": "available"},
+        {"id": "demo-facility-alex", "display_name": "Alex R.", "role": "CNA", "initials": "AR", "status": "on_break"},
+        {"id": "demo-facility-jamie", "display_name": "Jamie D.", "role": "CNA", "initials": "JD", "status": "available"},
+        {"id": "demo-facility-lead", "display_name": "Floor Lead", "role": "Lead", "initials": "FL", "status": "available"},
+    ]
+
+
+def _facility_after_incident(tenant_id: str, incident, fixture: str, session_factory=None) -> None:
     """Mockup H: open cases / record resident-resolved after a facility fixture."""
     from care_ladder.facility.models import Case, Priority
 
-    state = _facility_state(tenant_id)
+    state = _facility_state(tenant_id, session_factory)
     if fixture == "facility_positive_reply":
         state.resident_resolved.append(
             {
@@ -536,8 +574,13 @@ def _demo_hash(email: str) -> str:
     return _DEMO_HASHES[email]
 
 
-def create_app(store: AuditStore | None = None) -> FastAPI:
-    """Build FastAPI app with injectable store (tests inject a fresh memory store)."""
+def create_app(store: AuditStore | None = None, pg_session_factory=None) -> FastAPI:
+    """Build FastAPI app with injectable store (tests inject a fresh memory store).
+
+    ``pg_session_factory`` lets tests inject a shared Postgres/sqlite session
+    factory (the production path derives it from DATABASE_URL when no store
+    is injected).
+    """
     audit = store if store is not None else _default_store()
     application = FastAPI(
         title="Care Ladder",
@@ -548,7 +591,8 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
     # Only when the caller did not inject a store: Render/prod uses DATABASE_URL
     # so per-tenant PostgresAuditStore instances share one DB across workers.
     application.state.pg_session_factory = (
-        None if store is not None else _session_factory_from_env()
+        pg_session_factory if pg_session_factory is not None
+        else (None if store is not None else _session_factory_from_env())
     )
 
     static_dir = Path(__file__).resolve().parent / "static"
@@ -1082,7 +1126,10 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             if record is not None and record.get("mode") == "facility":
                 record_tenant = record.get("tenant_id")
                 tenant_id = record_tenant or (session.tenant_id if (session := _require_session(request)) else "demo-facility")
-                _facility_after_incident(tenant_id, incident, body.fixture)
+                _facility_after_incident(
+                    tenant_id, incident, body.fixture,
+                    session_factory=getattr(request.app.state, "pg_session_factory", None),
+                )
         return DemoRunResponse(incident_id=incident.id)
 
     # ---- facility console API (Mockup H) ------------------------------------
@@ -1096,7 +1143,7 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
         if record is not None and record.get("mode") != "facility":
             raise HTTPException(status_code=403, detail="facility console requires a facility tenant")
         tenant_id = session.tenant_id if session is not None else "demo-facility"
-        state = _facility_state(tenant_id)
+        state = _facility_state(tenant_id, getattr(request.app.state, "pg_session_factory", None))
         store = _tenant_store(request) if _auth_on() else store_for(None)
         return tenant_id, state, store
 
@@ -1113,6 +1160,27 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
     @application.get("/facility/alerts")
     def facility_alerts(request: Request):
         tenant_id, state, store = _facility_ctx(request)
+        # Resident-resolved derives from persisted incidents (survives restarts):
+        # positive reply fixtures resolve with reply_class positive in the event detail.
+        try:
+            resolved_incidents = [
+                i for i in store.list_incidents()
+                if i.status == "resolved"
+                and any(
+                    e.tool == "speaker_prompt" and e.detail.get("reply_class") == "positive"
+                    for e in i.events
+                )
+            ]
+            state.resident_resolved = [
+                {
+                    "incident_id": i.id,
+                    "room_label": "204",
+                    "reply_class": "positive",
+                }
+                for i in resolved_incidents
+            ]
+        except Exception:
+            pass
         queue = []
         for c in sorted(
             [c for c in state.cases.values() if c.state != "closed"],

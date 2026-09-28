@@ -67,6 +67,15 @@ class FacilityRepository:
         self.session.commit()
         return m
 
+    def save_staff(self, member: StaffMember) -> None:
+        row = self.session.get(StaffRow, member.id)
+        if row is None or row.tenant_id != self.tenant_id:
+            return
+        row.status = member.status
+        row.break_until = member.break_until
+        row.active_case_id = member.active_case_id
+        self.session.commit()
+
     def assign_case(self, staff_id: str, case_id: str) -> None:
         row = self.session.get(StaffRow, staff_id)
         if row is None or row.tenant_id != self.tenant_id:

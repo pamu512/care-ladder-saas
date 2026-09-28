@@ -19,12 +19,39 @@ def _now() -> datetime:
 
 @dataclass
 class FacilityState:
-    """Process-local demo state for the facility console (per tenant)."""
+    """Facility console state (per tenant).
+
+    In-memory caches for the console; when ``session_factory`` is attached
+    (DATABASE_URL configured) every mutation write-throughs to Postgres via
+    FacilityRepository so cases/staff/breaks survive restarts.
+    """
 
     cases: dict[str, Case] = field(default_factory=dict)
     staff: dict[str, StaffMember] = field(default_factory=dict)
     overrides: list[dict[str, Any]] = field(default_factory=list)
     resident_resolved: list[dict[str, Any]] = field(default_factory=list)
+    session_factory: Any = None
+
+    def _repo(self, session):
+        from care_ladder.facility.repository import FacilityRepository
+
+        tenant_id = next(iter(self.staff.values())).tenant_id if self.staff else "demo-facility"
+        return FacilityRepository(session, tenant_id)
+
+    def _persist(self) -> None:
+        if self.session_factory is None:
+            return
+        from care_ladder.db.models import CaseRow
+
+        with self.session_factory() as session:
+            repo = self._repo(session)
+            for c in self.cases.values():
+                if session.get(CaseRow, c.id) is None:
+                    repo.open_case(c)
+                else:
+                    repo.save(c)
+            for m in self.staff.values():
+                repo.save_staff(m)
 
     # -- staff -----------------------------------------------------------
 
@@ -43,6 +70,7 @@ class FacilityState:
             m.go_on_break(minutes=minutes)
         else:
             m.come_off_break()
+        self._persist()
         return m
 
     def assign(self, case_id: str, staff_id: str, *, pull_off_break: bool = False) -> tuple[Case, StaffMember] | None:
@@ -59,6 +87,7 @@ class FacilityState:
             member.status = "on_case"
         member.active_case_id = case_id
         case.owner_staff_id = staff_id
+        self._persist()
         return case, member
 
     def log_override(self, action: str, case_id: str, staff_id: str | None = None) -> None:
@@ -70,6 +99,7 @@ class FacilityState:
 
     def open_case(self, case: Case) -> Case:
         self.cases[case.id] = case
+        self._persist()
         return case
 
     def ack_case(self, case_id: str) -> Case | None:
@@ -80,6 +110,7 @@ class FacilityState:
             c.ack_at = _now()
         if c.state == "paged":
             c.state = "handling"
+        self._persist()
         return c
 
     def close_case(self, case_id: str, documentation: str) -> Case | None:
@@ -90,6 +121,7 @@ class FacilityState:
         if owner is not None:
             owner.status = "available"
             owner.active_case_id = None
+        self._persist()
         return c
 
     # -- audit -----------------------------------------------------------
