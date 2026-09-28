@@ -58,15 +58,15 @@ def validate_demo_phones(plan: CarePlan) -> None:
             )
 
 
-_FACILITY_TOOLS = frozenset({"notify_channel", "notify_supervisor"})
+_FACILITY_TOOLS = frozenset({"notify_channel", "notify_supervisor", "notify_and_await_ack"})
 
 
 def validate_mode_coherence(plan: CarePlan) -> None:
     """Facility/home mode must be coherent with the plan's rungs and blocks.
 
-    - facility rungs (notify_channel / notify_supervisor) require mode=facility
-      and a supervisor + notifications block
-    - mode=facility with notify rungs but notifications disabled is invalid
+    - facility rungs (notify_channel / notify_supervisor / notify_and_await_ack)
+      require mode=facility and a supervisor + notifications block
+    - facility rungs require at least one enabled notifications channel
       (a notify rung that can never deliver is a silent stub)
     - home plans must not carry facility rungs
     """
@@ -81,10 +81,11 @@ def validate_mode_coherence(plan: CarePlan) -> None:
     if plan.mode == "facility" and has_facility_rungs:
         if plan.supervisor is None:
             raise ValueError("facility notify rungs require a supervisor contact")
-        if plan.notifications is None or not plan.notifications.slack.enabled:
+        if plan.notifications is None or not plan.notifications.enabled_channels():
             raise ValueError(
-                "facility notify rungs require notifications.slack.enabled: true "
-                "(a notify rung that cannot deliver is a silent stub)"
+                "facility notify rungs require at least one enabled notifications "
+                "channel (slack/teams/whatsapp/telegram); a notify rung that "
+                "cannot deliver is a silent stub"
             )
 
 

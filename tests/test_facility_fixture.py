@@ -39,12 +39,15 @@ def test_facility_fixture_runs_notify_ladder():
     assert r.status_code == 200
     inc = client.get(f"/incidents/{r.json()['incident_id']}").json()
     tools = [e["tool"] for e in inc["events"]]
-    assert "notify_channel" in tools
+    # ack rung pages ops; the fixture's default bounded wait times out instantly
+    # and the ladder escalates onward (supervisor page + dial).
+    assert "notify_and_await_ack" in tools
+    assert "ack_timeout" in tools
     assert "notify_supervisor" in tools
     assert "dial_contact" in tools
     assert inc["status"] in ("resolved", "exhausted")
-    # adapter honesty: stub or slack recorded in the audit trail
-    notify_ev = next(e for e in inc["events"] if e["tool"] == "notify_channel")
+    # adapter honesty: stub or channel adapter recorded in the audit trail
+    notify_ev = next(e for e in inc["events"] if e["tool"] == "notify_and_await_ack")
     assert notify_ev["detail"]["adapter"] in ("stub", "slack")
     # no emergency tool ever ran
     assert "emergency" not in tools
