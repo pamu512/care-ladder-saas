@@ -87,6 +87,7 @@
     <button class="btn" data-fixture="facility_notify_silence">Demo · silence escalation</button>
   </div>
   <div class="banner" id="reply-banner" hidden></div>
+  <div class="banner" id="quiet-chip" hidden style="border-color:var(--border)"></div>
 
   <section id="sec-alerts" role="tabpanel" aria-labelledby="tab-alerts">
     <div class="grid">
@@ -124,6 +125,7 @@
       <h3 style="margin-top:18px">Outcome mix</h3>
       <div class="bars" id="outcome-bars"></div>
       <p class="muted small" style="margin-top:14px" id="overrides-line"></p>
+      <a class="btn subtle" style="display:inline-block;margin-top:10px" href="/facility/audit/export.csv">Export cases CSV</a>
     </div>
   </section>
 </main>
@@ -154,6 +156,7 @@ document.querySelectorAll(".tab").forEach(t=> t.addEventListener("click", ()=>{
 async function refresh(){
   const [al, cs, st] = await Promise.all([japi("/facility/alerts"), japi("/facility/cases"), japi("/facility/staff")]);
   if (al.status===200){ state.alerts = al.body.queue||[]; state.resident = al.body.resident_resolved||[];
+    if (al.body.quiet_hours){ $("#quiet-chip").hidden = false; $("#quiet-chip").textContent = "Quiet hours " + al.body.quiet_hours.start + "-" + al.body.quiet_hours.end + " (soft suppress)"; }
     $("#count-alerts").textContent = String(state.alerts.length);
     $("#count-alerts").className = "count" + (state.alerts.some(a=>a.priority==="P1") ? " p1" : "");
     renderAlerts(); renderResolved();

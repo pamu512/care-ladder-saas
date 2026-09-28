@@ -1160,6 +1160,19 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
     @application.get("/facility/alerts")
     def facility_alerts(request: Request):
         tenant_id, state, store = _facility_ctx(request)
+        # quiet hours from the facility plan YAML (display-only chip, S4)
+        quiet = None
+        try:
+            plan = load_care_plan(_FACILITY_PLAN_PATH)
+            qh = getattr(plan, "quiet_hours", None)
+            if qh:
+                quiet = {
+                    "start": getattr(qh, "start", None),
+                    "end": getattr(qh, "end", None),
+                    "policy": getattr(qh, "policy", None),
+                }
+        except Exception:
+            quiet = None
         # Resident-resolved derives from persisted incidents (survives restarts):
         # positive reply fixtures resolve with reply_class positive in the event detail.
         try:
@@ -1206,7 +1219,11 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
                     ],
                 }
             )
-        return {"queue": queue, "resident_resolved": state.resident_resolved}
+        return {
+            "queue": queue,
+            "resident_resolved": state.resident_resolved,
+            "quiet_hours": quiet,
+        }
 
     @application.get("/facility/alerts/{incident_id}")
     def facility_alert_detail(incident_id: str, request: Request):
@@ -1324,6 +1341,34 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
     def facility_audit(request: Request):
         tenant_id, state, store = _facility_ctx(request)
         return state.summary()
+
+    @application.get("/facility/audit/export.csv")
+    def facility_audit_csv(request: Request):
+        import csv
+        import io as _io
+
+        tenant_id, state, store = _facility_ctx(request)
+        buf = _io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(
+            ["case_id", "human_id", "incident_id", "room_label", "origin",
+             "priority", "state", "owner_staff_id", "opened", "closed",
+             "documentation"]
+        )
+        for c in state.cases.values():
+            w.writerow(
+                [c.id, c.human_id, c.incident_id, c.room_label, c.origin,
+                 c.priority, c.state, c.owner_staff_id or "",
+                 "", c.closed_at.isoformat() if c.closed_at else "",
+                 (c.documentation or "").replace("\n", " ")]
+            )
+        from fastapi.responses import Response
+
+        return Response(
+            content=buf.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=facility-audit.csv"},
+        )
 
     return application
 

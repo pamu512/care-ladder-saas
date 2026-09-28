@@ -27,9 +27,15 @@ def _llm_configured() -> bool:
     )
 
 
-def _llm_classify(raw: str) -> Classification:  # pragma: no cover - requires network
-    """LLM path (Google Cloud / Vertex). Only called when credentials exist."""
-    raise NotImplementedError("LLM classify runs via the configured provider runtime")
+def _llm_classify(raw: str) -> Classification | None:
+    """LLM path (Google Cloud / Vertex). Only called when credentials exist.
+
+    Returns None on any failure (SDK missing, transport, unparseable) so the
+    caller falls back to keywords; never raises into a run.
+    """
+    from care_ladder.facility.vertex_classify import vertex_classify
+
+    return vertex_classify(raw)
 
 
 def _keyword_classify(raw: str) -> Classification:
@@ -56,9 +62,11 @@ def classify_reply(raw: str, *, fixture_class: str | None = None) -> Classificat
         )
     if _llm_configured():
         try:
-            return _llm_classify(raw)
-        except NotImplementedError:
-            pass  # provider runtime not wired in this process; fall through
+            result = _llm_classify(raw)
+        except Exception:
+            result = None  # provider failures never crash a run
+        if result is not None:
+            return result
     return _keyword_classify(raw)
 
 
