@@ -37,6 +37,8 @@ SUPPORTED_FIXTURES = frozenset(
         "opencv_dnn_person",
         "opencv_pose_person",
         "facility_notify_silence",
+        "facility_ack_resolved",
+        "facility_ack_timeout",
     }
 )
 _FACILITY_PLAN_PATH = _REPO_ROOT / "configs" / "demo_facility.yaml"
@@ -64,6 +66,11 @@ class DemoRunRequest(BaseModel):
 
 class DemoRunResponse(BaseModel):
     incident_id: str
+
+
+class AckRequest(BaseModel):
+    by: str | None = Field(default=None, description="who acknowledged (free text, e.g. 'RN Alex')")
+    note: str | None = Field(default=None, description="optional context, e.g. 'at room 12'")
 
 
 def _incident_summary(incident) -> dict[str, Any]:
@@ -148,6 +155,60 @@ async def _run_facility_notify_silence(store: AuditStore):
         now=DEMO_NOW,
     )
     return incident
+
+
+async def _run_facility_ack_scenario(store: AuditStore, *, acked: bool):
+    """Facility fixtures for the ack loop: page caretakers → wait → resolve or escalate.
+
+    - ``facility_ack_resolved``: a caretaker acknowledges within the (shortened
+      demo) window → incident resolves with ``reason: caretaker_ack`` and the
+      supervisor/dial rungs never fire.
+    - ``facility_ack_timeout``: nobody acknowledges → ladder escalates to
+      supervisor page + dial and logs ``ack_timeout`` in the timeline.
+    """
+    import copy
+
+    from care_ladder.channels.router import PageRouter
+
+    plan = copy.deepcopy(load_care_plan(_FACILITY_PLAN_PATH))
+    # Short real ack window so the demo shows the wait without hanging (2s).
+    for rung in plan.rungs:
+        if rung.tool == "notify_and_await_ack":
+            rung.params["ack_timeout_sec"] = 2
+
+    cue = CueEvent(
+        kind="no_movement",
+        confidence=0.9,
+        detail={"fixture": "facility_ack_resolved" if acked else "facility_ack_timeout"},
+    )
+    speaker = SpeakerSimulator(scripted=[])
+    dialer = StubDialer(behavior={"caregiver": "answered"})
+
+    incident_id = uuid4().hex
+    registry = _app_ack_registry()
+    if acked:
+        registry.schedule_auto_ack(
+            incident_id,
+            after_sec=0.5,
+            by="Nurse Alex (scripted ack)",
+            channel="slack",
+            note="heading to common_room",
+        )
+
+    return await run_incident(
+        cue=cue,
+        plan=plan,
+        speaker=speaker,
+        dialer=dialer,
+        pre_event_frames=[],
+        store=store,
+        page_router=PageRouter(),
+        ack_registry=registry,
+        ack_base_url=_public_base_url(),
+        max_ack_wait_sec=-1,  # honor the plan's shortened 2s window
+        now=DEMO_NOW,
+        incident_id=incident_id,
+    )
 
 
 async def _run_opencv_stillness(store: AuditStore):
@@ -341,6 +402,32 @@ async def _run_opencv_pose_person(store: AuditStore):
 # In-flight upload analysis jobs: job_id -> {status, filename, incident_id, error}
 _UPLOAD_JOBS: dict[str, dict[str, Any]] = {}
 
+# App-level ack registry: shared by demo fixtures (orchestrator wait loop) and
+# the /ack + /acks HTTP surface so a caretaker link tap resolves the in-flight
+# wait. Reuses SESSION_SECRET when set so tokens stay valid across workers
+# that share the secret; otherwise a per-process secret (restart = links die,
+# fail-closed, same honesty note as the upload-job map).
+_ACK_REGISTRY = None
+
+
+def _app_ack_registry() -> "AckRegistry":
+    global _ACK_REGISTRY
+    if _ACK_REGISTRY is None:
+        from care_ladder.channels.ack import AckRegistry
+
+        _ACK_REGISTRY = AckRegistry(secret=os.environ.get("SESSION_SECRET") or None)
+    return _ACK_REGISTRY
+
+
+def _public_base_url() -> str:
+    """Best-effort public base for ack links (env wins; request fallback later)."""
+    return os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+
+
+def app_module_registry():
+    """Test/diagnostic handle onto the shared ack registry."""
+    return _app_ack_registry()
+
 # bcrypt hashes for the seeded demo users (computed once; passwords are in
 # tenancy.service and only ever live in demo mode)
 _DEMO_HASHES: dict[str, str] = {}
@@ -376,7 +463,10 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
 
     # Landing page (Task 9): GET / serves the SaaS landing (pricing + demo
     # login); the caregiver console stays at /ui/.
-    from fastapi.responses import FileResponse
+    from fastapi.responses import FileResponse, HTMLResponse
+
+    from care_ladder.channels.ack import render_ack_page
+    from care_ladder.channels.router import channel_active_envs
 
     @application.get("/", include_in_schema=False)
     def landing() -> FileResponse:
@@ -636,6 +726,7 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
         return {
             "auth": _auth_on(),
             "demo_login_available": True,
+            "ack_channels_active": channel_active_envs(),
         }
 
     @application.get("/incidents")
@@ -684,6 +775,48 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             "count": len(frames),
             "frame_urls": [f"/incidents/{incident_id}/frames/{i}" for i in range(len(frames))],
         }
+
+    # ---- caretaker acknowledgments (capability-token surface) ----------------
+    #
+    # /acks/{token} endpoints are intentionally unauthenticated: the signed,
+    # single-use, expiring token IS the authorization (caretakers arrive from
+    # Slack/Teams/WhatsApp/Telegram links without a console session). The
+    # console's own Acknowledge button uses the same tokens via /acks/pending.
+
+    @application.get("/acks/pending")
+    def acks_pending() -> list[dict[str, Any]]:
+        """Live pending ack windows (console panel; auto-polled)."""
+        return _app_ack_registry().pending_list()
+
+    @application.post("/acks/{token}")
+    def ack_submit(token: str, body: AckRequest | None = None):
+        registry = _app_ack_registry()
+        outcome, reason = registry.acknowledge(
+            token,
+            by=(body.by if body and body.by else None),
+            note=(body.note if body and body.note else None),
+            channel="web",
+        )
+        if outcome is None:
+            detail = {
+                "token expired": "ack window closed",
+                "already acknowledged": "already acknowledged",
+            }.get(reason, "invalid acknowledgment token")
+            raise HTTPException(status_code=410, detail=detail)
+        # Late-ack courtesy: if the incident is still open somewhere (wait
+        # raced out), the timeline still records the attempt.
+        return outcome.summary()
+
+    @application.get("/ack/{token}", response_class=HTMLResponse)
+    def ack_page(token: str):
+        """Mobile one-tap ack page linked from IM pages."""
+        registry = _app_ack_registry()
+        pending = registry.peek(token)
+        note = ""
+        if pending is None:
+            # already acked / expired / closed → still render a honest page
+            note = "This link was already used, expired, or the window closed."
+        return HTMLResponse(render_ack_page(pending, status_note=note))
 
     @application.post("/demo/upload", response_model=DemoRunResponse)
     async def demo_upload(file: UploadFile) -> DemoRunResponse:
@@ -826,7 +959,7 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             incident = await _run_opencv_dnn_person(store)
         elif body.fixture == "opencv_pose_person":
             incident = await _run_opencv_pose_person(store)
-        elif body.fixture == "facility_notify_silence":
+        elif body.fixture in ("facility_notify_silence", "facility_ack_resolved", "facility_ack_timeout"):
             from care_ladder.billing.plans import tenant_can_use_notify
 
             record = _tenant_record(request)
@@ -836,7 +969,10 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
                     detail="facility notify requires an active facility plan "
                     "(Facility Starter or Growth); upgrade from the landing page",
                 )
-            incident = await _run_facility_notify_silence(store)
+            if body.fixture == "facility_notify_silence":
+                incident = await _run_facility_notify_silence(store)
+            else:
+                incident = await _run_facility_ack_scenario(store, acked=body.fixture == "facility_ack_resolved")
         else:  # pragma: no cover - guarded by SUPPORTED_FIXTURES
             raise HTTPException(status_code=400, detail="unsupported fixture")
         await _publish_cloud(incident)

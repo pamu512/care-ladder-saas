@@ -13,6 +13,12 @@ notifications:
   slack:
     enabled: true
     channel: "#floor-ops"
+  teams:
+    enabled: false
+  whatsapp:
+    enabled: false
+  telegram:
+    enabled: false
 zones:
   - id: common_room
     polygon: [[0, 0], [640, 0], [640, 480], [0, 480]]
@@ -36,11 +42,12 @@ rungs:
   - id: wait_reply
     tool: wait
     params: { sec: 120 }
-  - id: notify_ops
-    tool: notify_channel
+  - id: notify_ops_await_ack
+    tool: notify_and_await_ack
     params:
       channel: slack
-      message: "check-in silence in common_room; escalating to floor lead"
+      message: "check-in silence in common_room — acknowledge if you're helping"
+      ack_timeout_sec: 300
   - id: notify_lead
     tool: notify_supervisor
     params:
