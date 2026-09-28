@@ -459,11 +459,19 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
     application.state.billing_tenants = _BILLING_TENANTS
 
     @application.post("/billing/checkout")
-    def billing_checkout(body: CheckoutRequest):
-        from care_ladder.billing.stripe_checkout import BillingError, create_checkout_url
+    def billing_checkout(body: CheckoutRequest, request: Request):
+        from care_ladder.billing.stripe_checkout import (
+            BillingError,
+            create_checkout_url,
+            resolve_checkout_base_url,
+        )
 
         try:
-            url = create_checkout_url(body.plan, tenant_id="demo-facility")
+            url = create_checkout_url(
+                body.plan,
+                tenant_id="demo-facility",
+                base_url=resolve_checkout_base_url(request),
+            )
         except BillingError as exc:
             raise HTTPException(status_code=503, detail=str(exc))
         return {"url": url}
@@ -476,6 +484,18 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
         t["plan"] = plan
         t["status"] = "active"
         return {"ok": True, "plan": plan, "note": "demo stub checkout; no card was charged"}
+
+    @application.get("/billing/success")
+    def billing_success(session_id: str = ""):
+        return {
+            "ok": True,
+            "session_id": session_id,
+            "note": "checkout completed; plan activates via signed webhook",
+        }
+
+    @application.get("/billing/cancel")
+    def billing_cancel():
+        return {"ok": False, "note": "checkout canceled; no charge"}
 
     @application.post("/billing/webhook")
     async def billing_webhook(request: Request):
