@@ -31,6 +31,7 @@ class FacilityState:
     overrides: list[dict[str, Any]] = field(default_factory=list)
     resident_resolved: list[dict[str, Any]] = field(default_factory=list)
     session_factory: Any = None
+    _opened_times: dict[str, str] = field(default_factory=dict)
 
     def _repo(self, session):
         from care_ladder.facility.repository import FacilityRepository
@@ -99,8 +100,52 @@ class FacilityState:
 
     def open_case(self, case: Case) -> Case:
         self.cases[case.id] = case
+        self._opened_times[case.id] = _now().isoformat()
         self._persist()
         return case
+
+    def case_opened_times(self) -> dict[str, str]:
+        """case_id -> ISO open time (CSV export; falls back to CaseRow.created_at)."""
+        if self.session_factory is not None:
+            try:
+                from care_ladder.db.models import CaseRow
+
+                with self.session_factory() as session:
+                    rows = {
+                        r.id: r.created_at.isoformat() if r.created_at else ""
+                        for r in session.query(CaseRow).all()
+                    }
+                if rows:
+                    return rows
+            except Exception:
+                pass
+        return dict(self._opened_times)
+
+    def next_human_id(self) -> str:
+        """Never reissue: max existing CL-#### across this state's cases + DB."""
+        import re
+
+        def nums(cases):
+            out = []
+            for c in cases:
+                m = re.match(r"CL-(\d+)$", c.human_id or "")
+                if m:
+                    out.append(int(m.group(1)))
+            return out
+
+        candidates = nums(self.cases.values())
+        if self.session_factory is not None:
+            try:
+                from care_ladder.db.models import CaseRow
+
+                with self.session_factory() as session:
+                    for (h,) in session.query(CaseRow.human_id).all():
+                        m = re.match(r"CL-(\d+)$", h or "")
+                        if m:
+                            candidates.append(int(m.group(1)))
+            except Exception:
+                pass
+        return f"CL-{(max(candidates) + 1) if candidates else 1:04d}"
 
     def ack_case(self, case_id: str) -> Case | None:
         c = self.cases.get(case_id)

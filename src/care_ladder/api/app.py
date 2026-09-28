@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import cv2
 import numpy as np
@@ -138,12 +138,13 @@ def _facility_after_incident(tenant_id: str, incident, fixture: str, session_fac
         room_label="204",
         origin=origin,
         priority=priority,
+        human_id=state.next_human_id(),
     )
     state.open_case(case)
 
 
 class CheckoutRequest(BaseModel):
-    plan: str
+    plan: Literal["home", "facility_starter", "facility_growth"]
 
 
 class LoginRequest(BaseModel):
@@ -551,8 +552,15 @@ def _app_ack_registry() -> "AckRegistry":
 
 
 def _public_base_url() -> str:
-    """Best-effort public base for ack links (env wins; request fallback later)."""
-    return os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+    """Best-effort public base for ack links.
+
+    PUBLIC_BASE_URL wins, then Render's RENDER_EXTERNAL_URL (set on every
+    Render service), so ack links are absolute https on the live deploy.
+    """
+    return (
+        os.environ.get("PUBLIC_BASE_URL", "")
+        or os.environ.get("RENDER_EXTERNAL_URL", "")
+    ).rstrip("/")
 
 
 def app_module_registry():
@@ -751,10 +759,14 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             resolve_checkout_base_url,
         )
 
+        session = _require_session(request)
+        if session is None and _auth_on():
+            raise HTTPException(status_code=401, detail="authentication required")
+        tenant_id = session.tenant_id if session is not None else "demo-facility"
         try:
             url = create_checkout_url(
                 body.plan,
-                tenant_id="demo-facility",
+                tenant_id=tenant_id,
                 base_url=resolve_checkout_base_url(request),
             )
         except BillingError as exc:
@@ -762,7 +774,11 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         return {"url": url}
 
     @application.get("/billing/stub-success")
-    def billing_stub_success(plan: str, tenant: str = "demo-facility"):
+    def billing_stub_success(plan: Literal["home", "facility_starter", "facility_growth"], tenant: str = "demo-facility"):
+        from care_ladder.billing.stripe_checkout import _env as env_name
+
+        if env_name() != "demo":
+            raise HTTPException(status_code=403, detail="stub checkout is demo-only")
         t = application.state.billing_tenants.setdefault(
             tenant, {"mode": "facility", "plan": "demo", "status": "demo"}
         )
@@ -827,6 +843,23 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             raise HTTPException(status_code=400, detail="webhook verification failed")
         event = _json.loads(payload or b"{}")
         result = apply_subscription_event(event, application.state.billing_tenants)
+        # F1: persist plan/status to Postgres (authoritative tenant record)
+        if result.get("applied"):
+            factory = getattr(application.state, "pg_session_factory", None)
+            if factory is not None:
+                try:
+                    from care_ladder.db.models import Tenant as TenantRow
+
+                    tid = result["tenant_id"]
+                    with factory() as dbs:
+                        row = dbs.get(TenantRow, tid)
+                        if row is not None:
+                            row.plan = result.get("plan") or row.plan
+                            row.subscription_status = result.get("status") or row.subscription_status
+                            dbs.commit()
+                except Exception:
+                    pass  # memory table already updated; PG write is best-effort mirror
+
         # persist stripe customer for later portal sessions (memory table;
         # Postgres tenants get it from the Subscription row in _tenant_record)
         obj = (event.get("data") or {}).get("object") or {}
@@ -1144,7 +1177,7 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             raise HTTPException(status_code=403, detail="facility console requires a facility tenant")
         tenant_id = session.tenant_id if session is not None else "demo-facility"
         state = _facility_state(tenant_id, getattr(request.app.state, "pg_session_factory", None))
-        store = _tenant_store(request) if _auth_on() else store_for(None)
+        store = _tenant_store(request) if _auth_on() else application.state.store
         return tenant_id, state, store
 
     def _case_out(c) -> dict:
@@ -1350,17 +1383,26 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         tenant_id, state, store = _facility_ctx(request)
         buf = _io.StringIO()
         w = csv.writer(buf)
+        def _sanitize(value: str) -> str:
+            # CSV formula injection: prefix dangerous leading chars (OWASP)
+            v = (value or "").replace("\n", " ").replace("\r", " ")
+            if v.startswith(("=", "+", "-", "@", "\t")):
+                return "'" + v
+            return v
+
         w.writerow(
             ["case_id", "human_id", "incident_id", "room_label", "origin",
              "priority", "state", "owner_staff_id", "opened", "closed",
              "documentation"]
         )
+        opened_times = state.case_opened_times()
         for c in state.cases.values():
             w.writerow(
                 [c.id, c.human_id, c.incident_id, c.room_label, c.origin,
                  c.priority, c.state, c.owner_staff_id or "",
-                 "", c.closed_at.isoformat() if c.closed_at else "",
-                 (c.documentation or "").replace("\n", " ")]
+                 opened_times.get(c.id, ""),
+                 c.closed_at.isoformat() if c.closed_at else "",
+                 _sanitize(c.documentation or "")]
             )
         from fastapi.responses import Response
 

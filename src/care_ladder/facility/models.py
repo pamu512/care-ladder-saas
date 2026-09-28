@@ -13,13 +13,7 @@ CaseState = Literal["paged", "handling", "wrapping", "closed"]
 StaffStatus = Literal["available", "on_case", "on_break"]
 
 
-_HUMAN_SEQ = 0
-
-
-def _next_human_id() -> str:
-    global _HUMAN_SEQ
-    _HUMAN_SEQ += 1
-    return f"CL-{_HUMAN_SEQ:04d}"
+_LOCAL_SEQ = 0
 
 
 def _default_priority(cue: str, reply_class: ReplyClass) -> Priority:
@@ -99,8 +93,17 @@ class Case(BaseModel):
         origin: CaseOrigin,
         priority: Priority,
         title: str = "",
+        human_id: str = "",
     ) -> "Case":
-        human = _next_human_id()
+        # Callers that persist cases MUST pass human_id (state.next_human_id()
+        # guarantees cross-restart uniqueness). The fallback keeps a simple
+        # process-local CL- counter for non-persisted unit use.
+        if not human_id:
+            global _LOCAL_SEQ
+            _LOCAL_SEQ += 1
+            human = f"CL-{_LOCAL_SEQ:04d}"
+        else:
+            human = human_id
         return cls(
             tenant_id=tenant_id,
             incident_id=incident_id,

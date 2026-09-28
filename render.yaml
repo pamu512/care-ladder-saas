@@ -22,6 +22,8 @@ services:
         generateValue: true
       - key: SLACK_WEBHOOK_URL
         sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
       - key: STRIPE_PRICE_HOME
         sync: false
       - key: STRIPE_PRICE_FACILITY
