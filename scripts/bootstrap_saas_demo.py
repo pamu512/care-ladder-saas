@@ -25,7 +25,7 @@ DEMO_TENANTS = [
         "id": "demo-home",
         "name": "Demo Home",
         "mode": "home",
-        "plan": "demo",
+        "plan": "home",
         "email": "demo@careladder.local",
         "password": "demo-pass-home",
     },
@@ -80,6 +80,11 @@ def bootstrap(database_url: str | None = None) -> None:
                 print(f"bootstrap: created tenant {spec['id']}")
             else:
                 tenant = existing
+                # keep our demo rows aligned with the spec (e.g. plan renames)
+                if tenant.plan != spec["plan"] or tenant.mode != spec["mode"]:
+                    tenant.plan = spec["plan"]
+                    tenant.mode = spec["mode"]
+                    print(f"bootstrap: realigned tenant {spec['id']} -> plan={spec['plan']}")
                 print(f"bootstrap: tenant {spec['id']} exists")
             user = (
                 session.query(User).filter(User.email == spec["email"]).one_or_none()
