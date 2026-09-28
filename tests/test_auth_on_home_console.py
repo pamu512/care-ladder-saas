@@ -73,7 +73,7 @@ def test_ui_refresh_guards_non_ok_detail_payloads():
     assert "Array.isArray(list)" in html
     assert "inc.cue" in html
     # Must not assume a detail payload has .cue/.events (401/404 `{detail: ...}`).
-    assert "Array.isArray(inc.events)" in html or "inc.events" in html
+    assert "Array.isArray(inc.events)" in html
     assert "r.ok" in html
 
 
