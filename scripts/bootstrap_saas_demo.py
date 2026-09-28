@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from care_ladder.auth.passwords import hash_password  # noqa: E402
 from care_ladder.db.base import create_engine_from_url, make_session_factory  # noqa: E402
-from care_ladder.db.models import Base, Tenant, User  # noqa: E402
+from care_ladder.db.models import Base, StaffRow, Tenant, User  # noqa: E402
 
 DEMO_TENANTS = [
     {
@@ -58,6 +58,32 @@ def _ensure_schema_columns(engine) -> None:
                 text("ALTER TABLE tenants ADD COLUMN stripe_customer_id VARCHAR(64)")
             )
             print("bootstrap: added tenants.stripe_customer_id")
+
+
+
+
+def _seed_facility_staff(session) -> None:
+    """Seed the demo-facility roster (Mockup H section 4.3).
+
+    Maria G. (RN), Alex R. (CNA), Jamie D. (CNA), Floor Lead.
+    Idempotent: existing staff rows are left alone.
+    """
+    roster = [
+        ("demo-facility-maria", "Maria G.", "RN", "MG"),
+        ("demo-facility-alex", "Alex R.", "CNA", "AR"),
+        ("demo-facility-jamie", "Jamie D.", "CNA", "JD"),
+        ("demo-facility-lead", "Floor Lead", "Lead", "FL"),
+    ]
+    for sid, name, role, initials in roster:
+        if session.get(StaffRow, sid) is None:
+            session.add(
+                StaffRow(
+                    id=sid, tenant_id="demo-facility",
+                    display_name=name, role=role, initials=initials,
+                    status="available",
+                )
+            )
+            print(f"bootstrap: seeded staff {name}")
 
 
 def bootstrap(database_url: str | None = None) -> None:
@@ -101,6 +127,8 @@ def bootstrap(database_url: str | None = None) -> None:
                 print(f"bootstrap: created user {spec['email']}")
             else:
                 print(f"bootstrap: user {spec['email']} exists")
+
+        _seed_facility_staff(session)
         session.commit()
     finally:
         session.close()

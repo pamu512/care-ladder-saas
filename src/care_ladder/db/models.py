@@ -62,6 +62,37 @@ class AuditEventRow(Base):
     payload: Mapped[dict] = mapped_column(JSON)
 
 
+class StaffRow(Base):
+    __tablename__ = "facility_staff"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    display_name: Mapped[str] = mapped_column(String(200))
+    role: Mapped[str] = mapped_column(String(32))
+    initials: Mapped[str] = mapped_column(String(8))
+    status: Mapped[str] = mapped_column(String(16), default="available")  # available | on_case | on_break
+    break_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    active_case_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class CaseRow(Base):
+    __tablename__ = "facility_cases"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    human_id: Mapped[str] = mapped_column(String(16), index=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    incident_id: Mapped[str] = mapped_column(String(64), index=True)
+    room_label: Mapped[str] = mapped_column(String(16))
+    title: Mapped[str] = mapped_column(String(200))
+    origin: Mapped[str] = mapped_column(String(32))
+    priority: Mapped[str] = mapped_column(String(8))
+    state: Mapped[str] = mapped_column(String(16), default="paged")
+    owner_staff_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    slack_thread_url: Mapped[str] = mapped_column(String(300), default="")
+    ack_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    documentation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class Subscription(Base):
     __tablename__ = "subscriptions"
     id: Mapped[str] = mapped_column(String(64), primary_key=True)  # stripe subscription id
