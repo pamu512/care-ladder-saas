@@ -140,8 +140,12 @@ function trackChips(cueDetail){
   }
   return out.length?`<div class="tracks">${out.join("")}</div>`:"";
 }
+async function fetchJson(url){
+  try{ const r=await fetch(url); return r.ok?await r.json():null; }catch{return null;}
+}
 async function loadFrames(id){
-  try{ const r=await fetch(`/incidents/${id}/frames`); return r.ok?await r.json():null; }catch{return null;}
+  const body=await fetchJson(`/incidents/${id}/frames`);
+  return (body && Number.isFinite(body.count))?body:null;
 }
 function renderIncident(inc, frames){
   const isDistress = inc.cue.kind==="distress_heuristic";
@@ -204,26 +208,35 @@ function bindSteppers(){
   });
 }
 async function refresh(){
-  const list = await (await fetch("/incidents")).json();
+  const list = await fetchJson("/incidents");
   const el = document.getElementById("incidents");
+  if(!Array.isArray(list)) return;
   document.getElementById("stats").hidden = false;
-  const esc2dial = list.filter(s=>s.status!=="suppressed").length; // placeholder, refined below
   document.getElementById("s-total").textContent = list.length;
   document.getElementById("s-resolved").textContent = list.filter(s=>s.status==="resolved").length;
   document.getElementById("s-open").textContent = list.filter(s=>s.status==="open"||s.status==="escalated").length;
   if(!list.length){
+    document.getElementById("s-esc").textContent = "0";
     el.innerHTML = `<div class="empty"><div class="big">🪜</div><div>No incidents yet</div><div style="font-size:13px;margin-top:4px;">Run a demo path or upload a clip above.</div></div>`;
     return;
   }
   const parts=[]; let dialCount=0;
   for(const s of [...list].reverse()){
-    const inc = await (await fetch("/incidents/"+s.id)).json();
-    if(inc.events.some(e=>e.tool==="dial_contact")) dialCount++;
+    const inc = await fetchJson("/incidents/"+s.id);
+    // List summaries already carry cue; use them if detail is 401/404/`{detail:…}`.
+    const view = (inc && inc.cue && Array.isArray(inc.events))
+      ? inc
+      : (s && s.cue ? Object.assign({}, s, {events: []}) : null);
+    if(!view) continue;
+    if(view.events.some(e=>e.tool==="dial_contact")) dialCount++;
     const frames = await loadFrames(s.id);
-    parts.push(renderIncident(inc, frames));
+    try { parts.push(renderIncident(view, frames)); }
+    catch(e) { /* ponytail: one bad card must not blank the list after stats update */ }
   }
   document.getElementById("s-esc").textContent = dialCount;
-  el.innerHTML = parts.join("");
+  el.innerHTML = parts.length
+    ? parts.join("")
+    : `<div class="empty"><div class="big">🪜</div><div>No incidents yet</div><div style="font-size:13px;margin-top:4px;">Run a demo path or upload a clip above.</div></div>`;
   bindSteppers();
 }
 document.querySelectorAll("[data-fixture]").forEach(btn=>{

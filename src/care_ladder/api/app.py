@@ -262,6 +262,19 @@ def _default_store() -> AuditStore:
     return AuditStore()
 
 
+def _session_factory_from_env():
+    """Shared SQLAlchemy session factory when DATABASE_URL is set (Render Postgres)."""
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        return None
+    from care_ladder.db.base import create_engine_from_url, make_session_factory
+    from care_ladder.db.models import Base
+
+    engine = create_engine_from_url(url)
+    Base.metadata.create_all(engine)  # idempotent; bootstrap also does this
+    return make_session_factory(engine)
+
+
 async def _publish_cloud(incident) -> None:
     """Best-effort S3 clip upload + EventBridge cue emission (no-ops locally).
 
@@ -352,6 +365,11 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
         version="0.1.0",
     )
     application.state.store = audit
+    # Only when the caller did not inject a store: Render/prod uses DATABASE_URL
+    # so per-tenant PostgresAuditStore instances share one DB across workers.
+    application.state.pg_session_factory = (
+        None if store is not None else _session_factory_from_env()
+    )
 
     static_dir = Path(__file__).resolve().parent / "static"
     application.mount("/ui", StaticFiles(directory=static_dir, html=True), name="ui")
@@ -440,16 +458,29 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
         }
 
     def _tenant_store(request: Request):
-        """Per-tenant store when auth on: memory mode keeps a dict of stores;
-        a shared store (Postgres-backed) is scoped at construction elsewhere."""
+        """Per-tenant store when auth on.
+
+        Memory mode (no DATABASE_URL): one AuditStore per tenant_id in-process.
+        DATABASE_URL set: PostgresAuditStore per tenant sharing one session factory
+        so list/get/frames and Render workers see the same incidents.
+        """
         session = _require_session(request)
         if session is None:
             return application.state.store
         if not hasattr(application.state, "tenant_stores"):
             application.state.tenant_stores = {}
-        return application.state.tenant_stores.setdefault(
-            session.tenant_id, AuditStore()
-        )
+        stores = application.state.tenant_stores
+        existing = stores.get(session.tenant_id)
+        if existing is not None:
+            return existing
+        factory = getattr(application.state, "pg_session_factory", None)
+        if factory is not None:
+            from care_ladder.audit.postgres_store import PostgresAuditStore
+
+            stores[session.tenant_id] = PostgresAuditStore(factory, session.tenant_id)
+        else:
+            stores[session.tenant_id] = AuditStore()
+        return stores[session.tenant_id]
 
     # ---- billing (Task 8) ---------------------------------------------------
     _BILLING_TENANTS: dict[str, dict[str, Any]] = {
@@ -541,13 +572,13 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
         return incident.model_dump()
 
     @application.get("/incidents/{incident_id}/frames/{index}", response_class=Response)
-    def get_incident_frame(incident_id: str, index: int):
+    def get_incident_frame(incident_id: str, index: int, request: Request):
         """Serve a privacy-transformed pre-event frame as PNG.
 
         Frames reaching this endpoint already went through blur/silhouette in
         run_incident; raw identifiable pixels never enter the store.
         """
-        incident = application.state.store.get(incident_id)
+        incident = _tenant_store(request).get(incident_id)
         if incident is None:
             raise HTTPException(status_code=404, detail="incident not found")
         frames = incident.__dict__.get("_private_pre_event_frames") or []
@@ -562,8 +593,8 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
         return Response(content=buf.tobytes(), media_type="image/png")
 
     @application.get("/incidents/{incident_id}/frames")
-    def list_incident_frames(incident_id: str) -> dict[str, Any]:
-        incident = application.state.store.get(incident_id)
+    def list_incident_frames(incident_id: str, request: Request) -> dict[str, Any]:
+        incident = _tenant_store(request).get(incident_id)
         if incident is None:
             raise HTTPException(status_code=404, detail="incident not found")
         frames = incident.__dict__.get("_private_pre_event_frames") or []
