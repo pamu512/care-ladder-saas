@@ -61,7 +61,7 @@ def test_checkout_sets_stripe_api_key_before_session_create(monkeypatch):
         return FakeSession()
 
     monkeypatch.setattr(stripe.checkout.Session, "create", fake_create)
-    url = create_checkout_url("home", "demo-facility")
+    url = create_checkout_url("home", "demo-facility", base_url="https://example.test")
     assert captured["api_key"] == "sk_test_abc123"
     assert url == FakeSession.url
 
@@ -80,6 +80,71 @@ def test_checkout_maps_stripe_errors_to_503(monkeypatch):
     assert r.status_code == 503, "Stripe auth/API errors must not leak as raw 500"
     assert "sk_" not in r.text
     assert r.json()["detail"] == "checkout unavailable"
+
+
+def test_checkout_passes_absolute_https_urls_to_stripe(monkeypatch):
+    """Live Render: empty base_url sent relative success/cancel URLs; Stripe rejects."""
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_abc123")
+    monkeypatch.setenv("STRIPE_PRICE_HOME", "price_home_1")
+    import stripe
+
+    captured: dict = {}
+
+    class FakeSession:
+        url = "https://checkout.stripe.com/c/pay/cs_test"
+
+    def fake_create(**kwargs):
+        captured.update(kwargs)
+        return FakeSession()
+
+    monkeypatch.setattr(stripe.checkout.Session, "create", fake_create)
+    client = TestClient(create_app(store=AuditStore()))
+    r = client.post(
+        "/billing/checkout",
+        json={"plan": "home"},
+        headers={
+            "x-forwarded-proto": "https",
+            "x-forwarded-host": "care-ladder-saas.onrender.com",
+        },
+    )
+    assert r.status_code == 200
+    assert captured["success_url"].startswith(
+        "https://care-ladder-saas.onrender.com/billing/success"
+    )
+    assert "{CHECKOUT_SESSION_ID}" in captured["success_url"]
+    assert captured["cancel_url"] == "https://care-ladder-saas.onrender.com/billing/cancel"
+
+
+def test_create_checkout_url_uses_env_base_as_https(monkeypatch):
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_abc123")
+    monkeypatch.setenv("STRIPE_PRICE_HOME", "price_home_1")
+    monkeypatch.setenv("RENDER_EXTERNAL_URL", "http://care-ladder-saas.onrender.com")
+    import stripe
+    from care_ladder.billing.stripe_checkout import create_checkout_url
+
+    captured: dict = {}
+
+    class FakeSession:
+        url = "https://checkout.stripe.com/c/pay/cs_test"
+
+    def fake_create(**kwargs):
+        captured.update(kwargs)
+        return FakeSession()
+
+    monkeypatch.setattr(stripe.checkout.Session, "create", fake_create)
+    create_checkout_url("home", "demo-facility")
+    assert captured["success_url"].startswith("https://care-ladder-saas.onrender.com/")
+    assert captured["cancel_url"].startswith("https://")
+
+
+def test_billing_success_and_cancel_do_not_404():
+    client = TestClient(create_app(store=AuditStore()))
+    success = client.get("/billing/success", params={"session_id": "cs_test"})
+    assert success.status_code == 200
+    assert success.json()["ok"] is True
+    cancel = client.get("/billing/cancel")
+    assert cancel.status_code == 200
+    assert cancel.json()["ok"] is False
 
 
 # ---------- webhook (fail-closed: C2) ----------
