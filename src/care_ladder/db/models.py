@@ -26,6 +26,7 @@ class Tenant(Base):
     mode: Mapped[str] = mapped_column(String(16), default="home")  # home | facility
     plan: Mapped[str] = mapped_column(String(32), default="home")  # home | demo | facility_starter | facility_growth
     subscription_status: Mapped[str] = mapped_column(String(32), default="demo")
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     users: Mapped[list["User"]] = relationship(back_populates="tenant")

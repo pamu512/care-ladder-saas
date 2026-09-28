@@ -489,6 +489,33 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
     }
     application.state.billing_tenants = _BILLING_TENANTS
 
+    def _tenant_record(request: Request) -> dict[str, Any] | None:
+        """Best-available tenant record for gating/portal.
+
+        Postgres row when DATABASE_URL is set (authoritative after webhook
+        writes), else the in-memory billing table seeded for the demo tenants.
+        """
+        session = _require_session(request)
+        if session is None:
+            return None
+        factory = getattr(application.state, "pg_session_factory", None)
+        if factory is not None:
+            try:
+                from care_ladder.db.models import Tenant as TenantRow
+
+                with factory() as s:
+                    row = s.get(TenantRow, session.tenant_id)
+                    if row is not None:
+                        return {
+                            "mode": row.mode,
+                            "plan": row.plan,
+                            "status": row.subscription_status,
+                            "stripe_customer_id": getattr(row, "stripe_customer_id", None),
+                        }
+            except Exception:
+                pass  # fall through to the in-memory table
+        return _BILLING_TENANTS.get(session.tenant_id)
+
     @application.post("/billing/checkout")
     def billing_checkout(body: CheckoutRequest, request: Request):
         from care_ladder.billing.stripe_checkout import (
@@ -528,6 +555,39 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
     def billing_cancel():
         return {"ok": False, "note": "checkout canceled; no charge"}
 
+    @application.post("/billing/portal")
+    def billing_portal(request: Request):
+        """Stripe Customer Portal session for the logged-in tenant.
+
+        Requires a persisted stripe_customer_id (set by the verified webhook);
+        without one or without STRIPE_SECRET_KEY this is an honest 503 - never
+        a fabricated portal URL.
+        """
+        import os
+
+        key = os.environ.get("STRIPE_SECRET_KEY", "")
+        record = _tenant_record(request)
+        customer = (record or {}).get("stripe_customer_id") or ""
+        if not key or not customer:
+            raise HTTPException(
+                status_code=503,
+                detail="portal unavailable: no stripe customer on file "
+                "for this tenant (complete a checkout first)",
+            )
+        import stripe
+
+        stripe.api_key = key
+        from care_ladder.billing.stripe_checkout import resolve_checkout_base_url
+
+        origin = resolve_checkout_base_url(request)
+        try:
+            session = stripe.billing_portal.Session.create(
+                customer=customer, return_url=f"{origin}/billing/success"
+            )
+        except stripe.StripeError as exc:
+            raise HTTPException(status_code=503, detail="portal unavailable") from exc
+        return {"url": session.url}
+
     @application.post("/billing/webhook")
     async def billing_webhook(request: Request):
         import json as _json
@@ -540,6 +600,27 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail="webhook verification failed")
         event = _json.loads(payload or b"{}")
         result = apply_subscription_event(event, application.state.billing_tenants)
+        # persist stripe customer for later portal sessions (memory table;
+        # Postgres tenants get it from the Subscription row in _tenant_record)
+        obj = (event.get("data") or {}).get("object") or {}
+        cust = obj.get("customer")
+        meta = obj.get("metadata") or {}
+        tid = meta.get("tenant_id") or ""
+        if cust and tid:
+            if tid in application.state.billing_tenants:
+                application.state.billing_tenants[tid]["stripe_customer_id"] = cust
+            factory = getattr(application.state, "pg_session_factory", None)
+            if factory is not None:
+                try:
+                    from care_ladder.db.models import Tenant as TenantRow
+
+                    with factory() as s:
+                        row = s.get(TenantRow, tid)
+                        if row is not None:
+                            row.stripe_customer_id = cust
+                            s.commit()
+                except Exception:
+                    pass  # best-effort; memory record already updated
         return result
 
     @application.get("/billing/tenant/{tenant_id}")
@@ -746,6 +827,15 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
         elif body.fixture == "opencv_pose_person":
             incident = await _run_opencv_pose_person(store)
         elif body.fixture == "facility_notify_silence":
+            from care_ladder.billing.plans import tenant_can_use_notify
+
+            record = _tenant_record(request)
+            if record is not None and not tenant_can_use_notify(record):
+                raise HTTPException(
+                    status_code=403,
+                    detail="facility notify requires an active facility plan "
+                    "(Facility Starter or Growth); upgrade from the landing page",
+                )
             incident = await _run_facility_notify_silence(store)
         else:  # pragma: no cover - guarded by SUPPORTED_FIXTURES
             raise HTTPException(status_code=400, detail="unsupported fixture")

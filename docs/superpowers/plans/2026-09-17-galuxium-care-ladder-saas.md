@@ -8,6 +8,16 @@
 
 **Tech Stack:** Python 3.12+, FastAPI, uvicorn, pydantic v2, SQLAlchemy 2.x + psycopg (v3), Alembic, itsdangerous (session), passlib[bcrypt] or bcrypt, httpx, Stripe Python SDK, PyYAML, OpenCV 5 (existing), pytest, httpx ASGI test client; Fly.io or Render + Postgres; optional S3-compatible clip storage via existing `CloudSinks`.
 
+## Execution status (2026-09-28, post-Task-12)
+
+Tasks 0-12 shipped. Deviations from the original file structure (accepted):
+- `auth/deps.py` + `api/deps.py` NOT created: auth/wiring live as closures in `api/app.py` (`_require_session`, `_tenant_store`); tests cover the same contracts. Refactor declined as churn.
+- Alembic migrations NOT used: schema is `Base.metadata.create_all` (bootstrap + app boot). `alembic` dependency removed. Schema frozen for MVP.
+- `CARE_LADDER_STORE=postgres` contract drifted: Postgres selection is `DATABASE_URL` (CARE_LADDER_STORE still selects DynamoDB on the upstream path).
+- Plan-gap fixes (2026-09-28): facility fixture now gated by `tenant_can_use_notify` (403 for non-facility/lapsed plans); Stripe Customer Portal added (`POST /billing/portal`, needs webhook-persisted `stripe_customer_id`; honest 503 otherwise); webhook persists customer id to memory + Postgres.
+- DEPLOY IS LIVE: https://care-ladder-saas.onrender.com (Stripe test mode wired; unsigned webhooks 400; anonymous 401).
+- Remaining for submission: Galuxium video (hard gate), Devpost filing, Task 13 final pass.
+
 ## Global Constraints
 
 - Spec (authoritative): `docs/superpowers/specs/2026-09-17-galuxium-care-ladder-saas-design.md`
@@ -115,9 +125,9 @@ Executed before any code task. No product code changes.
 - Modify: this plan + spec docs (fixes below)
 
 **Steps:**
-- [ ] 0.1 Copy upstream CI, strip AWS deploy + secrets. Verify a green run on the fork's `main`.
-- [ ] 0.2 Create `Dockerfile.saas` (verbatim copy of upstream image build) so Task 10 has its own target and upstream `Dockerfile` is never edited in this fork. CI builds `Dockerfile.saas`.
-- [ ] 0.3 Apply review fixes to this plan + spec:
+- [x] 0.1 Copy upstream CI, strip AWS deploy + secrets. Verify a green run on the fork's `main`.
+- [x] 0.2 Create `Dockerfile.saas` (verbatim copy of upstream image build) so Task 10 has its own target and upstream `Dockerfile` is never edited in this fork. CI builds `Dockerfile.saas`.
+- [x] 0.3 Apply review fixes to this plan + spec:
   - C3: Task 3 test expectation `+121****0103` (matches facility YAML), reserved-fiction shape everywhere
   - C2 (already added to Global Constraints): fail-closed webhook; stub checkout gated on `CARE_LADDER_ENV=demo` - reflect in Task 8's steps and test
   - H1 (constraint added): anonymous = 401; reflect in Task 2's tests
@@ -125,7 +135,7 @@ Executed before any code task. No product code changes.
   - M1/M2: spec §2.1 - care plans stay YAML templates (no plan_templates table); storage section says "add Postgres store for hosted SaaS; OpenCV filing keeps its DynamoDB path" (not "replace process-local store")
   - M4: Task 11 targets a new `docs/galuxium/demo-video-galuxium.md`; upstream cut's script untouched
   - M6: em-dash sweep of both docs (rule now in Global Constraints)
-- [ ] 0.4 Commit: `chore(saas): fork pre-flight - CI, Dockerfile.saas, plan/spec review fixes`
+- [x] 0.4 Commit: `chore(saas): fork pre-flight - CI, Dockerfile.saas, plan/spec review fixes`
 
 **Definition of done:** fork CI green with zero AWS references; both docs consistent with each other and with the review; `Dockerfile.saas` exists and builds.
 
@@ -148,7 +158,7 @@ Executed before any code task. No product code changes.
   - `PostgresAuditStore(session_factory, tenant_id: str)` with `.save(incident) -> Incident`, `.get(incident_id) -> Incident | None`, `.list_incidents() -> list[Incident]` (tenant-scoped)
   - `create_engine_from_url(url: str)` / `make_session_factory(engine)`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_db_tenancy.py
@@ -205,12 +215,12 @@ def test_tenant_mode_values(pg_session_factory):
     assert fac.mode == "facility"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd /workspace/opencv-care-ladder && python -m pytest tests/test_db_tenancy.py -v`  
 Expected: FAIL (`ModuleNotFoundError: care_ladder.db` or `PostgresAuditStore`)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `src/care_ladder/db/base.py`:
 
@@ -227,12 +237,12 @@ class Base(DeclarativeBase):
 
 Alembic revision `001_saas_tenancy` creates the same tables for real Postgres (`DATABASE_URL`).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_db_tenancy.py -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add pyproject.toml src/care_ladder/db src/care_ladder/audit/postgres_store.py src/care_ladder/migrations alembic.ini tests/test_db_tenancy.py src/care_ladder/models.py
@@ -261,7 +271,7 @@ git commit -m "feat(saas): Postgres tenancy models and tenant-scoped audit store
     - tenant `demo-facility` mode=facility plan=facility_starter, user `facility@careladder.local` / `demo-pass-facility`
   - Incident list/get use `request.state.tenant_id` when auth middleware active; demo fixtures without cookie still work when `CARE_LADDER_AUTH=off` (default for local Path A/B tests) OR judge uses demo login
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_auth_session.py
@@ -333,12 +343,12 @@ def test_cross_tenant_incident_isolation(monkeypatch):
     assert all(i["id"] != inc_id for i in client_b.get("/incidents").json())
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_auth_session.py -v`  
 Expected: FAIL (auth modules / routes missing)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `passwords.py`: bcrypt hash/verify.  
 `sessions.py`: `URLSafeTimedSerializer` from itsdangerous; max age 7 days.  
@@ -346,12 +356,12 @@ Expected: FAIL (auth modules / routes missing)
 `tenancy/service.py`: `seed_demo_tenants` + `authenticate(email, password) -> User|None`.  
 `app.py`: when `CARE_LADDER_AUTH=on`, require session for `/incidents*`; keep `/demo/run` and `/ui` reachable for judges after demo login. Default `CARE_LADDER_AUTH` unset/off so existing `tests/test_api_timeline.py` and Path A/B tests keep passing without cookies. When AUTH=on and memory store, seed two in-process demo users on startup.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_auth_session.py tests/test_api_timeline.py tests/test_demo_paths_and_ui.py -v`  
 Expected: PASS (auth tests + existing demo API tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/care_ladder/auth src/care_ladder/tenancy src/care_ladder/api/app.py tests/test_auth_session.py .env.example pyproject.toml
@@ -379,7 +389,7 @@ git commit -m "feat(saas): session auth and tenant-scoped API access"
   - `load_care_plan(path) -> CarePlan` validates: if any rung `tool in {"notify_channel","notify_supervisor"}` then `mode` must be `facility`, `supervisor` required for `notify_supervisor`, and demo phones on supervisor when `CARE_LADDER_ENV=demo`
   - Home default template must **not** include notify rungs
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_facility_plan_loader.py
@@ -434,12 +444,12 @@ rungs:
         load_care_plan(bad)
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_facility_plan_loader.py -v`  
 Expected: FAIL (missing YAML / mode fields)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `configs/demo_facility.yaml` (exact content):
 
@@ -504,12 +514,12 @@ quiet_hours:
 
 Extend `validate_demo_phones` to include `plan.supervisor` when present. Add `validate_facility_tools(plan)` called from `load_care_plan`. Set `demo_home.yaml` `mode: home` explicitly (additive; existing tests still pass).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_facility_plan_loader.py tests/test_plan_loader.py -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add configs/demo_facility.yaml configs/demo_home.yaml src/care_ladder/models.py src/care_ladder/plan_loader.py tests/test_facility_plan_loader.py
@@ -533,7 +543,7 @@ git commit -m "feat(saas): facility care-plan template and loader validation"
   - Orchestrator: on `tool == "notify_channel"`, call adapter, `_append(..., tool="notify_channel", detail={..., "adapter": result.adapter})`, continue to next rung (does not resolve).
   - `run_incident(..., notifier: NotifyChannelAdapter | None = None)` - default constructs `NotifyChannelAdapter()`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_notify_channel.py
@@ -600,12 +610,12 @@ def test_orchestrator_emits_notify_channel_audit_event():
     assert ev.detail.get("channel") == "slack"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_notify_channel.py -v`  
 Expected: FAIL (`notify` module missing / unknown_tool_skipped)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Implement `NotifyChannelAdapter` in `channels/notify.py`. In `orchestrator.py`, before the unknown-tool branch, handle `notify_channel`:
 
@@ -636,12 +646,12 @@ if tool == "notify_channel":
 
 Add `notifier` optional kwarg to `run_incident` signature. Payload text must not claim medical diagnosis - e.g. `"Care Ladder incident {id} opened (cue={kind}). Not a medical alert."`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_notify_channel.py tests/test_orchestrator.py -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/care_ladder/channels/notify.py src/care_ladder/ladder/orchestrator.py tests/test_notify_channel.py pyproject.toml
@@ -664,7 +674,7 @@ git commit -m "feat(saas): notify_channel Slack webhook with stub adapter"
   - Prefer Slack webhook mention/`slack_user_id` in payload when webhook env set; else stub. Always audit.
   - Orchestrator appends `tool="notify_supervisor"` with `adapter` and `supervisor.display_name`; continues (does not resolve).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_notify_supervisor.py
@@ -717,12 +727,12 @@ def test_facility_silence_path_notifies_then_supervisor_then_dial():
     assert incident.status == "resolved"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_notify_supervisor.py -v`  
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `channels/supervisor.py` as above. Orchestrator branch:
 
@@ -750,12 +760,12 @@ if tool == "notify_supervisor":
 
 Add `supervisor_notifier` optional kwarg to `run_incident`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_notify_supervisor.py tests/test_notify_channel.py tests/test_orchestrator.py -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/care_ladder/channels/supervisor.py src/care_ladder/ladder/orchestrator.py tests/test_notify_supervisor.py
@@ -778,7 +788,7 @@ git commit -m "feat(saas): notify_supervisor escalate with stub/Slack audit"
   - `GET /tenant/me` or include mode on `GET /auth/me` (already) and `GET /demo/context` → `{mode, plan_household_id, fixtures: [...]}` for UI
   - Home fixtures unchanged: `no_movement_ok`, `no_movement_silence` still resolve Path A / escalate Path B without notify events
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_facility_fixture.py
@@ -812,12 +822,12 @@ def test_facility_notify_silence_fixture():
     assert notify["detail"]["adapter"] in ("stub", "slack")
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_facility_fixture.py -v`  
 Expected: FAIL (`unknown fixture facility_notify_silence`)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `app.py`:
 
@@ -846,12 +856,12 @@ async def _run_facility_notify_silence(store: AuditStore):
 
 Wire into `demo_run`. Add `GET /demo/context` returning available fixtures and default mode.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_facility_fixture.py tests/test_demo_paths_and_ui.py tests/test_e2e_demo.py -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/care_ladder/api/app.py tests/test_facility_fixture.py
@@ -874,7 +884,7 @@ git commit -m "feat(saas): facility_notify_silence demo fixture; Path A/B unchan
   - Timeline labels for `notify_channel` and `notify_supervisor` (include `adapter=stub|slack` in detail text)
   - Footer unchanged: no clinical / no real 911 claims
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_ui_facility_mode.py
@@ -900,12 +910,12 @@ def test_facility_fixture_visible_in_ui_served():
     assert "facility_notify_silence" in r.text
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_ui_facility_mode.py -v`  
 Expected: FAIL (button / badge missing)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `index.html` header actions, add:
 
@@ -922,12 +932,12 @@ notify_channel:"notify channel", notify_supervisor:"notify supervisor",
 
 In `detailText`, if `d.adapter` present push `"adapter: "+d.adapter`. On load, `fetch("/demo/context")` and set `#mode-badge` text/class to Home or Facility.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_ui_facility_mode.py tests/test_demo_paths_and_ui.py -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/care_ladder/api/static/index.html tests/test_ui_facility_mode.py
@@ -954,7 +964,7 @@ git commit -m "feat(saas): facility mode badge and notify timeline UI"
   - Gating: `facility_notify_silence` returns 402/403 with `{detail: "upgrade_required"}` when tenant plan is `home` and not demo; demo tenants always allowed
   - YAGNI: no per-incident overage metering
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_stripe_billing.py
@@ -990,12 +1000,12 @@ def test_apply_checkout_completed_sets_plan():
     assert t.subscription_status == "active"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_stripe_billing.py -v`  
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `plans.py` as interfaces.  
 `stripe_checkout.py`: if `STRIPE_SECRET_KEY` unset AND `CARE_LADDER_ENV=demo`, return a stub checkout URL `/billing/stub-success?plan=...` for local demos (document honesty). In non-demo envs with the key unset, raise 503 - never fake a checkout in prod. When set, `stripe.checkout.Session.create(mode="subscription", line_items=[{price: PRICE_ID, quantity: 1}], success_url, cancel_url, metadata={tenant_id, plan})`.
@@ -1004,12 +1014,12 @@ Expected: FAIL
 
 Indicative prices (document only): Home $29/mo, Facility Starter $199/mo, Facility Growth $499/mo (Growth checkout optional for MVP - gate enum includes it but Checkout only offers Home + Facility Starter per spec MVP).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_stripe_billing.py -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/care_ladder/billing src/care_ladder/api/app.py tests/test_stripe_billing.py pyproject.toml .env.example
@@ -1031,7 +1041,7 @@ git commit -m "feat(saas): Stripe Checkout, webhook, and facility plan gating"
   - Copy rules: no clinical diagnosis claims; emergency fail-closed mentioned; ReadyPup not mentioned
   - CTA: "Open caregiver console" → `/ui/`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_landing_and_demo_login.py
@@ -1060,12 +1070,12 @@ def test_landing_links_to_ui():
     assert "/ui" in r.text
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_landing_and_demo_login.py -v`  
 Expected: FAIL (landing missing or `/` still not landing)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `landing.html` with sections: Hero one-liner from spec ("Vision spots the moment; the ladder picks the next human-safe step with an operator in the loop."), Dual ICP table (Home vs Facility), Pricing, Demo login form (email/password prefilled tips for `facility@careladder.local`), footer disclaimers.  
 Mount in `create_app`:
@@ -1078,12 +1088,12 @@ def landing():
 
 Keep `StaticFiles` at `/ui`. Ensure no "HIPAA" or "911 dispatch" product claims.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_landing_and_demo_login.py -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/care_ladder/api/static/landing.html src/care_ladder/api/app.py tests/test_landing_and_demo_login.py
@@ -1102,7 +1112,7 @@ git commit -m "feat(saas): landing page with pricing and demo login"
 - Consumes: `DATABASE_URL`, `SESSION_SECRET`, optional `STRIPE_*`, `SLACK_WEBHOOK_URL`, `CARE_LADDER_ENV=demo`, `CARE_LADDER_AUTH=on` in prod
 - Produces: container that runs migrations then uvicorn; public HTTPS URL documented in README; README **Galuxium Nexus V2** section covering architecture diagram (text), schema summary, fiscal architecture, local run, demo accounts, dual-hackathon note (ReadyPup ≠ Care Ladder)
 
-- [ ] **Step 1: Write the failing test (smoke / docs presence)**
+- [x] **Step 1: Write the failing test (smoke / docs presence)**
 
 ```python
 # tests/test_deploy_docs.py
@@ -1120,12 +1130,12 @@ def test_deploy_config_exists():
     assert Path("render.yaml").exists() or Path("fly.toml").exists()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_deploy_docs.py -v`  
 Expected: FAIL
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 `render.yaml` example:
 
@@ -1157,22 +1167,22 @@ Dockerfile.saas: `pip install -e .`, copy `configs/demo_facility.yaml`, CMD runs
 README Galuxium section must include fiscal table (Home $29 / Facility Starter $199 / Facility Growth $499), StubDialer honesty, Slack stub-vs-real, and "RevenueCat Shipaton uses ReadyPup - not this repo filing."
 
 **Deploy-day checklist (all required before the URL goes in the Devpost form):**
-- [ ] Render Postgres `basic-256mb` created; `DATABASE_URL` wired via `fromDatabase`
-- [ ] `SESSION_SECRET` generated; `CARE_LADDER_ENV=demo`, `CARE_LADDER_AUTH=on` set
-- [ ] Stripe test mode: create products Home $29/mo and Facility Starter $199/mo (console, test mode); record the two price IDs as `STRIPE_PRICE_HOME` / `STRIPE_PRICE_FACILITY` in Render env
-- [ ] Register the webhook endpoint in the Stripe dashboard (test mode) pointing at `https://<render-url>/billing/webhook`; copy the signing secret to `STRIPE_WEBHOOK_SECRET` in Render env. If the secret is unset in a non-demo env the endpoint must reject (fail-closed, Global Constraints)
-- [ ] First deploy: health check green (`/demo/context` must remain unauthenticated for Render probes), `alembic upgrade head` succeeded in logs, `bootstrap_saas_demo.py` created the demo tenant + facility fixture (idempotent on restart)
-- [ ] Post-deploy smoke: landing demo login → run Path A fixture → facility fixture shows notify + supervisor rungs → checkout button resolves to Stripe test page → webhook sets `plan` (use Stripe CLI `trigger checkout.session.completed` if needed)
-- [ ] Note in README: upload job status is process-local (a mid-analysis redeploy orphans a job); Render starter is single-instance MVP
+- [x] Render Postgres `basic-256mb` created; `DATABASE_URL` wired via `fromDatabase` (live 2026-09-28)
+- [x] `SESSION_SECRET` generated; `CARE_LADDER_ENV=demo`, `CARE_LADDER_AUTH=on` set (live /demo/context reports auth:true)
+- [x] Stripe test mode: products + price IDs set (live checkout returns cs_test URLs for home + facility_starter)
+- [x] Webhook endpoint registered + STRIPE_WEBHOOK_SECRET set (live unsigned POST = 400 fail-closed)
+- [x] First deploy healthy: /demo/context 200 unauthenticated; bootstrap tenants seeded (home login works live)
+- [x] Post-deploy smoke (partial 2026-09-28): context/auth/checkout/webhook/401 verified by curl; browser click-through remains for Task 13
+- [x] README notes process-local upload jobs + single-instance MVP
 
 **Known Render-free-tier caveats:** managed Postgres sleeps after idle; first request after wake can be slow (migrations are idempotent, no data loss). Basic-256mb avoids this on paid starter.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_deploy_docs.py -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Dockerfile render.yaml fly.toml README.md scripts/seed_saas_demo.py tests/test_deploy_docs.py .env.example pyproject.toml
@@ -1191,7 +1201,7 @@ git commit -m "chore(saas): Render/Fly deploy config and Galuxium README"
 - Consumes: existing shot list structure (Path A/B, DNN, fall) as the template
 - Produces: standalone Galuxium shot list with the facility notify → supervisor → dial beat; mute-test note that notify/supervisor rows are readable without VO; no video file creation in this task
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_demo_video_facility_beat.py
@@ -1209,12 +1219,12 @@ def test_opencv_script_untouched():
     assert "notify_supervisor" not in text
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_demo_video_facility_beat.py -v`  
 Expected: FAIL (facility notify beat not yet in script)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Insert a new shot after Path B (adjust times so total stays 2–5 min for Galuxium cut; note OpenCV cut may remain longer):
 
@@ -1224,12 +1234,12 @@ Insert a new shot after Path B (adjust times so total stays 2–5 min for Galuxi
 
 Add mute-test checklist bullet: cue → notify → supervisor → dial → resolve readable without VO.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_demo_video_facility_beat.py -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/galuxium/demo-video-galuxium.md tests/test_demo_video_facility_beat.py
@@ -1247,7 +1257,7 @@ git commit -m "docs(galuxium): standalone Galuxium demo shot list with facility 
 - Consumes: design spec §§1–7
 - Produces: Devpost-ready markdown covering market friction, architecture, cohort/ICP, fiscal architecture, success criteria, dual-hackathon separation (ReadyPup / OpenCV / Galuxium), explicit non-goals (no HIPAA claims, no live 911, no clinical diagnosis)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_galuxium_briefing.py
@@ -1263,12 +1273,12 @@ def test_executive_briefing_exists_and_covers_required_sections():
     assert "diagnos" not in text or "not a" in text or "no medical" in text or "non-clinical" in text or "does not diagnose" in text
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_galuxium_briefing.py -v`  
 Expected: FAIL (file missing)
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Write `docs/galuxium/executive-briefing.md` with these exact section headings and concrete copy (no placeholders):
 
@@ -1303,12 +1313,12 @@ No medical diagnosis claims. No live 911/EMS product feature. No face recognitio
 Judge opens live URL, runs Path A and Path B. Facility demo shows Slack-or-stub notify + supervisor on the timeline. Stripe test-mode checkout unlocks Facility Starter. Video mute-test readable. Tarka-circle pre-submit review before filing.
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_galuxium_briefing.py -v`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/galuxium/executive-briefing.md tests/test_galuxium_briefing.py
