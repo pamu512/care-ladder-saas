@@ -39,6 +39,8 @@ SUPPORTED_FIXTURES = frozenset(
         "facility_notify_silence",
         "facility_ack_resolved",
         "facility_ack_timeout",
+        "facility_negative_reply",
+        "facility_positive_reply",
     }
 )
 _FACILITY_PLAN_PATH = _REPO_ROOT / "configs" / "demo_facility.yaml"
@@ -46,6 +48,60 @@ _POSE_MODEL_PATH = _REPO_ROOT / "models" / "pose_estimation_mediapipe_2023mar.on
 _MODEL_PATH = _REPO_ROOT / "models" / "person_detection_mediapipe_2023mar.onnx"
 # Midday UTC so quiet_hours soft-suppress does not hide the judge demo ladder.
 DEMO_NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
+
+
+# --- Mockup H facility console state (process-local demo; Postgres rows via
+# --- FacilityRepository when DATABASE_URL is configured - Slice 4)
+_FACILITY_STATES: dict[str, "FacilityState"] = {}
+
+
+def _facility_state(tenant_id: str) -> "FacilityState":
+    from care_ladder.facility.models import StaffMember
+    from care_ladder.facility.service import FacilityState
+
+    state = _FACILITY_STATES.get(tenant_id)
+    if state is None:
+        state = FacilityState()
+        if tenant_id == "demo-facility":
+            state.seed_staff(
+                [
+                    StaffMember(id="demo-facility-maria", tenant_id=tenant_id, display_name="Maria G.", role="RN", initials="MG"),
+                    StaffMember(id="demo-facility-alex", tenant_id=tenant_id, display_name="Alex R.", role="CNA", initials="AR", status="on_break"),
+                    StaffMember(id="demo-facility-jamie", tenant_id=tenant_id, display_name="Jamie D.", role="CNA", initials="JD"),
+                    StaffMember(id="demo-facility-lead", tenant_id=tenant_id, display_name="Floor Lead", role="Lead", initials="FL"),
+                ]
+            )
+        _FACILITY_STATES[tenant_id] = state
+    return state
+
+
+def _facility_after_incident(tenant_id: str, incident, fixture: str) -> None:
+    """Mockup H: open cases / record resident-resolved after a facility fixture."""
+    from care_ladder.facility.models import Case, Priority
+
+    state = _facility_state(tenant_id)
+    if fixture == "facility_positive_reply":
+        state.resident_resolved.append(
+            {
+                "incident_id": incident.id,
+                "room_label": "204",
+                "at": None,
+                "reply_class": "positive",
+            }
+        )
+        return
+    if fixture == "facility_negative_reply":
+        origin, priority = "from_negative_reply", Priority.default_for(incident.cue.kind, "negative")
+    else:  # silence path fixtures
+        origin, priority = "from_silence", Priority.default_for(incident.cue.kind, "silence")
+    case = Case.open_from_incident(
+        incident_id=incident.id,
+        tenant_id=tenant_id,
+        room_label="204",
+        origin=origin,
+        priority=priority,
+    )
+    state.open_case(case)
 
 
 class CheckoutRequest(BaseModel):
@@ -154,6 +210,43 @@ async def _run_facility_notify_silence(store: AuditStore):
         supervisor_notifier=NotifySupervisorAdapter(supervisor=plan.supervisor),
         now=DEMO_NOW,
     )
+    return incident
+
+
+async def _run_facility_reply(store: AuditStore, *, negative: bool):
+    """Facility reply-classification fixtures (Mockup H section 4.1).
+
+    - facility_negative_reply: resident answers "I need help" -> classified
+      negative -> P1, skip wait rungs, page group, open Case.
+    - facility_positive_reply: resident answers "I'm fine" -> resolved by
+      resident response; no case.
+    Classification is pinned by the fixture (fixture override wins).
+    """
+    from care_ladder.channels.notify import NotifyChannelAdapter
+
+    plan = load_care_plan(_FACILITY_PLAN_PATH)
+    cue = CueEvent(kind="no_movement", confidence=0.9, detail={"fixture": "facility_negative_reply" if negative else "facility_positive_reply"})
+    scripted = ["I need help, I cannot get up"] if negative else ["I'm fine"]
+    speaker = SpeakerSimulator(scripted=scripted)
+    dialer = StubDialer(behavior={})
+    incident = await run_incident(
+        cue=cue,
+        plan=plan,
+        speaker=speaker,
+        dialer=dialer,
+        pre_event_frames=[],
+        store=store,
+        notifier=NotifyChannelAdapter(),
+        now=DEMO_NOW,
+    )
+    # Pin classification into the speaker_prompt event detail (fixture override)
+    from care_ladder.facility.classify import classify_reply
+
+    cls = classify_reply(scripted[0], fixture_class="negative" if negative else "positive")
+    for e in incident.events:
+        if e.tool == "speaker_prompt":
+            e.detail = {**e.detail, "reply_class": cls.reply_class, "classify_source": cls.source}
+    store.save(incident)
     return incident
 
 
@@ -959,7 +1052,13 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             incident = await _run_opencv_dnn_person(store)
         elif body.fixture == "opencv_pose_person":
             incident = await _run_opencv_pose_person(store)
-        elif body.fixture in ("facility_notify_silence", "facility_ack_resolved", "facility_ack_timeout"):
+        elif body.fixture in (
+            "facility_notify_silence",
+            "facility_ack_resolved",
+            "facility_ack_timeout",
+            "facility_negative_reply",
+            "facility_positive_reply",
+        ):
             from care_ladder.billing.plans import tenant_can_use_notify
 
             record = _tenant_record(request)
@@ -971,12 +1070,192 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
                 )
             if body.fixture == "facility_notify_silence":
                 incident = await _run_facility_notify_silence(store)
+            elif body.fixture in ("facility_negative_reply", "facility_positive_reply"):
+                incident = await _run_facility_reply(store, negative=body.fixture == "facility_negative_reply")
             else:
                 incident = await _run_facility_ack_scenario(store, acked=body.fixture == "facility_ack_resolved")
         else:  # pragma: no cover - guarded by SUPPORTED_FIXTURES
             raise HTTPException(status_code=400, detail="unsupported fixture")
         await _publish_cloud(incident)
+        if body.fixture.startswith("facility_"):
+            record = _tenant_record(request)
+            if record is not None and record.get("mode") == "facility":
+                record_tenant = record.get("tenant_id")
+                tenant_id = record_tenant or (session.tenant_id if (session := _require_session(request)) else "demo-facility")
+                _facility_after_incident(tenant_id, incident, body.fixture)
         return DemoRunResponse(incident_id=incident.id)
+
+    # ---- facility console API (Mockup H) ------------------------------------
+
+    def _facility_ctx(request: Request):
+        """401 anon; 403 home tenants; else (tenant_id, state, store)."""
+        session = _require_session(request)
+        if session is None and _auth_on():
+            raise HTTPException(status_code=401, detail="authentication required")
+        record = _tenant_record(request)
+        if record is not None and record.get("mode") != "facility":
+            raise HTTPException(status_code=403, detail="facility console requires a facility tenant")
+        tenant_id = session.tenant_id if session is not None else "demo-facility"
+        state = _facility_state(tenant_id)
+        store = _tenant_store(request) if _auth_on() else store_for(None)
+        return tenant_id, state, store
+
+    def _case_out(c) -> dict:
+        return {
+            "id": c.id, "human_id": c.human_id, "incident_id": c.incident_id,
+            "room_label": c.room_label, "title": c.title, "origin": c.origin,
+            "priority": c.priority, "state": c.state, "owner_staff_id": c.owner_staff_id,
+            "slack_thread_url": c.slack_thread_url, "ack_at": c.ack_at.isoformat() if c.ack_at else None,
+            "closed_at": c.closed_at.isoformat() if c.closed_at else None,
+            "documentation": c.documentation,
+        }
+
+    @application.get("/facility/alerts")
+    def facility_alerts(request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        queue = []
+        for c in sorted(
+            [c for c in state.cases.values() if c.state != "closed"],
+            key=lambda c: (c.priority, c.human_id),
+        ):
+            inc = store.get(c.incident_id)
+            queue.append(
+                {
+                    "incident_id": c.incident_id,
+                    "case": _case_out(c),
+                    "priority": c.priority,
+                    "room_label": c.room_label,
+                    "origin": c.origin,
+                    "title": c.title,
+                    "chips": [
+                        chip
+                        for chip, on in (
+                            ("Negative response", c.origin == "from_negative_reply"),
+                            ("Ladder jumped", inc is not None and any(e.tool == "jump" for e in inc.events)),
+                            ("Assigned", c.owner_staff_id is not None),
+                        )
+                        if on
+                    ],
+                }
+            )
+        return {"queue": queue, "resident_resolved": state.resident_resolved}
+
+    @application.get("/facility/alerts/{incident_id}")
+    def facility_alert_detail(incident_id: str, request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        case = next((c for c in state.cases.values() if c.incident_id == incident_id), None)
+        inc = store.get(incident_id)
+        if case is None and inc is None:
+            raise HTTPException(status_code=404, detail="alert not found")
+        reply = None
+        if inc is not None:
+            for e in inc.events:
+                if e.tool == "speaker_prompt":
+                    reply = e.detail.get("reply_class")
+        return {
+            "incident_id": incident_id,
+            "case": _case_out(case) if case else None,
+            "reply_class": reply,
+            "rungs": [e.tool for e in inc.events] if inc else [],
+            "assign_candidates": [
+                {"id": m.id, "display_name": m.display_name, "role": m.role, "initials": m.initials,
+                 "status": m.status, "assignable": m.assignable()}
+                for m in state.roster()
+            ],
+        }
+
+    @application.post("/facility/alerts/{incident_id}/priority")
+    def facility_priority(incident_id: str, body: dict, request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        case = next((c for c in state.cases.values() if c.incident_id == incident_id), None)
+        if case is None:
+            raise HTTPException(status_code=404, detail="alert not found")
+        priority = body.get("priority")
+        if priority not in ("P1", "P2", "P3"):
+            raise HTTPException(status_code=422, detail="priority must be P1|P2|P3")
+        case.priority = priority
+        state.log_override("priority_override", case.id)
+        return {"ok": True, "priority": case.priority}
+
+    @application.post("/facility/alerts/{incident_id}/assign")
+    def facility_assign(incident_id: str, body: dict, request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        case = next((c for c in state.cases.values() if c.incident_id == incident_id), None)
+        if case is None:
+            raise HTTPException(status_code=404, detail="alert not found")
+        result = state.assign(case.id, body.get("staff_id", ""), pull_off_break=bool(body.get("pull_off_break")))
+        if result is None:
+            raise HTTPException(status_code=409, detail="staff member is on break; use pull_off_break to override")
+        return {"ok": True, "case": _case_out(result[0])}
+
+    @application.post("/facility/alerts/{incident_id}/override")
+    def facility_override(incident_id: str, body: dict, request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        case = next((c for c in state.cases.values() if c.incident_id == incident_id), None)
+        if case is None:
+            raise HTTPException(status_code=404, detail="alert not found")
+        action = body.get("action")
+        if action not in ("escalate", "deescalate", "suppress", "repage", "pull_off_break"):
+            raise HTTPException(status_code=422, detail="unsupported override action")
+        if action == "escalate" and case.priority != "P1":
+            order = ["P3", "P2", "P1"]
+            case.priority = order[min(order.index(case.priority) + 1, 2)]
+        if action == "deescalate" and case.priority != "P3":
+            order = ["P1", "P2", "P3"]
+            case.priority = order[min(order.index(case.priority) + 1, 2)]
+        if action == "repage":
+            case.state = "paged"
+        state.log_override(action, case.id)
+        return {"ok": True, "priority": case.priority, "state": case.state}
+
+    @application.get("/facility/cases")
+    def facility_cases(request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        return {
+            "open": [_case_out(c) for c in state.cases.values() if c.state != "closed"],
+            "closed_today": [_case_out(c) for c in state.cases.values() if c.state == "closed"],
+        }
+
+    @application.post("/facility/cases/{case_id}/ack")
+    def facility_case_ack(case_id: str, request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        c = state.ack_case(case_id)
+        if c is None:
+            raise HTTPException(status_code=404, detail="case not found")
+        return {"ok": True, "case": _case_out(c)}
+
+    @application.post("/facility/cases/{case_id}/close")
+    def facility_case_close(case_id: str, body: dict, request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        c = state.close_case(case_id, body.get("documentation", ""))
+        if c is None:
+            raise HTTPException(status_code=422, detail="documentation required (min 20 chars)")
+        return {"ok": True, "case": _case_out(c)}
+
+    @application.get("/facility/staff")
+    def facility_staff(request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        return {
+            "staff": [
+                {"id": m.id, "display_name": m.display_name, "role": m.role, "initials": m.initials,
+                 "status": m.status, "break_until": m.break_until.isoformat() if m.break_until else None,
+                 "active_case_id": m.active_case_id}
+                for m in state.roster()
+            ]
+        }
+
+    @application.post("/facility/staff/{staff_id}/break")
+    def facility_staff_break(staff_id: str, body: dict, request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        m = state.set_break(staff_id, bool(body.get("on_break")), int(body.get("minutes", 30)))
+        if m is None:
+            raise HTTPException(status_code=404, detail="staff not found")
+        return {"ok": True, "status": m.status}
+
+    @application.get("/facility/audit/summary")
+    def facility_audit(request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        return state.summary()
 
     return application
 
