@@ -40,9 +40,30 @@ DEMO_TENANTS = [
 ]
 
 
+def _ensure_schema_columns(engine) -> None:
+    """create_all never ALTERs existing tables; add missing columns idempotently.
+
+    Render Postgres keeps its schema across deploys, so model changes need
+    additive ALTERs here (this fork deliberately ships no Alembic).
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    if not inspector.has_table("tenants"):
+        return  # fresh database; create_all below handles everything
+    existing = {c["name"] for c in inspector.get_columns("tenants")}
+    with engine.begin() as conn:
+        if "stripe_customer_id" not in existing:
+            conn.execute(
+                text("ALTER TABLE tenants ADD COLUMN stripe_customer_id VARCHAR(64)")
+            )
+            print("bootstrap: added tenants.stripe_customer_id")
+
+
 def bootstrap(database_url: str | None = None) -> None:
     url = database_url or os.environ.get("DATABASE_URL", "sqlite:///./saas-demo.db")
     engine = create_engine_from_url(url)
+    _ensure_schema_columns(engine)
     Base.metadata.create_all(engine)  # idempotent
     factory = make_session_factory(engine)
     session = factory()
