@@ -23,7 +23,7 @@ def test_facility_yaml_loads_and_is_facility_mode():
     assert plan.notifications is not None
     assert plan.notifications.slack.enabled is True
     tools = [r.tool for r in plan.rungs]
-    assert "notify_channel" in tools
+    assert "notify_and_await_ack" in tools
     assert "notify_supervisor" in tools
     assert "dial_contact" in tools
     # no emergency rung in facility template

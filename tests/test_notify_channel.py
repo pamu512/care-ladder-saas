@@ -66,12 +66,31 @@ async def _run_facility_incident(notifier=None):
 
 def test_orchestrator_runs_notify_channel_rung():
     import asyncio
+    from care_ladder.models import Rung
+
+    # Legacy plain notify_channel rung still supported (facility plan now uses
+    # notify_and_await_ack; this keeps the notify_channel tool covered).
+    plan = load_care_plan(_FACILITY)
+    plan.rungs = [
+        r if r.tool != "notify_and_await_ack"
+        else Rung(id="notify_ops", tool="notify_channel", params={"message": "ops page"})
+        for r in plan.rungs
+    ]
+    cue = CueEvent(kind="no_movement", confidence=0.9, detail={"fixture": "facility_silence"})
+    from datetime import datetime, timezone
 
     recorder = RecordingNotifier()
-    incident = asyncio.run(_run_facility_incident(notifier=recorder))
+    incident = asyncio.run(run_incident(
+        cue,
+        plan,
+        speaker=SpeakerSimulator(scripted=[]),
+        dialer=StubDialer(behavior={"caregiver": "answered"}),
+        notifier=recorder,
+        now=datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc),
+    ))
     tools = [e.tool for e in incident.events]
     assert "notify_channel" in tools
-    assert "notify_supervisor" in tools  # Task 5 wires this; rung exists in plan
+    assert "notify_supervisor" in tools  # supervisor rung still in plan
     assert incident.status == "resolved"
     # the notify event carries adapter + message detail
     ev = next(e for e in incident.events if e.tool == "notify_channel")
@@ -81,8 +100,23 @@ def test_orchestrator_runs_notify_channel_rung():
 
 def test_notify_missing_notifier_falls_back_to_stub_audit():
     import asyncio
+    from care_ladder.models import Rung
+    from datetime import datetime, timezone
 
-    incident = asyncio.run(_run_facility_incident(notifier=None))
+    # Legacy plain notify_channel rung (facility plan now uses notify_and_await_ack)
+    plan = load_care_plan(_FACILITY)
+    plan.rungs = [
+        r if r.tool != "notify_and_await_ack"
+        else Rung(id="notify_ops", tool="notify_channel", params={"message": "ops page"})
+        for r in plan.rungs
+    ]
+    cue = CueEvent(kind="no_movement", confidence=0.9, detail={"fixture": "facility_silence"})
+    incident = asyncio.run(run_incident(
+        cue, plan,
+        speaker=SpeakerSimulator(scripted=[]),
+        dialer=StubDialer(behavior={"caregiver": "answered"}),
+        now=datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc),
+    ))
     ev = next(e for e in incident.events if e.tool == "notify_channel")
     assert ev.detail["adapter"] == "stub"
     assert ev.detail["delivered"] is True

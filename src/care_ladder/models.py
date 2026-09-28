@@ -19,8 +19,38 @@ class SlackNotifications(BaseModel):
     channel: str | None = None
 
 
+class TeamsNotifications(BaseModel):
+    enabled: bool = False
+
+
+class WhatsAppNotifications(BaseModel):
+    enabled: bool = False
+    to: str | None = None
+
+
+class TelegramNotifications(BaseModel):
+    enabled: bool = False
+    chat_id: str | None = None
+
+
 class Notifications(BaseModel):
     slack: SlackNotifications = Field(default_factory=SlackNotifications)
+    teams: TeamsNotifications = Field(default_factory=TeamsNotifications)
+    whatsapp: WhatsAppNotifications = Field(default_factory=WhatsAppNotifications)
+    telegram: TelegramNotifications = Field(default_factory=TelegramNotifications)
+
+    def enabled_channels(self) -> list[str]:
+        """Channel ids with an enabled block (order: config declaration)."""
+        out: list[str] = []
+        if self.slack.enabled:
+            out.append("slack")
+        if self.teams.enabled:
+            out.append("teams")
+        if self.whatsapp.enabled:
+            out.append("whatsapp")
+        if self.telegram.enabled:
+            out.append("telegram")
+        return out
 
 
 class NoMovementTrigger(BaseModel):

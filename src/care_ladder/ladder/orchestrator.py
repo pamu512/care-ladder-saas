@@ -130,10 +130,15 @@ async def run_incident(
     dialer: StubDialer,
     pre_event_frames: list[Any] | None = None,
     *,
+    incident_id: str | None = None,
     store: AuditStore | None = None,
     notifier=None,
     supervisor_notifier=None,
+    page_router=None,
+    ack_registry=None,
+    ack_base_url: str = "",
     max_wait_sec: float = 0.05,
+    max_ack_wait_sec: float | None = None,
     privacy_mode: PrivacyMode = "blur",
     now: datetime | None = None,
 ) -> Incident:
@@ -145,6 +150,9 @@ async def run_incident(
     - speaker ``silence`` → continue
     - dial ``answered`` → resolve
     - dial ``no_answer`` → ``next_rung_after_no_answer`` (log jumps over skipped rungs)
+    - ``notify_and_await_ack`` → page caretakers over the channel router, wait
+      up to ``ack_timeout_sec`` for a signed-token acknowledgment; ack → resolve
+      (``reason: caretaker_ack``), timeout → continue escalating to next rungs
     - ``emergency`` with ``enabled`` not True → fail-closed skip (never real 911)
 
     Pre-event frames are privacy-transformed (default blur) before attach count.
@@ -157,7 +165,7 @@ async def run_incident(
         private_frames, privacy, frame_count = [], None, 0
 
     incident = Incident(
-        id=uuid.uuid4().hex,
+        id=incident_id or uuid.uuid4().hex,
         household_id=plan.household_id,
         cue=cue,
         events=[],
@@ -169,6 +177,8 @@ async def run_incident(
     # without serializing numpy into the pydantic model / JSON timeline.
     incident.__dict__["_private_pre_event_frames"] = private_frames
 
+    # Allow ack scripts (and tests) to arm against the incident id before the
+    # notify rung fires: run_incident accepts an optional incident_id.
     events = incident.events
     cue_detail: dict[str, Any] = {
         "confidence": cue.confidence,
@@ -321,6 +331,101 @@ async def run_incident(
                 cue_kind=cue.kind,
                 rung_id=rung.id,
                 detail=dict(result),
+            )
+            idx += 1
+            continue
+
+        if tool == "notify_and_await_ack":
+            from care_ladder.channels.router import PageRouter
+
+            channel_id = str(rung.params.get("channel", "slack"))
+            message = str(
+                rung.params.get("message", f"check-in needed ({cue.kind})")
+            )
+            ack_timeout = float(rung.params.get("ack_timeout_sec", 300))
+            # Ack-wait bounding: inherit the demo max_wait_sec bound unless the
+            # caller overrides with max_ack_wait_sec (fixtures demoing real ack
+            # windows pass a few seconds; -1 = full plan window). This keeps
+            # existing tests/demos snappy while allowing real deadlines.
+            cap = max_ack_wait_sec if max_ack_wait_sec is not None else max_wait_sec
+            wait_budget = ack_timeout if cap < 0 else min(ack_timeout, float(cap))
+
+            router = page_router or PageRouter()
+            adapter = router.get(channel_id)
+
+            registry = ack_registry
+            if registry is None:
+                from care_ladder.channels.ack import AckRegistry
+
+                registry = AckRegistry()
+
+            base_url = ack_base_url or ""
+            pending = registry.create_pending(
+                incident.id,
+                rung.id,
+                channel_id,
+                message,
+                wait_budget,
+                base_url,
+            )
+            paged = f"{message}\nAcknowledge (stops escalation): {pending.ack_url}"
+            try:
+                result = adapter.notify(paged)
+            except Exception as exc:
+                result = {
+                    "adapter": "stub",
+                    "channel": channel_id,
+                    "delivered": False,
+                    "error": str(exc),
+                    "message": message,
+                }
+            _append(
+                events,
+                tool="notify_and_await_ack",
+                cue_kind=cue.kind,
+                rung_id=rung.id,
+                detail={
+                    **dict(result),
+                    "ack_timeout_sec": ack_timeout,
+                    "waited_sec": wait_budget,
+                    "ack_deadline": pending.deadline.isoformat(),
+                },
+            )
+
+            outcome = await registry.wait_for_ack(
+                incident.id, rung.id, wait_budget
+            )
+            if outcome is None:
+                # Close the race: an ack recorded in the last poll interval
+                # still wins over escalation.
+                outcome = registry.outcome_for(incident.id, rung.id)
+            if outcome is not None:
+                registry.close_pending(incident.id, rung.id, reason="acked")
+                incident.status = "resolved"
+                _append(
+                    events,
+                    tool="resolve",
+                    cue_kind=cue.kind,
+                    detail={
+                        "reason": "caretaker_ack",
+                        "acked_by": outcome.acked_by,
+                        "ack_channel": outcome.channel,
+                        "ack_at": outcome.acked_at.isoformat(),
+                        "rung_id": rung.id,
+                    },
+                )
+                break
+            registry.close_pending(incident.id, rung.id, reason="ack_timeout")
+            _append(
+                events,
+                tool="ack_timeout",
+                cue_kind=cue.kind,
+                rung_id=rung.id,
+                detail={
+                    "reason": "no_ack_before_deadline",
+                    "ack_timeout_sec": ack_timeout,
+                    "next": "escalating to next rung",
+                },
             )
             idx += 1
             continue

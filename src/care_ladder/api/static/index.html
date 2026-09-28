@@ -73,6 +73,16 @@
   .upload-live { display:inline-flex; align-items:center; gap:8px; }
   .upload-live .bar { width:110px; height:5px; border-radius:3px; background:var(--border); overflow:hidden; }
   .upload-live .bar>div { height:100%; width:0%; background:var(--accent); transition:width 1s linear; }
+  .ack-panel { background:var(--card); border:1px solid var(--border); border-radius:14px; margin-bottom:20px; overflow:hidden; }
+  .ack-panel>p { padding:12px 20px; font-size:13px; color:var(--muted); border-bottom:1px solid var(--border); }
+  .ack-row { display:flex; align-items:center; gap:12px; padding:12px 20px; flex-wrap:wrap; }
+  .ack-row + .ack-row { border-top:1px solid #f1f5f9; }
+  .ack-msg { font-size:14px; flex:1; min-width:220px; }
+  .ack-meta { font-size:12px; color:var(--faint); font-family:ui-monospace,Menlo,monospace; }
+  .ack-deadline { font-size:12px; color:var(--warn); font-variant-numeric:tabular-nums; }
+  .btn.ack { background:var(--ok); border-color:var(--ok); color:#fff; }
+  .btn.ack:hover { filter:brightness(1.08); color:#fff; }
+  .c-notify_and_await_ack { color:var(--info); } .c-ack_timeout{color:var(--warn);}
   @media (max-width:720px){ .stats{grid-template-columns:repeat(2,1fr);} .timeline li{grid-template-columns:110px 1fr;} }
 </style>
 </head>
@@ -89,12 +99,18 @@
       <button class="btn" data-fixture="opencv_dnn_person">DNN · real photo</button>
       <button class="btn" data-fixture="opencv_stillness">Stillness</button>
       <button class="btn" data-fixture="facility_notify_silence">🏥 Facility · notify → supervisor</button>
+      <button class="btn" data-fixture="facility_ack_resolved">✓ Facility · caretaker acks</button>
+      <button class="btn" data-fixture="facility_ack_timeout">⏱ Facility · no ack → escalate</button>
       <label class="btn upload-label">⇪ Upload clip<input type="file" id="clip-input" accept="video/mp4,video/quicktime,video/x-msvideo,video/webm" hidden></label>
       <span id="upload-status"></span>
     </div>
   </div>
 </header>
 <main>
+  <div class="ack-panel" id="ack-panel" hidden>
+    <p>Acknowledgment requested — tap <strong>Acknowledge</strong> to stop escalation for that page. Links also go out over Slack / Teams / WhatsApp / Telegram when configured.</p>
+    <div id="ack-rows"></div>
+  </div>
   <div class="stats" id="stats" hidden>
     <div class="stat"><div class="n" id="s-total">0</div><div class="l">Incidents</div></div>
     <div class="stat"><div class="n" id="s-resolved">0</div><div class="l">Resolved</div></div>
@@ -113,6 +129,7 @@ const TOOL_LABEL = {
   wait:"wait", jump:"jump (logged)", dial_contact:"dial", emergency:"emergency",
   notify:"notify", resolve:"resolve", suppress:"quiet hours",
   notify_channel:"notify ops (Slack)", notify_supervisor:"escalate supervisor",
+  notify_and_await_ack:"page caretakers · await ack", ack_timeout:"no acknowledgment — escalating",
 };
 function esc(s){const d=document.createElement("div");d.textContent=s??"";return d.innerHTML;}
 function detailText(ev){
@@ -127,6 +144,10 @@ function detailText(ev){
   if(d.confidence!=null) b.push("confidence: "+d.confidence);
   if(d.source) b.push("source: "+d.source);
   if(d.privacy) b.push("privacy: "+d.privacy);
+  if(d.ack_timeout_sec!=null) b.push("ack window: "+d.ack_timeout_sec+"s");
+  if(d.acked_by) b.push("acked by: "+d.acked_by);
+  if(d.ack_channel) b.push("via: "+d.ack_channel);
+  if(d.channel && d.delivered===false) b.push("channel: "+d.channel);
   return b.join(" · ");
 }
 function trackChips(cueDetail){
@@ -207,6 +228,42 @@ function bindSteppers(){
     };
   });
 }
+function bindAcks(){
+  document.querySelectorAll("button.ack-btn").forEach(btn=>{
+    btn.onclick=async()=>{
+      btn.disabled=true;
+      try{
+        const r=await fetch("/acks/"+encodeURIComponent(btn.dataset.token),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({by:"console caretaker"})});
+        if(r.ok){ await refresh(); await loadAcks(); }
+        else { const b=await r.json().catch(()=>({})); btn.disabled=false; alert(b.detail||"could not acknowledge"); }
+      }catch(e){ btn.disabled=false; alert(e.message); }
+    };
+  });
+}
+async function loadAcks(){
+  const list = await fetchJson("/acks/pending");
+  const panel = document.getElementById("ack-panel");
+  const rows = document.getElementById("ack-rows");
+  if(!panel||!rows) return;
+  if(!Array.isArray(list)||!list.length){ panel.hidden=true; rows.innerHTML=""; return; }
+  panel.hidden=false;
+  rows.innerHTML = list.map(p=>`
+    <div class="ack-row">
+      <span class="badge b-cue">${esc(p.channel)}</span>
+      <div class="ack-msg">${esc(p.message)}
+        <div class="ack-meta">incident ${esc(String(p.incident_id).slice(0,10))} · rung ${esc(p.rung_id||"")}</div>
+      </div>
+      <span class="ack-deadline" data-deadline="${esc(p.deadline)}"></span>
+      <button class="btn ack ack-btn" data-token="${esc(p.token)}">✓ Acknowledge</button>
+    </div>`).join("");
+  bindAcks();
+}
+function tickDeadlines(){
+  document.querySelectorAll(".ack-deadline[data-deadline]").forEach(el=>{
+    const dl=new Date(el.dataset.deadline); const s=Math.round((dl-Date.now())/1000);
+    el.textContent = s>0 ? `respond in ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}` : "window closed";
+  });
+}
 async function refresh(){
   const list = await fetchJson("/incidents");
   const el = document.getElementById("incidents");
@@ -279,7 +336,10 @@ document.getElementById("clip-input").addEventListener("change", async ev=>{
   finally{ ev.target.value=""; }
 });
 refresh();
+loadAcks();
 setInterval(()=>{ if(!document.querySelector(".upload-live")) refresh(); }, 20000);
+setInterval(()=>{ loadAcks(); }, 5000);
+setInterval(()=>{ tickDeadlines(); }, 1000);
 </script>
 </body>
 </html>
