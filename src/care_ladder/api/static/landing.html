@@ -14,7 +14,9 @@
     --bg: #10141c;
     --bg-deep: #0b0f16;
     --surface: #171d28;
+    --surface-2: #1c2432;
     --line: rgba(233,239,248,0.09);
+    --line-strong: rgba(233,239,248,0.16);
     --ink: #e9eff8;
     --ink-60: rgba(233,239,248,0.62);
     --ink-40: rgba(233,239,248,0.40);
@@ -44,7 +46,9 @@
   .mark {
     width: 30px; height: 30px; border-radius: 9px;
     background: linear-gradient(150deg, var(--accent), var(--sage));
+    display:flex; align-items:center; justify-content:center; color:#0b0f16;
   }
+  .mark svg { width:15px; height:15px; }
   .brand { font-weight: 700; letter-spacing: -0.01em; }
   .brand small { display: block; font-weight: 400; font-size: 11.5px; color: var(--ink-40); }
   .top-spacer { flex: 1; }
@@ -59,6 +63,23 @@
   section { padding: 34px 0; }
   h2 { font-size: 22px; letter-spacing: -0.01em; margin-bottom: 16px; }
   .sub { color: var(--ink-60); font-size: 14.5px; margin-bottom: 20px; max-width: 62ch; }
+
+  /* ---- ladder explainer ---- */
+  .ladder-explain { display:grid; grid-template-columns: 190px 1fr; gap: 28px; align-items:start; }
+  .ladder-viz { position:relative; padding: 6px 0 6px 26px; }
+  .ladder-viz::before { content:""; position:absolute; left:9px; top:14px; bottom:14px; width:2px;
+                        background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 60%, rgba(14,116,144,.25) 100%); }
+  .lv-rung { position:relative; padding: 7px 0 7px 14px; }
+  .lv-rung::before { content:""; position:absolute; left:-22px; top:13px; width:10px; height:10px; border-radius:50%;
+                     background: var(--bg); border:2px solid var(--accent); }
+  .lv-rung.stop::before { border-color: var(--sage); background: var(--sage); }
+  .lv-rung .t { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+  .lv-rung .s { font-size: 12px; color: var(--ink-40); }
+  .ladder-copy > p { color: var(--ink-60); font-size: 15px; max-width: 60ch; margin-bottom: 12px; }
+  .ladder-copy strong { color: var(--ink); font-weight: 600; }
+  .ack-chips { display:flex; gap:8px; flex-wrap:wrap; margin-top: 6px; }
+  .chip { font-size: 12px; font-family: var(--mono); border:1px solid var(--line-strong); border-radius: 999px; padding: 4px 12px; color: var(--ink-60); }
+  .chip.hot { border-color: rgba(45,212,232,.45); color: var(--accent); }
 
   table.pricing { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
   .pricing th, .pricing td { padding: 16px 18px; text-align: left; border-bottom: 1px solid var(--line); font-size: 14.5px; vertical-align: top; }
@@ -111,14 +132,17 @@
     font-size: 12.5px; color: var(--ink-40);
   }
   footer p { margin-top: 6px; }
-  @media (max-width: 640px) { .hero { padding-top: 40px; } }
+  @media (max-width: 720px) {
+    .ladder-explain { grid-template-columns: 1fr; gap: 18px; }
+    .hero { padding-top: 40px; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <header class="top">
-    <div class="mark" aria-hidden="true"></div>
+    <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v18M20 3v18M4 7h16M4 12h16M4 17h16"/></svg></div>
     <div class="brand">Care Ladder<small>Galuxium hosted care operations</small></div>
     <div class="top-spacer"></div>
     <a href="/ui/">Open caregiver console</a>
@@ -136,6 +160,38 @@
   </section>
 
   <section>
+    <div class="ladder-explain">
+      <div class="ladder-viz" aria-hidden="true">
+        <div class="lv-rung"><div class="t">Cue</div><div class="s">camera noticed</div></div>
+        <div class="lv-rung"><div class="t">Voice check-in</div><div class="s">ask if okay</div></div>
+        <div class="lv-rung"><div class="t">Page caretakers</div><div class="s">Slack · Teams · WhatsApp · Telegram</div></div>
+        <div class="lv-rung stop"><div class="t">Acknowledge</div><div class="s">one tap stops escalation</div></div>
+        <div class="lv-rung"><div class="t">Escalate lead</div><div class="s">supervisor paged on no ack</div></div>
+        <div class="lv-rung"><div class="t">Dial caregiver</div><div class="s">human in the loop</div></div>
+      </div>
+      <div class="ladder-copy">
+        <h2>Escalation that waits for a human, then acts</h2>
+        <p>
+          When a check-in goes quiet, Care Ladder pages the floor over the
+          channel your team already lives in and <strong>pauses for an
+          acknowledgment</strong>. One tap on the ack link - from a phone, no
+          login - records who is responding and stops the climb.
+        </p>
+        <p>
+          No acknowledgment inside the window and the ladder moves up on its
+          own: supervisor page next, then a phone call. Every hop is in the
+          per-incident audit trail.
+        </p>
+        <div class="ack-chips">
+          <span class="chip hot">ack window: plan-defined</span>
+          <span class="chip">single-use signed links</span>
+          <span class="chip">who / when / how recorded</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
     <h2>Built for two kinds of households</h2>
     <div class="cards">
       <div class="card">
@@ -148,9 +204,10 @@
       <div class="card">
         <div class="k">Facility - the wedge</div>
         <h3>Lean ops teams</h3>
-        <p>Facility mode routes silence to a Slack supervisor row before any
-        phone rings - one queue, per-shift accountability, and a per-incident
-        trail auditors can read without a biologist.</p>
+        <p>Facility mode routes silence to a caretaker page on Slack, Teams,
+        WhatsApp, or Telegram before any phone rings - one queue,
+        per-shift accountability, and a per-incident trail auditors can read
+        without a biologist.</p>
       </div>
     </div>
   </section>
