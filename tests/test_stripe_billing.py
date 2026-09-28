@@ -72,12 +72,14 @@ def test_checkout_maps_stripe_errors_to_503(monkeypatch):
     import stripe
 
     def boom(**_kwargs):
-        raise stripe.AuthenticationError("Invalid API Key provided")
+        raise stripe.AuthenticationError("Invalid API Key provided: sk_test_leak")
 
     monkeypatch.setattr(stripe.checkout.Session, "create", boom)
     client = TestClient(create_app(store=AuditStore()))
     r = client.post("/billing/checkout", json={"plan": "facility_starter"})
     assert r.status_code == 503, "Stripe auth/API errors must not leak as raw 500"
+    assert "sk_" not in r.text
+    assert r.json()["detail"] == "checkout unavailable"
 
 
 # ---------- webhook (fail-closed: C2) ----------

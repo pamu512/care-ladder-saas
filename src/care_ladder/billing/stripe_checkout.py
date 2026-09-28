@@ -42,7 +42,7 @@ def create_checkout_url(plan: str, tenant_id: str, base_url: str = "") -> str:
             metadata={"tenant_id": tenant_id, "plan": plan},
         )
     except stripe.StripeError as exc:
-        raise BillingError(str(exc)) from exc
+        raise BillingError("checkout unavailable") from exc
     return session.url
 
 
