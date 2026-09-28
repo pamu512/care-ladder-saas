@@ -45,7 +45,9 @@ def test_facility_fixture_allowed_for_facility_tenant(monkeypatch):
     r = client.post("/demo/run", json={"fixture": "facility_notify_silence"})
     assert r.status_code == 200
     inc = client.get(f"/incidents/{r.json()['incident_id']}").json()
-    assert any(e["tool"] == "notify_channel" for e in inc["events"])
+    tools = [e["tool"] for e in inc["events"]]
+    assert "notify_and_await_ack" in tools  # redesigned facility ladder (ack rung)
+    assert "dial_contact" in tools or "notify_supervisor" in tools
 
 
 def test_facility_fixture_blocked_when_subscription_lapsed(monkeypatch):
@@ -112,3 +114,12 @@ def test_webhook_persists_customer_id(monkeypatch):
     )
     assert r.status_code == 200
     assert _state(client).billing_tenants["demo-facility"]["stripe_customer_id"] == "cus_test_abc"
+
+
+def test_ack_fixtures_gated_too(monkeypatch):
+    """All facility fixtures (incl. the new ack demos) sit behind the plan gate."""
+    client = _client(monkeypatch)
+    _login(client, "demo@careladder.local", "demo-pass-home")
+    for fixture in ("facility_ack_resolved", "facility_ack_timeout"):
+        r = client.post("/demo/run", json={"fixture": fixture})
+        assert r.status_code == 403, f"{fixture} must be gated for home tenants"

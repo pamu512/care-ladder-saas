@@ -959,7 +959,7 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
             incident = await _run_opencv_dnn_person(store)
         elif body.fixture == "opencv_pose_person":
             incident = await _run_opencv_pose_person(store)
-        elif body.fixture == "facility_notify_silence":
+        elif body.fixture in ("facility_notify_silence", "facility_ack_resolved", "facility_ack_timeout"):
             from care_ladder.billing.plans import tenant_can_use_notify
 
             record = _tenant_record(request)
@@ -969,11 +969,10 @@ def create_app(store: AuditStore | None = None) -> FastAPI:
                     detail="facility notify requires an active facility plan "
                     "(Facility Starter or Growth); upgrade from the landing page",
                 )
-            incident = await _run_facility_notify_silence(store)
-        elif body.fixture == "facility_ack_resolved":
-            incident = await _run_facility_ack_scenario(store, acked=True)
-        elif body.fixture == "facility_ack_timeout":
-            incident = await _run_facility_ack_scenario(store, acked=False)
+            if body.fixture == "facility_notify_silence":
+                incident = await _run_facility_notify_silence(store)
+            else:
+                incident = await _run_facility_ack_scenario(store, acked=body.fixture == "facility_ack_resolved")
         else:  # pragma: no cover - guarded by SUPPORTED_FIXTURES
             raise HTTPException(status_code=400, detail="unsupported fixture")
         await _publish_cloud(incident)
