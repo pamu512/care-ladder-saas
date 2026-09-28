@@ -93,6 +93,17 @@ class CaseRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class OverrideEventRow(Base):
+    """Mockup H N3: lead overrides (priority/escalate/pull_off_break) survive restarts."""
+    __tablename__ = "facility_override_events"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), index=True)
+    action: Mapped[str] = mapped_column(String(32))
+    case_id: Mapped[str] = mapped_column(String(64), index=True)
+    staff_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class Subscription(Base):
     __tablename__ = "subscriptions"
     id: Mapped[str] = mapped_column(String(64), primary_key=True)  # stripe subscription id

@@ -94,6 +94,7 @@ def _facility_state(tenant_id: str, session_factory=None) -> "FacilityState":
                     state.staff[m.id] = m
                 for c in repo.list_cases():
                     state.cases[c.id] = c
+                state.load_overrides()  # N3: overrides survive restarts
         elif tenant_id == "demo-facility":
             for spec in _demo_roster_specs(tenant_id):
                 state.staff[spec["id"]] = StaffMember(
@@ -954,9 +955,13 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
     # console's own Acknowledge button uses the same tokens via /acks/pending.
 
     @application.get("/acks/pending")
-    def acks_pending() -> list[dict[str, Any]]:
-        """Live pending ack windows (console panel; auto-polled)."""
-        return _app_ack_registry().pending_list()
+    def acks_pending(request: Request) -> list[dict[str, Any]]:
+        """Live pending ack windows (console panel; session + tenant scoped)."""
+        session = _require_session(request)
+        if session is None and _auth_on():
+            raise HTTPException(status_code=401, detail="authentication required")
+        tenant_id = session.tenant_id if session is not None else None
+        return _app_ack_registry().pending_list(tenant_id)
 
     @application.post("/acks/{token}")
     def ack_submit(token: str, body: AckRequest | None = None):
@@ -989,7 +994,7 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         return HTMLResponse(render_ack_page(pending, status_note=note))
 
     @application.post("/demo/upload", response_model=DemoRunResponse)
-    async def demo_upload(file: UploadFile) -> DemoRunResponse:
+    async def demo_upload(file: UploadFile, request: Request) -> DemoRunResponse:
         """Real video ingest: upload a clip → OpenCV decode → CueDetector → ladder.
 
         Returns 202 immediately with a job id; the CPU-heavy decode+DNN scan
@@ -998,6 +1003,9 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         the event loop if awaited inline). Poll GET /demo/upload/{job_id} for
         the resulting incident.
         """
+        session = _require_session(request)
+        if session is None and _auth_on():
+            raise HTTPException(status_code=401, detail="authentication required")
         data = await file.read()
         if len(data) > 64 * 1024 * 1024:
             raise HTTPException(status_code=413, detail="clip too large (max 64 MB)")
@@ -1017,7 +1025,8 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         def _process() -> None:
             entry = _UPLOAD_JOBS[job_id]
             try:
-                entry["incident_id"] = _run_upload_sync(spilled, application.state.store)
+                store = _tenant_store(request) if _auth_on() else application.state.store
+                entry["incident_id"] = _run_upload_sync(spilled, store)
                 entry["status"] = "done"
             except HTTPException as exc:
                 entry["status"] = "error"

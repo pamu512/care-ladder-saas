@@ -92,9 +92,50 @@ class FacilityState:
         return case, member
 
     def log_override(self, action: str, case_id: str, staff_id: str | None = None) -> None:
-        self.overrides.append(
-            {"action": action, "case_id": case_id, "staff_id": staff_id, "at": _now().isoformat()}
-        )
+        entry = {"action": action, "case_id": case_id, "staff_id": staff_id, "at": _now().isoformat()}
+        self.overrides.append(entry)
+        if self.session_factory is not None:
+            try:
+                from care_ladder.db.models import OverrideEventRow
+
+                tenant_id = next(iter(self.staff.values())).tenant_id if self.staff else "demo-facility"
+                with self.session_factory() as session:
+                    session.add(
+                        OverrideEventRow(
+                            tenant_id=tenant_id, action=action,
+                            case_id=case_id, staff_id=staff_id,
+                        )
+                    )
+                    session.commit()
+            except Exception:
+                pass  # memory entry already recorded
+
+    def load_overrides(self) -> None:
+        """Hydrate overrides from Postgres on state creation (N3)."""
+        if self.session_factory is None:
+            return
+        try:
+            from care_ladder.db.models import OverrideEventRow
+
+            tenant_id = next(iter(self.staff.values())).tenant_id if self.staff else "demo-facility"
+            with self.session_factory() as session:
+                rows = (
+                    session.query(OverrideEventRow)
+                    .filter(OverrideEventRow.tenant_id == tenant_id)
+                    .order_by(OverrideEventRow.at)
+                    .all()
+                )
+                self.overrides = [
+                    {
+                        "action": r.action,
+                        "case_id": r.case_id,
+                        "staff_id": r.staff_id,
+                        "at": r.at.isoformat() if r.at else None,
+                    }
+                    for r in rows
+                ]
+        except Exception:
+            pass
 
     # -- cases -----------------------------------------------------------
 

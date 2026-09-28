@@ -42,12 +42,24 @@ def _keyword_classify(raw: str) -> Classification:
     text = (raw or "").casefold().strip()
     if not text:
         return Classification("silence", "keyword", "no reply within window")
-    # negative intent: explicit help/cannot/can't/pain/fell/no
-    neg = ("need help", "cannot", "can't", "cant get up", "hurt", "pain", "fell", "no,")
-    pos = ("fine", "i'm ok", "im ok", "ok", "okay", "yes i'm", "all good", "no help")
+    # Negation guard FIRST: negated distress phrases must never page P1.
+    negations = (
+        "don't need", "dont need", "do not need", "not need",
+        "no need", "not pain", "not hurt", "not feeling pain",
+        "not sick", "not dizzy", "no pain", "no hurt",
+        "don't want help", "dont want help", "not calling",
+    )
+    if any(n in text for n in negations):
+        return Classification("positive", "keyword", "keyword: negated distress phrase")
+    # negative intent: explicit help/cannot/pain/fell (word-ish boundaries)
+    neg = ("need help", "cannot get up", "can't get up", "cant get up", "hurt",
+           "in pain", "i fell", "have fallen", "help me", "i'm falling", "call for help")
+    pos = ("fine", "i'm ok", "im ok", "okay", "all good", "yes i'm", "doing well")
     if any(k in text for k in neg):
         return Classification("negative", "keyword", "keyword: help/distress phrase")
     if any(k in text for k in pos):
+        return Classification("positive", "keyword", "keyword: affirmative phrase")
+    if text in ("ok", "yes", "no") or text.startswith(("ok ", "yes,", "no,")) and "help" not in text:
         return Classification("positive", "keyword", "keyword: affirmative phrase")
     return Classification("unclear", "keyword", "no confident keyword match")
 

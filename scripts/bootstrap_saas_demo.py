@@ -68,22 +68,19 @@ def _seed_facility_staff(session) -> None:
     Maria G. (RN), Alex R. (CNA), Jamie D. (CNA), Floor Lead.
     Idempotent: existing staff rows are left alone.
     """
-    roster = [
-        ("demo-facility-maria", "Maria G.", "RN", "MG"),
-        ("demo-facility-alex", "Alex R.", "CNA", "AR"),
-        ("demo-facility-jamie", "Jamie D.", "CNA", "JD"),
-        ("demo-facility-lead", "Floor Lead", "Lead", "FL"),
-    ]
-    for sid, name, role, initials in roster:
-        if session.get(StaffRow, sid) is None:
+    # Single source of truth: the app's roster spec (incl. Alex on_break).
+    from care_ladder.api.app import _demo_roster_specs
+
+    for spec in _demo_roster_specs("demo-facility"):
+        if session.get(StaffRow, spec["id"]) is None:
             session.add(
                 StaffRow(
-                    id=sid, tenant_id="demo-facility",
-                    display_name=name, role=role, initials=initials,
-                    status="available",
+                    id=spec["id"], tenant_id="demo-facility",
+                    display_name=spec["display_name"], role=spec["role"],
+                    initials=spec["initials"], status=spec["status"],
                 )
             )
-            print(f"bootstrap: seeded staff {name}")
+            print(f"bootstrap: seeded staff {spec['display_name']} ({spec['status']})")
 
 
 def bootstrap(database_url: str | None = None) -> None:

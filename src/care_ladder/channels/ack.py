@@ -49,6 +49,7 @@ class PendingAck:
     deadline: datetime
     token: str
     ack_url: str
+    tenant_id: str | None = None  # set by the API layer for tenant-scoped views
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -167,7 +168,8 @@ class AckRegistry:
                 self._pending_by_token.pop(pending.token, None)
             return pending
 
-    def pending_list(self) -> list[dict[str, Any]]:
+    def pending_list(self, tenant_id: str | None = None) -> list[dict[str, Any]]:
+        """All pending summaries, or only those for one tenant when given."""
         now = self._now()
         out: list[dict[str, Any]] = []
         with self._lock:
@@ -176,7 +178,8 @@ class AckRegistry:
                 if p.deadline <= now:
                     stale.append(token)
                     continue
-                out.append(p.summary())
+                if tenant_id is None or p.tenant_id in (None, tenant_id):
+                    out.append(p.summary())
             for token in stale:
                 p = self._pending_by_token.pop(token)
                 self._pending_by_incident.pop((p.incident_id, p.rung_id), None)
