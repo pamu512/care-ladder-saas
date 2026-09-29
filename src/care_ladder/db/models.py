@@ -27,6 +27,8 @@ class Tenant(Base):
     plan: Mapped[str] = mapped_column(String(32), default="home")  # home | demo | facility_starter | facility_growth
     subscription_status: Mapped[str] = mapped_column(String(32), default="demo")
     stripe_customer_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    facility_type: Mapped[str] = mapped_column(String(32), default="assisted_living")  # daycare_kids | assisted_living | rehab | old_age_home
+    facility_settings: Mapped[dict] = mapped_column(JSON, default=dict)  # concurrency etc.
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     users: Mapped[list["User"]] = relationship(back_populates="tenant")

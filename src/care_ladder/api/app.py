@@ -53,6 +53,7 @@ DEMO_NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
 # --- Mockup H facility console state (process-local demo; Postgres rows via
 # --- FacilityRepository when DATABASE_URL is configured - Slice 4)
 _FACILITY_STATES: dict[str, "FacilityState"] = {}
+_SETTINGS_OVERRIDES: dict[str, dict[str, Any]] = {}
 
 
 def _facility_state(tenant_id: str, session_factory=None) -> "FacilityState":
@@ -721,7 +722,11 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
     # ---- billing (Task 8) ---------------------------------------------------
     _BILLING_TENANTS: dict[str, dict[str, Any]] = {
         "demo-home": {"mode": "home", "plan": "home", "status": "active"},
-        "demo-facility": {"mode": "facility", "plan": "demo", "status": "demo"},
+        "demo-facility": {
+            "mode": "facility", "plan": "demo", "status": "demo",
+            "facility_type": "assisted_living",
+            "facility_settings": {},
+        },
     }
     application.state.billing_tenants = _BILLING_TENANTS
 
@@ -747,6 +752,8 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
                             "plan": row.plan,
                             "status": row.subscription_status,
                             "stripe_customer_id": getattr(row, "stripe_customer_id", None),
+                            "facility_type": getattr(row, "facility_type", "assisted_living"),
+                            "facility_settings": getattr(row, "facility_settings", None) or {},
                         }
             except Exception:
                 pass  # fall through to the in-memory table
@@ -1173,6 +1180,93 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
                     session_factory=getattr(request.app.state, "pg_session_factory", None),
                 )
         return DemoRunResponse(incident_id=incident.id)
+
+    # ---- facility type settings (type-models Task 1) ------------------------
+
+    _FACILITY_TYPE_VALUES = ("daycare_kids", "assisted_living", "rehab", "old_age_home")
+
+    def _default_concurrency() -> dict[str, Any]:
+        return {"one_focus": True, "pin_peek": False, "pin_limit": 3, "multi_own": False}
+
+    def _facility_settings(request: Request):
+        """Merged settings: defaults <- tenant PG row <- in-memory PATCH overrides."""
+        record = _tenant_record(request)
+        base_type = (record or {}).get("facility_type") or "assisted_living"
+        stored = dict((record or {}).get("facility_settings") or {})
+        overrides = _SETTINGS_OVERRIDES.get(_session_tenant_id(request, record))
+        merged = {**_default_concurrency(), **(stored.get("concurrency") or {})}
+        if overrides:
+            if overrides.get("facility_type"):
+                base_type = overrides["facility_type"]
+            merged = {**merged, **(overrides.get("concurrency") or {})}
+        return {"facility_type": base_type, "concurrency": merged}
+
+    def _session_tenant_id(request: Request, record) -> str:
+        session = _require_session(request)
+        if session is not None:
+            return session.tenant_id
+        return (record or {}).get("tenant_id") or "demo-facility"
+
+    @application.get("/facility/settings")
+    def facility_settings_get(request: Request):
+        session = _require_session(request)
+        if session is None and _auth_on():
+            raise HTTPException(status_code=401, detail="authentication required")
+        record = _tenant_record(request)
+        if record is not None and record.get("mode") != "facility":
+            raise HTTPException(status_code=403, detail="facility settings require a facility tenant")
+        out = _facility_settings(request)
+        out["vocabulary"] = {}  # Task 2 merges pack vocabulary
+        return out
+
+    @application.patch("/facility/settings")
+    async def facility_settings_patch(request: Request, body: dict):
+        session = _require_session(request)
+        if session is None and _auth_on():
+            raise HTTPException(status_code=401, detail="authentication required")
+        record = _tenant_record(request)
+        if record is not None and record.get("mode") != "facility":
+            raise HTTPException(status_code=403, detail="facility settings require a facility tenant")
+        ftype = body.get("facility_type")
+        if ftype is not None and ftype not in _FACILITY_TYPE_VALUES:
+            raise HTTPException(status_code=422, detail="unsupported facility_type")
+        conc = body.get("concurrency")
+        if conc is not None:
+            for key in conc:
+                if key not in ("one_focus", "pin_peek", "pin_limit", "multi_own"):
+                    raise HTTPException(status_code=422, detail=f"unknown concurrency key {key}")
+        tenant_id = _session_tenant_id(request, record)
+        current = _SETTINGS_OVERRIDES.get(tenant_id) or {}
+        new_over = dict(current)
+        if ftype is not None:
+            new_over["facility_type"] = ftype
+        if conc is not None:
+            merged_conc = {**_default_concurrency(), **(current.get("concurrency") or {}), **conc}
+            new_over["concurrency"] = merged_conc
+        _SETTINGS_OVERRIDES[tenant_id] = new_over
+        # PG persistence when available
+        factory = getattr(application.state, "pg_session_factory", None)
+        if factory is not None:
+            try:
+                from care_ladder.db.models import Tenant as TenantRow
+
+                with factory() as dbs:
+                    row = dbs.get(TenantRow, tenant_id)
+                    if row is not None:
+                        if ftype is not None:
+                            row.facility_type = ftype
+                        stored = dict(row.facility_settings or {})
+                        stored_conc = {**_default_concurrency(), **(stored.get("concurrency") or {})}
+                        if conc is not None:
+                            stored_conc = {**stored_conc, **conc}
+                        stored["concurrency"] = stored_conc
+                        row.facility_settings = stored
+                        dbs.commit()
+            except Exception:
+                pass
+        out = _facility_settings(request)
+        out["vocabulary"] = {}
+        return out
 
     # ---- facility console API (Mockup H) ------------------------------------
 

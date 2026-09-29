@@ -58,6 +58,16 @@ def _ensure_schema_columns(engine) -> None:
                 text("ALTER TABLE tenants ADD COLUMN stripe_customer_id VARCHAR(64)")
             )
             print("bootstrap: added tenants.stripe_customer_id")
+        if "facility_type" not in existing:
+            conn.execute(
+                text("ALTER TABLE tenants ADD COLUMN facility_type VARCHAR(32) DEFAULT 'assisted_living' NOT NULL")
+            )
+            print("bootstrap: added tenants.facility_type")
+        if "facility_settings" not in existing:
+            conn.execute(
+                text("ALTER TABLE tenants ADD COLUMN facility_settings JSON DEFAULT '{}'::json")
+            )
+            print("bootstrap: added tenants.facility_settings")
 
 
 
