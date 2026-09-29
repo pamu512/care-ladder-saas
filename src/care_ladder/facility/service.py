@@ -212,7 +212,27 @@ class FacilityState:
 
     # -- audit -----------------------------------------------------------
 
-    def summary(self) -> dict[str, Any]:
+    @staticmethod
+    def _median(vals: list[float]) -> float | None:
+        if not vals:
+            return None
+        xs = sorted(vals)
+        n = len(xs)
+        mid = n // 2
+        return xs[mid] if n % 2 else (xs[mid - 1] + xs[mid]) / 2
+
+    def _case_open_dt(self, case_id: str):
+        from datetime import datetime
+
+        iso = self._opened_times.get(case_id)
+        if not iso:
+            return None
+        try:
+            return datetime.fromisoformat(iso)
+        except ValueError:
+            return None
+
+    def summary(self, *, response_secs: list[float] | None = None, group_timeouts: int | None = None) -> dict[str, Any]:
         open_cases = [c for c in self.cases.values() if c.state != "closed"]
         closed_today = [c for c in self.cases.values() if c.state == "closed"]
         outcomes: dict[str, int] = {}
@@ -221,10 +241,36 @@ class FacilityState:
             outcomes[key] = outcomes.get(key, 0) + 1
         for _ in self.resident_resolved:
             outcomes["positive"] = outcomes.get("positive", 0) + 1
+
+        ack_secs: list[float] = []
+        handling_secs: list[float] = []
+        in_sla = 0
+        acked = 0
+        for c in closed_today:
+            opened = self._case_open_dt(c.id)
+            if opened and c.ack_at:
+                ack = (c.ack_at - opened).total_seconds()
+                ack_secs.append(ack)
+                acked += 1
+                if ack <= c.sla_ack_sec:
+                    in_sla += 1
+            if c.ack_at and c.closed_at:
+                handling_secs.append((c.closed_at - c.ack_at).total_seconds())
+
+        resolved_by_response = len(self.resident_resolved)
         return {
             "cases_open": len(open_cases),
             "cases_closed_today": len(closed_today),
-            "resident_resolved_today": len(self.resident_resolved),
+            "resident_resolved_today": resolved_by_response,
             "overrides_today": len(self.overrides),
             "outcomes": outcomes,
+            # time KPIs (UI polish Task 1)
+            "median_ack_sec": self._median(ack_secs),
+            "median_handling_sec": self._median(handling_secs),
+            "pct_acked_in_sla": (100.0 * in_sla / acked) if acked else None,
+            "median_response_sec": self._median(response_secs) if response_secs else None,
+            "resolved_by_response": resolved_by_response,
+            "resolved_by_response_total": resolved_by_response + len(closed_today),
+            "group_timeouts": group_timeouts if group_timeouts is not None else
+                sum(1 for c in self.cases.values() if c.origin == "from_silence"),
         }

@@ -1189,11 +1189,19 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         store = _tenant_store(request) if _auth_on() else application.state.store
         return tenant_id, state, store
 
-    def _case_out(c) -> dict:
+    def _case_out(c, state=None) -> dict:
+        owner = None
+        if state is not None and c.owner_staff_id:
+            owner = state.staff.get(c.owner_staff_id)
+        opened = state.case_opened_times().get(c.id, "") if state is not None else ""
         return {
             "id": c.id, "human_id": c.human_id, "incident_id": c.incident_id,
             "room_label": c.room_label, "title": c.title, "origin": c.origin,
             "priority": c.priority, "state": c.state, "owner_staff_id": c.owner_staff_id,
+            "owner_display_name": owner.display_name if owner else None,
+            "owner_initials": owner.initials if owner else None,
+            "opened_at": opened or None,
+            "sla_ack_sec": c.sla_ack_sec, "sla_handling_sec": c.sla_handling_sec,
             "slack_thread_url": c.slack_thread_url, "ack_at": c.ack_at.isoformat() if c.ack_at else None,
             "closed_at": c.closed_at.isoformat() if c.closed_at else None,
             "documentation": c.documentation,
@@ -1245,7 +1253,7 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             queue.append(
                 {
                     "incident_id": c.incident_id,
-                    "case": _case_out(c),
+                    "case": _case_out(c, state),
                     "priority": c.priority,
                     "room_label": c.room_label,
                     "origin": c.origin,
@@ -1281,7 +1289,7 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
                     reply = e.detail.get("reply_class")
         return {
             "incident_id": incident_id,
-            "case": _case_out(case) if case else None,
+            "case": _case_out(case, state) if case else None,
             "reply_class": reply,
             "rungs": [e.tool for e in inc.events] if inc else [],
             "assign_candidates": [
@@ -1313,7 +1321,7 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         result = state.assign(case.id, body.get("staff_id", ""), pull_off_break=bool(body.get("pull_off_break")))
         if result is None:
             raise HTTPException(status_code=409, detail="staff member is on break; use pull_off_break to override")
-        return {"ok": True, "case": _case_out(result[0])}
+        return {"ok": True, "case": _case_out(result[0], state)}
 
     @application.post("/facility/alerts/{incident_id}/override")
     def facility_override(incident_id: str, body: dict, request: Request):
@@ -1339,8 +1347,8 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
     def facility_cases(request: Request):
         tenant_id, state, store = _facility_ctx(request)
         return {
-            "open": [_case_out(c) for c in state.cases.values() if c.state != "closed"],
-            "closed_today": [_case_out(c) for c in state.cases.values() if c.state == "closed"],
+            "open": [_case_out(c, state) for c in state.cases.values() if c.state != "closed"],
+            "closed_today": [_case_out(c, state) for c in state.cases.values() if c.state == "closed"],
         }
 
     @application.post("/facility/cases/{case_id}/ack")
@@ -1349,7 +1357,7 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         c = state.ack_case(case_id)
         if c is None:
             raise HTTPException(status_code=404, detail="case not found")
-        return {"ok": True, "case": _case_out(c)}
+        return {"ok": True, "case": _case_out(c, state)}
 
     @application.post("/facility/cases/{case_id}/close")
     def facility_case_close(case_id: str, body: dict, request: Request):
@@ -1357,7 +1365,7 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         c = state.close_case(case_id, body.get("documentation", ""))
         if c is None:
             raise HTTPException(status_code=422, detail="documentation required (min 20 chars)")
-        return {"ok": True, "case": _case_out(c)}
+        return {"ok": True, "case": _case_out(c, state)}
 
     @application.get("/facility/staff")
     def facility_staff(request: Request):
@@ -1382,7 +1390,39 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
     @application.get("/facility/audit/summary")
     def facility_audit(request: Request):
         tenant_id, state, store = _facility_ctx(request)
-        return state.summary()
+        response_secs: list[float] = []
+        timeouts = 0
+        try:
+            for inc in store.list_incidents():
+                if inc.status != "resolved":
+                    continue
+                sp = next((e for e in inc.events if e.tool == "speaker_prompt"), None)
+                if sp is not None and sp.detail.get("reply_class") == "positive":
+                    cue = inc.events[0] if inc.events else None
+                    if cue and cue.at and sp.at:
+                        response_secs.append(max(0.0, (sp.at - cue.at).total_seconds()))
+                elif any(e.tool == "ack_timeout" for e in inc.events):
+                    timeouts += 1
+        except Exception:
+            pass
+        return state.summary(response_secs=response_secs, group_timeouts=timeouts)
+
+    @application.get("/facility/audit/register")
+    def facility_audit_register(request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        from care_ladder.facility.audit_register import build_register
+
+        return {"range": "today", "rows": build_register(state, store)}
+
+    @application.get("/facility/audit/register/{incident_id}")
+    def facility_audit_register_detail(incident_id: str, request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        from care_ladder.facility.audit_register import build_register_detail
+
+        detail = build_register_detail(state, store, incident_id, _case_out)
+        if detail is None:
+            raise HTTPException(status_code=404, detail="register row not found")
+        return detail
 
     @application.get("/facility/audit/export.csv")
     def facility_audit_csv(request: Request):
