@@ -1,5 +1,10 @@
 # Care Ladder SaaS (Galuxium Nexus V2)
 
+[![Marketing site](https://img.shields.io/badge/site-pamu512.github.io-18a4c2)](https://pamu512.github.io/care-ladder-saas/)
+[![Live demo](https://img.shields.io/badge/demo-onrender-34c98e)](https://care-ladder-saas.onrender.com/)
+
+Marketing site (GitHub Pages): https://pamu512.github.io/care-ladder-saas/
+
 Multi-tenant hosted SaaS build of [Care Ladder](https://github.com/pamu512/opencv-care-ladder) for the
 [Galuxium Nexus V2](https://galuxium-nexus-v2-29411.devpost.com/) hackathon (deadline Oct 31, 2026 IST).
 
@@ -19,7 +24,7 @@ OpenCV submission; this repo diverges here with tenancy, facility workflows, and
   session needed — the token is the capability), `POST /acks/{token}` record endpoint,
   `GET /acks/pending` live panel in the caregiver console with an Acknowledge button
 - Stripe Checkout + webhook for Home ($9/mo) and Facility Starter ($49/mo)
-- Landing page with pricing and judge demo login; public HTTPS deploy (Render + managed Postgres)
+- Landing page with pricing and judge demo login; public HTTPS deploy (Render + managed Postgres). Marketing copy is also on [GitHub Pages](https://pamu512.github.io/care-ladder-saas/) (`index.html` at repo root) with demo/console links pointed at the Render origin.
 - Home Path A/B demo fixtures unchanged from upstream
 
 ## Design docs

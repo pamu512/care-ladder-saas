@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Care Ladder - confirm-first care escalation for homes and facilities</title>
+<meta name="description" content="Camera cues start a confirm-before-escalate ladder: voice check-in first, then the right human on Slack, Teams, WhatsApp or Telegram. Every step audited. Emergency fail-closed.">
+<!--
+  Marketing site (GitHub Pages). No external assets.
+  Demo, console, and auth URLs are absolute to https://care-ladder-saas.onrender.com
+  so login forms and /ui/ links work from this origin. In-page # anchors stay relative.
+-->
+<style>
+  :root {
+    --bg: #0b0f14; --bg-deep: #080c10;
+    --surface: #121820; --surface2: #0e141b; --raise: #161f2a;
+    --line: rgba(148,178,214,.13); --line2: rgba(148,178,214,.24);
+    --ink: #e8eef4; --ink60: #9fb0c7; --ink40: #5f7189;
+    --teal: #18a4c2; --teal-deep: #0e7490; --teal-ink: #04141a; --teal-soft: rgba(24,164,194,.12);
+    --ok: #34c98e; --ok-soft: rgba(52,201,142,.11);
+    --warn: #f5b544; --warn-soft: rgba(245,181,68,.11);
+    --bad: #f4574d; --bad-soft: rgba(244,87,77,.11);
+    --vio: #b9a6ff; --vio-soft: rgba(185,166,255,.11);
+    --radius: 14px;
+    --serif: Charter, "Iowan Old Style", Georgia, serif;
+    --mono: ui-monospace, Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  a { color: inherit; }
+
+  /* ---------- nav ---------- */
+  nav.top { position: sticky; top: 0; z-index: 40; background: rgba(11,15,20,.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .navwrap { display: flex; align-items: center; gap: 22px; padding: 13px 24px; }
+  .brand { display: flex; gap: 10px; align-items: center; text-decoration: none; }
+  .mark { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(160deg, var(--teal), var(--teal-deep)); display: grid; place-items: center; color: var(--teal-ink); }
+  .mark svg { width: 15px; height: 15px; }
+  .brand b { font-size: 15px; letter-spacing: -.01em; }
+  .navlinks { display: flex; gap: 4px; margin-left: auto; }
+  .navlinks a { color: var(--ink60); text-decoration: none; font-size: 13.5px; padding: 7px 12px; border-radius: 8px; }
+  .navlinks a:hover { color: var(--ink); background: var(--raise); }
+  .cta { display: inline-block; background: var(--teal-deep); border: 1px solid var(--teal-deep); color: #fff; text-decoration: none; font-weight: 600; font-size: 13.5px; border-radius: 9px; padding: 8px 16px; }
+  .cta:hover { background: #1290ac; }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 84px 0 64px; display: grid; grid-template-columns: minmax(0,1.15fr) minmax(0,.85fr); gap: 48px; align-items: center; }
+  .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--teal); margin-bottom: 16px; }
+  h1 { font-size: clamp(32px, 4.8vw, 52px); line-height: 1.08; letter-spacing: -.025em; font-weight: 700; }
+  h1 em { font-style: normal; color: var(--teal); }
+  .lede { margin-top: 20px; font-size: 18px; color: var(--ink60); max-width: 54ch; }
+  .lede b { color: var(--ink); font-weight: 600; }
+  .heroctas { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+  .cta.big { padding: 12px 22px; font-size: 15px; border-radius: 10px; }
+  .cta.ghost { background: transparent; border: 1px solid var(--line2); color: var(--ink); }
+  .cta.ghost:hover { border-color: var(--teal); color: var(--teal); }
+
+  /* ladder visual */
+  .ladderviz { position: relative; padding: 8px 0 8px 30px; }
+  .ladderviz::before { content: ""; position: absolute; left: 10px; top: 22px; bottom: 22px; width: 2px;
+    background: linear-gradient(180deg, var(--teal) 0%, var(--teal-deep) 55%, rgba(14,116,144,.2) 100%); }
+  .lv { position: relative; padding: 11px 0 11px 18px; }
+  .lv::before { content: ""; position: absolute; left: -24px; top: 18px; width: 11px; height: 11px; border-radius: 50%;
+    background: var(--bg); border: 2.5px solid var(--teal); }
+  .lv.stop::before { border-color: var(--ok); background: var(--ok); }
+  .lv.miss::before { border-color: var(--line2); }
+  .lv .t { font-size: 14.5px; font-weight: 650; }
+  .lv.stop .t { color: var(--ok); }
+  .lv.miss .t { color: var(--ink40); }
+  .lv .s { font-size: 12px; color: var(--ink40); }
+  .lv .quote { display: block; margin-top: 4px; font-family: var(--serif); font-style: italic; font-size: 13.5px; color: var(--vio); }
+  .lv .qnote { font-size: 10.5px; color: var(--ink40); font-family: var(--mono); }
+
+  /* ---------- sections ---------- */
+  section.block { padding: 76px 0; border-top: 1px solid var(--line); }
+  .shead { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+  h2 { font-size: clamp(24px, 3vw, 32px); letter-spacing: -.02em; font-weight: 700; }
+  .ssub { color: var(--ink60); font-size: 15.5px; max-width: 62ch; margin-bottom: 34px; }
+  .ssub b { color: var(--ink); }
+
+  /* response trio */
+  .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 26px; }
+  .tcard { border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; background: var(--surface); }
+  .tcard .tag { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 10px; display: inline-block; }
+  .tcard.ok .tag { color: var(--ok); } .tcard.bad .tag { color: var(--bad); } .tcard.warn .tag { color: var(--warn); }
+  .tcard h3 { font-size: 16px; margin-bottom: 6px; }
+  .tcard p { font-size: 13.5px; color: var(--ink60); }
+  .tcard .ex { margin-top: 10px; font-size: 12px; color: var(--ink40); font-family: var(--mono); border-top: 1px dashed var(--line); padding-top: 8px; }
+
+  /* audience split */
+  .aud { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .audcard { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--surface); display: flex; flex-direction: column; }
+  .audbody { padding: 24px; flex: 1; }
+  .audcard .who { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; margin-bottom: 12px; }
+  .audcard.fam .who { color: var(--vio); } .audcard.fac .who { color: var(--teal); }
+  .audcard h3 { font-size: 21px; letter-spacing: -.01em; margin-bottom: 10px; }
+  .audcard p { color: var(--ink60); font-size: 14px; }
+  .audcard ul { list-style: none; margin: 14px 0; }
+  .audcard li { font-size: 13.5px; color: var(--ink60); padding: 5px 0 5px 20px; position: relative; }
+  .audcard li::before { content: ""; position: absolute; left: 0; top: 12px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--teal); }
+  .audcard.fam li::before { border-color: var(--vio); }
+  .audcard li b { color: var(--ink); font-weight: 600; }
+  .audlink { display: inline-block; margin: 4px 0 0; color: var(--teal); text-decoration: none; font-size: 13.5px; font-weight: 600; padding: 10px 24px; border-top: 1px solid var(--line); }
+  .audcard.fam .audlink { color: var(--vio); }
+  .audlink:hover { text-decoration: underline; }
+
+  /* phone mock (families) */
+  .phone { border: 1px solid var(--line2); border-radius: 22px; background: var(--surface2); overflow: hidden; }
+  .phead { display: flex; gap: 9px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .pava { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(160deg, var(--teal), var(--teal-deep)); display: grid; place-items: center; font-size: 10.5px; font-weight: 800; color: var(--teal-ink); }
+  .phead b { font-size: 13px; display: block; } .phead span { font-size: 10px; color: var(--ink40); }
+  .pbody { padding: 12px; display: flex; flex-direction: column; gap: 8px; min-height: 300px; }
+  .bubble { max-width: 88%; border-radius: 12px; padding: 8px 11px; font-size: 12.5px; line-height: 1.5; }
+  .bubble .bt { display: block; text-align: right; font-size: 9px; color: var(--ink40); font-family: var(--mono); margin-top: 3px; }
+  .bot { align-self: flex-start; background: #223341; border: 1px solid #2e4254; border-top-left-radius: 4px; }
+  .bot.alert { background: rgba(244,87,77,.12); border-color: rgba(244,87,77,.4); }
+  .bot.good { background: rgba(52,201,142,.1); border-color: rgba(52,201,142,.35); }
+  .me { align-self: flex-end; background: #2b5278; border: 1px solid #3a6494; border-top-right-radius: 4px; }
+  .bubble b { font-weight: 650; }
+  .bubble .q { font-family: var(--serif); font-style: italic; color: #d9e4ee; }
+  .bbtn { display: block; margin-top: 7px; border: 1px solid var(--teal); color: var(--teal); background: transparent; border-radius: 8px; padding: 6px; font-size: 11.5px; font-weight: 650; cursor: default; }
+
+  /* integrations */
+  .chans { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .chan { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; background: var(--surface); }
+  .ctile { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; font-weight: 800; font-size: 13px; margin-bottom: 10px; }
+  .chan h4 { font-size: 14.5px; margin-bottom: 3px; }
+  .chan span { font-size: 12px; color: var(--ink40); }
+  .chan .st { margin-top: 9px; font-family: var(--mono); font-size: 10px; color: var(--ok); }
+
+  /* pricing */
+  .ptable { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .ptable th, .ptable td { padding: 16px 18px; text-align: left; border-bottom: 1px solid var(--line); font-size: 14.5px; vertical-align: top; }
+  .ptable th { color: var(--ink40); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; font-family: var(--mono); }
+  .ptable tr:last-child td { border-bottom: none; }
+  .tier { font-weight: 700; }
+  .price { font-family: var(--mono); font-size: 18px; color: var(--teal); white-space: nowrap; }
+  .price small { color: var(--ink40); font-size: 11.5px; }
+  .tier-cap { color: var(--ink60); font-size: 12.5px; margin-top: 3px; }
+  .pnote { margin-top: 12px; font-size: 12px; color: var(--ink40); }
+
+  /* trust */
+  .trust { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .tbox { border: 1px solid var(--line); border-left: 3px solid var(--teal); border-radius: 12px; padding: 16px 18px; background: var(--surface); }
+  .tbox h4 { font-size: 14.5px; margin-bottom: 6px; }
+  .tbox p { font-size: 13px; color: var(--ink60); }
+
+  /* faq */
+  .faq { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .fq { border-bottom: 1px solid var(--line); }
+  .fq:last-child { border-bottom: none; }
+  .fq summary { cursor: pointer; padding: 16px 20px; font-size: 15px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+  .fq summary::after { content: "+"; color: var(--teal); font-weight: 700; }
+  .fq[open] summary::after { content: "–"; }
+  .fq p { padding: 0 20px 16px; color: var(--ink60); font-size: 14px; max-width: 72ch; }
+
+  /* demo logins */
+  .demo-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 6px; }
+  .login-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+  .login-card h3 { font-size: 16px; margin-bottom: 4px; }
+  .login-card .hint { font-size: 12px; color: var(--ink40); margin-bottom: 14px; font-family: var(--mono); }
+  .login-card label { display: block; font-size: 12px; color: var(--ink60); margin: 10px 0 4px; }
+  .login-card input { width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg-deep); color: var(--ink); font: inherit; font-size: 14px; }
+  .login-card input:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
+  .btn { margin-top: 14px; width: 100%; min-height: 44px; border: none; border-radius: 9px; cursor: pointer; background: var(--teal-deep); color: #fff; font: inherit; font-size: 14.5px; font-weight: 600; }
+  .btn:hover { background: #1290ac; }
+  .btn:disabled { opacity: .5; cursor: wait; }
+  .msg { margin-top: 10px; font-size: 13px; color: var(--warn); min-height: 18px; }
+  .msg.ok { color: var(--ok); }
+
+  footer { margin-top: 80px; padding: 30px 0 44px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink40); }
+  footer p { margin-top: 6px; max-width: 90ch; }
+  .frow { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 10px; }
+  .frow a { color: var(--ink60); text-decoration: none; }
+  .frow a:hover { color: var(--ink); }
+
+  @media (max-width: 880px) {
+    .hero { grid-template-columns: 1fr; padding-top: 56px; }
+    .trio, .aud, .chans, .trust, .demo-panel { grid-template-columns: 1fr; }
+    .navlinks { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="navwrap wrap">
+    <a class="brand" href="#top">
+      <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 3v18M20 3v18M4 7h16M4 12h16M4 17h16"/></svg></span>
+      <b>Care Ladder</b>
+    </a>
+    <div class="navlinks">
+      <a href="#how">How it works</a>
+      <a href="#families">For families</a>
+      <a href="#facilities">For facilities</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <a class="cta" href="#demo">Try the live demo</a>
+  </div>
+</nav>
+
+<div class="wrap" id="top">
+
+  <!-- ============ HERO ============ -->
+  <header class="hero">
+    <div>
+      <div class="kicker">Confirm-first care escalation</div>
+      <h1>Vision spots the moment. The ladder picks the next <em>human-safe</em> step.</h1>
+      <p class="lede">
+        Camera cues - stillness, a covered lens, a fall signature - start a ladder that asks
+        <b>the person first</b>, then pages the right human on the channel they already use,
+        and waits for an answer before climbing. Every step is timestamped and auditable.
+      </p>
+      <div class="heroctas">
+        <a class="cta big" href="#demo">Open the live demo</a>
+        <a class="cta big ghost" href="#how">See the ladder</a>
+      </div>
+    </div>
+    <div class="ladderviz" aria-label="The care ladder: cue, voice check-in, page caretakers, acknowledge, escalate, call">
+      <div class="lv"><div class="t">Cue</div><div class="s">stillness noticed · confidence scored</div></div>
+      <div class="lv stop"><div class="t">Voice check-in · answered</div>
+        <span class="quote">"I'm fine, thanks - just resting."</span>
+        <span class="qnote">most incidents stop here · nobody is paged</span></div>
+      <div class="lv"><div class="t">Page caretakers</div><div class="s">Slack · Teams · WhatsApp · Telegram</div></div>
+      <div class="lv"><div class="t">Await acknowledgment</div><div class="s">one tap in chat stops the climb</div></div>
+      <div class="lv"><div class="t">Escalate</div><div class="s">next contact, then a real phone call</div></div>
+      <div class="lv miss"><div class="t">Emergency · fail-closed</div><div class="s">never dialed automatically</div></div>
+    </div>
+  </header>
+
+  <!-- ============ HOW ============ -->
+  <section class="block" id="how">
+    <div class="shead"><h2>The person answers first. Everyone else is plan B.</h2></div>
+    <p class="ssub">Before any alert leaves the building, Care Ladder asks the person directly -
+    through a speaker check-in. The response decides what happens next, and the
+    response itself is the product's core signal.</p>
+    <div class="trio">
+      <div class="tcard ok">
+        <span class="tag">Positive reply</span>
+        <h3>Closes in place</h3>
+        <p>"I'm fine" by voice resolves the incident at rung two. Staff and family are never paged; the transcript is kept for review.</p>
+        <div class="ex">illustrative demo script · 38s</div>
+      </div>
+      <div class="tcard bad">
+        <span class="tag">Negative reply</span>
+        <h3>Raises priority, jumps the queue</h3>
+        <p>"No... I can't get up" is classified as a negative reply: priority is raised and caretakers are paged immediately, with the wait rungs skipped.</p>
+        <div class="ex">negative class raises priority · lead can correct</div>
+      </div>
+      <div class="tcard warn">
+        <span class="tag">Silence</span>
+        <h3>Escalates on a timer</h3>
+        <p>No answer inside the window pages caretakers with a countdown. No acknowledgment, and the ladder climbs to the next human - visibly, on the record.</p>
+        <div class="ex">plan-defined ack window · every hop audited</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ AUDIENCES ============ -->
+  <section class="block" id="families">
+    <div class="shead"><h2>Two very different customers, one engine</h2></div>
+    <p class="ssub">The same engine serves a daughter checking on her mother and a floor lead
+    running a ten-room wing. Different surfaces, same honesty.</p>
+    <div class="aud">
+      <div class="audcard fam">
+        <div class="audbody">
+          <div class="who">For families · Home plan · chat runtime rolling out</div>
+          <h3>The care conversation belongs in your chat app</h3>
+          <p>Nobody opens a console when Mom might need help. Care Ladder is being rolled out as a bot thread in WhatsApp or Telegram - today's live demo runs the same ladder with one-tap acknowledgment links:</p>
+          <ul>
+            <li><b>Inform with a countdown</b> - blurred frame, plain words, "we'll call you, then Sarah"</li>
+            <li><b>One-tap acknowledgment</b> - "I'm on it" stops the escalation, from the acknowledgment link (chat buttons rolling out with the Telegram runtime)</li>
+            <li><b>Update by replying</b> - roadmap: "she's fine, balcony again" becomes the case note</li>
+            <li><b>Evening recap</b> - roadmap: check-ins answered, calls placed, response times</li>
+          </ul>
+        </div>
+        <a class="audlink" href="#families">See the family experience →</a>
+      </div>
+      <div class="audcard fac">
+        <div class="audbody">
+          <div class="who">For facilities · Starter and Growth plans</div>
+          <h3>A command center that only interrupts when the floor can't cope</h3>
+          <p>Pages route to the shift channel first. The console is triage, cases and audit:</p>
+          <ul>
+            <li><b>Alert center</b> - priority queue, aging timers, assign, override, de-escalate</li>
+            <li><b>Cases</b> - acknowledged, handled, closed with required documentation</li>
+            <li><b>Audit</b> - time-to-ack, handling times, response transcripts, CSV export</li>
+            <li><b>Shift aware</b> - breaks respected, coverage warnings when the shift thins</li>
+          </ul>
+        </div>
+        <a class="audlink" href="#facilities">See the facility console →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHAT PREVIEW ============ -->
+  <section class="block">
+    <div class="shead"><h2>What page-and-acknowledge looks like at home</h2></div>
+    <p class="ssub">An evening when the check-in went unanswered. The whole incident, handled
+    inside one thread - the console stayed closed. Design preview: the in-chat runtime is
+    rolling out; today's live Home demo runs the same ladder with one-tap acknowledgment links.</p>
+    <div style="max-width:400px" class="phone">
+      <div class="phead">
+        <div class="pava">CL</div>
+        <div><b>Care Ladder · Mom</b><span>bot · silent unless it matters</span></div>
+      </div>
+      <div class="pbody">
+        <div class="bubble bot alert">
+          <b>Check-in not answered.</b> No movement in the living room for 15 minutes.
+          If nobody responds in the plan-defined window, I'll call you, then Sarah.
+          <span class="bt">21:17</span>
+        </div>
+        <div class="bubble bot good">
+          <b>Escalation stopped.</b> You acknowledged in 52s.
+          <span class="bt">21:18</span>
+        </div>
+        <div class="bubble me">called her back - she's fine, balcony again
+          <span class="bt">21:26</span></div>
+        <div class="bubble bot good">
+          <b>Closed · all fine.</b> Cue 21:12 → page 21:17 → you acked in 52s → closed 21:26.
+          Clip: 3 frames, faces blurred (design preview).
+          <span class="bt">21:26</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INTEGRATIONS ============ -->
+  <section class="block" id="facilities">
+    <div class="shead"><h2>Paging that meets people where they are</h2></div>
+    <p class="ssub">One router, four delivery channels, honest per-channel status: adapters are
+    built into the engine, and this demo runs them in stub mode - every delivery result,
+    real or stubbed, is recorded in the incident audit trail.</p>
+    <div class="chans">
+      <div class="chan">
+        <div class="ctile" style="background:#4a154b;color:#fff">S</div>
+        <h4>Slack</h4><span>incoming webhook · supervisor mentions</span>
+        <div class="st">configured · stub in demo</div>
+      </div>
+      <div class="chan">
+        <div class="ctile" style="background:#5072c4;color:#fff">T</div>
+        <h4>Microsoft Teams</h4><span>Workflows webhook</span>
+        <div class="st">adapter present · not configured in demo</div>
+      </div>
+      <div class="chan">
+        <div class="ctile" style="background:#1e3a2f;color:#8fe3b0">W</div>
+        <h4>WhatsApp</h4><span>Cloud API adapter · text pages</span>
+        <div class="st">adapter present · not configured in demo</div>
+      </div>
+      <div class="chan">
+        <div class="ctile" style="background:#233242;color:#9cc4e4">TG</div>
+        <h4>Telegram</h4><span>Bot API adapter · text + inline buttons when configured</span>
+        <div class="st">adapter present · not configured in demo</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PRICING ============ -->
+  <section class="block" id="pricing">
+    <div class="shead"><h2>Per-camera, per-household pricing. No per-seat tax on family.</h2></div>
+    <p class="ssub">Checkout runs live via Stripe (test mode during the Galuxium build).</p>
+    <table class="ptable">
+      <thead>
+        <tr><th>Tier</th><th>Price</th><th>What you get</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><div class="tier">Home</div><div class="tier-cap">Solo families</div></td>
+          <td class="price">$9<small>/mo</small></td>
+          <td>1 household · 1 camera · voice check-in ladder · caregiver notify · full audit trail</td>
+        </tr>
+        <tr>
+          <td><div class="tier">Facility Starter</div><div class="tier-cap">Small assisted-living</div></td>
+          <td class="price">$49<small>/mo</small></td>
+          <td>Up to 10 rooms · shift channel queue · alert center, cases and audit · CSV export</td>
+        </tr>
+        <tr>
+          <td><div class="tier">Facility Growth</div><div class="tier-cap">Multi-unit operators</div></td>
+          <td class="price">$99<small>/mo</small></td>
+          <td>Unlimited rooms · multi-tenant admin · learning schedules on the Growth roadmap · priority support</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="pnote">Reserved fictional phone numbers are used throughout the demo; telephony is stubbed and emergency dialing ships disabled and fail-closed.</p>
+  </section>
+
+  <!-- ============ TRUST ============ -->
+  <section class="block">
+    <div class="shead"><h2>Built to be defensible, not just impressive</h2></div>
+    <p class="ssub">Every claim the product makes is one a care operator can stand behind.</p>
+    <div class="trust">
+      <div class="tbox">
+        <h4>Privacy before persistence</h4>
+        <p>Frames are blurred or silhouetted before anything is stored. Person tracking uses shape geometry only - never identity. Clips state their retention window.</p>
+      </div>
+      <div class="tbox">
+        <h4>Every hop on the record</h4>
+        <p>Cue, check-in, page, acknowledgment, call, close - each step is timestamped in a per-incident audit trail, exportable for review and shift handover.</p>
+      </div>
+      <div class="tbox">
+        <h4>Fail-closed by design</h4>
+        <p>Emergency numbers are never dialed automatically; the emergency rung ships disabled and stays behind a human gate. Unsigned billing webhooks are rejected outright.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="block" id="faq">
+    <div class="shead"><h2>Questions people actually ask</h2></div>
+    <div class="faq">
+      <details class="fq">
+        <summary>Does it call emergency services by itself?</summary>
+        <p>No. The emergency rung is fail-closed: it ships disabled and never dials on its own. A human always decides. In every demo the numbers dialed are reserved fictional ones.</p>
+      </details>
+      <details class="fq">
+        <summary>Is this a medical device?</summary>
+        <p>Care Ladder is a wellness workflow, not a medical device. It does not diagnose, does not score clinical risk, and never presents itself as one.</p>
+      </details>
+      <details class="fq">
+        <summary>What happens if nobody acknowledges?</summary>
+        <p>The ladder climbs on timers: after the acknowledgment window expires, the next contact is paged, then called - each step visible in the console and recorded in the audit trail.</p>
+      </details>
+      <details class="fq">
+        <summary>What does the camera actually see?</summary>
+        <p>Cues are behavioral: stillness in a zone, a covered lens, a vertical-to-horizontal transition that resembles a fall. Frames are privacy-transformed before persisting, and tracking never identifies individuals.</p>
+      </details>
+      <details class="fq">
+        <summary>Can staff step away without breaking it?</summary>
+        <p>Responders set breaks from the staff console; auto-routing shows their status and countdowns, and the floor lead can pull someone off break as a logged override. (Chat-side break commands are on the roadmap.)</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="block" id="demo">
+    <div class="shead"><h2>Try the live demo</h2></div>
+    <p class="ssub">Two pre-seeded accounts, one click each. This is a sandbox: stub notifications,
+    reserved fictional numbers, emergency fail-closed. Or open the consoles directly:
+    <a href="https://care-ladder-saas.onrender.com/ui/" style="color:var(--teal)">family console</a> ·
+    <a href="https://care-ladder-saas.onrender.com/ui/facility/" style="color:var(--teal)">facility console</a>.</p>
+    <div class="demo-panel">
+      <div class="login-card">
+        <h3>Home demo · family</h3>
+        <div class="hint">demo@careladder.local / demo-pass-home</div>
+        <form id="login-home">
+          <label for="email-home">Email</label>
+          <input id="email-home" name="email" type="email" value="demo@careladder.local" autocomplete="username">
+          <label for="password-home">Password</label>
+          <input id="password-home" name="password" type="password" value="demo-pass-home" autocomplete="current-password">
+          <button class="btn" type="submit">Sign in to Home demo</button>
+          <div class="msg" id="msg-home" role="status" aria-live="polite"></div>
+        </form>
+      </div>
+      <div class="login-card">
+        <h3>Facility demo · floor lead</h3>
+        <div class="hint">facility@careladder.local / demo-pass-facility</div>
+        <form id="login-facility">
+          <label for="email-facility">Email</label>
+          <input id="email-facility" name="email" type="email" value="facility@careladder.local" autocomplete="username">
+          <label for="password-facility">Password</label>
+          <input id="password-facility" name="password" type="password" value="demo-pass-facility" autocomplete="current-password">
+          <button class="btn" type="submit">Sign in to Facility demo</button>
+          <div class="msg" id="msg-facility" role="status" aria-live="polite"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="frow">
+      <a href="https://care-ladder-saas.onrender.com/ui/">Family console</a>
+      <a href="https://care-ladder-saas.onrender.com/ui/facility/">Facility console</a>
+      <a href="#families">For families</a>
+      <a href="#facilities">For facilities</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <p>Care Ladder is a wellness workflow, not a medical device: it does not
+    diagnose, does not score clinical risk, and does not contact emergency
+    services - the emergency rung ships disabled and stays behind a human gate.</p>
+    <p>Frames are processed as blur or silhouettes before anything is stored.
+    Reserved fictional phone numbers are used throughout demos. Billing webhooks verify fail-closed.</p>
+    <p>Galuxium Nexus V2 submission · Care Ladder engine</p>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  async function wireLogin(formId, msgId, target) {
+    const form = document.getElementById(formId);
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const btn = form.querySelector('button');
+      const msg = document.getElementById(msgId);
+      btn.disabled = true;
+      msg.textContent = '';
+      msg.classList.remove('ok');
+      try {
+        const r = await fetch('https://care-ladder-saas.onrender.com/auth/login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            email: form.email.value.trim(),
+            password: form.password.value,
+          }),
+        });
+        if (r.ok) {
+          msg.textContent = 'Signed in - opening console...';
+          msg.classList.add('ok');
+          window.location.href = target;
+          return;
+        }
+        const body = await r.json().catch(() => ({}));
+        msg.textContent = body.detail || ('Login failed (' + r.status + ')');
+      } catch (e) {
+        window.location.href = 'https://care-ladder-saas.onrender.com/#demo';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+  wireLogin('login-home', 'msg-home', 'https://care-ladder-saas.onrender.com/ui/');
+  wireLogin('login-facility', 'msg-facility', 'https://care-ladder-saas.onrender.com/ui/facility/');
+})();
+</script>
+</body>
+</html>

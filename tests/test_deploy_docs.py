@@ -9,6 +9,21 @@ def test_readme_has_galuxium_section():
     assert "Facility Starter" in readme or "facility_starter" in readme
     assert "Stripe" in readme
     assert "ReadyPup" in readme  # explicit do-not-mix note
+    assert "https://pamu512.github.io/care-ladder-saas/" in readme
+
+
+def test_pages_index_rewrites_demo_urls_to_render():
+    html = Path("index.html").read_text(encoding="utf-8")
+    origin = "https://care-ladder-saas.onrender.com"
+    assert f"{origin}/auth/login" in html
+    assert f"{origin}/ui/" in html
+    assert f"{origin}/ui/facility/" in html
+    assert 'href="/ui/"' not in html
+    assert 'href="/ui/facility/"' not in html
+    assert "fetch('/auth/login'" not in html
+    assert 'href="#demo"' in html
+    assert "text + inline buttons when configured" in html
+    assert "\u2014" not in html
 
 
 def test_deploy_config_exists():
