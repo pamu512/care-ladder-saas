@@ -241,7 +241,7 @@
         <span class="tag">Positive reply</span>
         <h3>Closes in place</h3>
         <p>"I'm fine" by voice or an OK button press resolves the incident at rung two. Staff and family are never paged; the transcript is kept for review.</p>
-        <div class="ex">median close time in demos · 38s</div>
+        <div class="ex">illustrative demo script · 38s</div>
       </div>
       <div class="tcard bad">
         <span class="tag">Negative reply</span>
@@ -266,14 +266,14 @@
     <div class="aud">
       <div class="audcard fam">
         <div class="audbody">
-          <div class="who">For families · Home plan</div>
+          <div class="who">For families · Home plan · chat runtime rolling out</div>
           <h3>The care conversation lives in your chat app</h3>
           <p>Nobody opens a console when Mom might need help. Care Ladder runs as a bot thread in WhatsApp or Telegram:</p>
           <ul>
             <li><b>Inform with a countdown</b> - blurred frame, plain words, "we'll call you, then Sarah"</li>
             <li><b>Acknowledge in chat</b> - one tap on "I'm on it" stops the escalation</li>
             <li><b>Update by replying</b> - "she's fine, balcony again" becomes the case note</li>
-            <li><b>Evening recap</b> - four check-ins answered, zero calls, median response 41s</li>
+            <li><b>Evening recap</b> - four check-ins answered, zero calls, 41s response in the demo script</li>
           </ul>
         </div>
         <a class="audlink" href="/site/family/">See the family experience →</a>
@@ -299,7 +299,8 @@
   <section class="block">
     <div class="shead"><h2>What page-and-acknowledge looks like at home</h2></div>
     <p class="ssub">An evening when the check-in went unanswered. The whole incident, handled
-    inside one thread - the console stayed closed.</p>
+    inside one thread - the console stayed closed. Design preview: the in-chat runtime is
+    rolling out; today's live Home demo runs the same ladder with one-tap acknowledgment links.</p>
     <div style="max-width:400px" class="phone">
       <div class="phead">
         <div class="pava">CL</div>
@@ -332,28 +333,29 @@
   <!-- ============ INTEGRATIONS ============ -->
   <section class="block" id="facilities">
     <div class="shead"><h2>Paging that meets people where they are</h2></div>
-    <p class="ssub">One router, four delivery channels, honest per-channel status. Adapters ship
-    with the engine; delivery results land in the incident audit trail.</p>
+    <p class="ssub">One router, four delivery channels, honest per-channel status: adapters are
+    built into the engine, and this demo runs them in stub mode - every delivery result,
+    real or stubbed, is recorded in the incident audit trail.</p>
     <div class="chans">
       <div class="chan">
         <div class="ctile" style="background:#4a154b;color:#fff">S</div>
         <h4>Slack</h4><span>incoming webhook · supervisor mentions</span>
-        <div class="st">connected in demo</div>
+        <div class="st">configured · stub in demo</div>
       </div>
       <div class="chan">
         <div class="ctile" style="background:#5072c4;color:#fff">T</div>
         <h4>Microsoft Teams</h4><span>Workflows webhook</span>
-        <div class="st">adapter ready</div>
+        <div class="st">adapter present · not configured in demo</div>
       </div>
       <div class="chan">
         <div class="ctile" style="background:#1e3a2f;color:#8fe3b0">W</div>
         <h4>WhatsApp</h4><span>Cloud API · family bot threads</span>
-        <div class="st">template + ack-link mode</div>
+        <div class="st">adapter present · not configured in demo</div>
       </div>
       <div class="chan">
         <div class="ctile" style="background:#233242;color:#9cc4e4">TG</div>
         <h4>Telegram</h4><span>Bot API · buttons + commands</span>
-        <div class="st">fullest experience</div>
+        <div class="st">adapter present · not configured in demo</div>
       </div>
     </div>
   </section>
@@ -380,7 +382,7 @@
         <tr>
           <td><div class="tier">Facility Growth</div><div class="tier-cap">Multi-unit operators</div></td>
           <td class="price">$99<small>/mo</small></td>
-          <td>Unlimited rooms · multi-tenant admin · learning schedules with freeze controls · priority support</td>
+          <td>Unlimited rooms · multi-tenant admin · learning schedules on the Growth roadmap · priority support</td>
         </tr>
       </tbody>
     </table>
@@ -490,7 +492,7 @@
 <script>
 (() => {
   const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  async function wireLogin(formId, msgId) {
+  async function wireLogin(formId, msgId, target) {
     const form = document.getElementById(formId);
     form.addEventListener('submit', async (ev) => {
       ev.preventDefault();
@@ -512,7 +514,7 @@
         if (r.ok) {
           msg.textContent = 'Signed in - opening console...';
           msg.classList.add('ok');
-          window.location.href = '/ui/';
+          window.location.href = target;
           return;
         }
         const body = await r.json().catch(() => ({}));
@@ -524,8 +526,8 @@
       }
     });
   }
-  wireLogin('login-home', 'msg-home');
-  wireLogin('login-facility', 'msg-facility');
+  wireLogin('login-home', 'msg-home', '/ui/');
+  wireLogin('login-facility', 'msg-facility', '/ui/facility/');
 })();
 </script>
 </body>
