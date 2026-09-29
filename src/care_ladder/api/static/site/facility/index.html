@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Care Ladder for Facilities - a command center that only interrupts when the floor can't cope</title>
+<meta name="description" content="Care Ladder for assisted living, rehab and daycare: pages route to your shift channel first; the console is triage, cases and audit with time-to-ack and handling metrics.">
+<style>
+  :root{
+    --bg:#0b0f14; --surface:#121820; --surface2:#0e141b; --raise:#161f2a;
+    --border:#1f2a36; --border2:#2b3a49;
+    --ink:#e8eef4; --muted:#8b9bab; --faint:#5f7189;
+    --accent:#18a4c2; --accent-deep:#0e7490; --accent-soft:rgba(24,164,194,.12);
+    --ok:#34c98e; --warn:#f5b544; --bad:#f4574d; --p3:#5b8def; --vio:#b9a6ff;
+    --radius:12px;
+    --mono:ui-monospace, Menlo, monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { background:var(--bg); color:var(--ink); font:16px/1.6 var(--sans); -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1040px; margin:0 auto; padding:0 24px; }
+  a { color:inherit; }
+
+  nav.top { position:sticky; top:0; z-index:40; background:rgba(11,15,20,.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); }
+  .navwrap { display:flex; align-items:center; gap:20px; padding:12px 24px; }
+  .brand { display:flex; gap:10px; align-items:center; text-decoration:none; }
+  .mark { width:30px; height:30px; border-radius:9px; background:linear-gradient(160deg,var(--accent),var(--accent-deep)); display:grid; place-items:center;color:#04141a; }
+  .mark svg { width:15px; height:15px; }
+  .brand b { font-size:15px; }
+  .navlinks { display:flex; gap:4px; margin-left:auto; }
+  .navlinks a { color:var(--muted); text-decoration:none; font-size:13.5px; padding:7px 12px; border-radius:8px; }
+  .navlinks a:hover { color:var(--ink); background:var(--raise); }
+  .cta { display:inline-block; background:var(--accent-deep); border:1px solid var(--accent-deep); color:#fff; text-decoration:none; font-weight:600; font-size:13.5px; border-radius:9px; padding:8px 16px; }
+  .cta:hover { background:#1290ac; }
+
+  .hero { padding:72px 0 56px; max-width:780px; }
+  .kicker { font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); margin-bottom:14px; }
+  h1 { font-size:clamp(30px,4.4vw,46px); line-height:1.1; letter-spacing:-.02em; font-weight:700; }
+  h1 em { font-style:normal; color:var(--accent); }
+  .lede { margin-top:16px; font-size:17px; color:var(--muted); max-width:56ch; }
+  .lede b { color:var(--ink); font-weight:600; }
+  .heroctas { display:flex; gap:12px; margin-top:26px; flex-wrap:wrap; }
+  .cta.big { padding:12px 22px; font-size:15px; }
+
+  section.block { padding:64px 0; border-top:1px solid var(--border); }
+  .shead h2 { font-size:clamp(24px,3vw,30px); letter-spacing:-.015em; font-weight:700; margin-bottom:8px; }
+  .ssub { color:var(--muted); font-size:15.5px; max-width:64ch; margin-bottom:30px; }
+  .ssub b { color:var(--ink); }
+
+  /* console mock strip */
+  .mock { border:1px solid var(--border2); border-radius:16px; background:var(--surface2); overflow:hidden; }
+  .mock-bar { display:flex; align-items:center; gap:9px; padding:10px 14px; border-bottom:1px solid var(--border); }
+  .mock-bar .dot { width:9px; height:9px; border-radius:50%; background:var(--ok); }
+  .mock-bar b { font-size:13px; }
+  .mock-bar span { font-size:11px; color:var(--faint); font-family:var(--mono); margin-left:auto; }
+  .mock-body { padding:14px; display:grid; gap:10px; }
+  .mockrow { display:flex; gap:9px; align-items:center; background:var(--surface); border:1px solid var(--border); border-left-width:4px; border-radius:11px; padding:10px 13px; font-size:13px; }
+  .mockrow.P1 { border-left-color:var(--bad); } .mockrow.P2 { border-left-color:var(--warn); } .mockrow.P3 { border-left-color:var(--p3); }
+  .mockrow .pri { font-weight:750; font-size:11px; padding:2px 8px; border-radius:6px; background:var(--surface2); border:1px solid var(--border); }
+  .mockrow .pri.P1 { color:var(--bad); } .mockrow .pri.P2 { color:var(--warn); } .mockrow .pri.P3 { color:var(--p3); }
+  .mockrow b { font-size:13px; }
+  .mockrow .chip { font-size:10.5px; color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:1px 8px; white-space:nowrap; }
+  .mockrow .chip.hot { color:var(--bad); border-color:rgba(244,87,77,.4); }
+  .mockrow .ago { margin-left:auto; font-family:var(--mono); font-size:10.5px; color:var(--faint); }
+
+  .trio { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .tcard { border:1px solid var(--border); border-radius:14px; padding:18px 20px; background:var(--surface); }
+  .tcard .tag { font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:10px; display:inline-block; color:var(--accent); }
+  .tcard h3 { font-size:16px; margin-bottom:6px; }
+  .tcard p { font-size:13.5px; color:var(--muted); }
+
+  .feats { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .feat { border:1px solid var(--border); border-radius:13px; padding:16px 18px; background:var(--surface); display:flex; gap:13px; }
+  .fico { width:34px; height:34px; border-radius:10px; background:var(--accent-soft); color:var(--accent); display:grid; place-items:center; flex-shrink:0; }
+  .fico svg { width:16px; height:16px; }
+  .feat b { font-size:14.5px; display:block; margin-bottom:3px; }
+  .feat span { font-size:13px; color:var(--muted); line-height:1.5; }
+  .feat .mono { font-family:var(--mono); font-size:11px; color:var(--faint); display:block; margin-top:5px; }
+
+  .types { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .type { border:1px solid var(--border); border-radius:13px; padding:16px 18px; background:var(--surface); }
+  .type b { font-size:15px; display:block; margin-bottom:4px; }
+  .type span { font-size:13px; color:var(--muted); }
+  .type .mono { font-family:var(--mono); font-size:10.5px; color:var(--accent); display:block; margin-top:8px; }
+
+  .ptable { width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+  .ptable th, .ptable td { padding:15px 18px; text-align:left; border-bottom:1px solid var(--border); font-size:14px; vertical-align:top; }
+  .ptable th { color:var(--faint); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.08em; font-family:var(--mono); }
+  .ptable tr:last-child td { border-bottom:none; }
+  .tier { font-weight:700; }
+  .price { font-family:var(--mono); font-size:17px; color:var(--accent); white-space:nowrap; }
+  .price small { color:var(--faint); font-size:11px; }
+  .tier-cap { color:var(--muted); font-size:12px; margin-top:3px; }
+
+  footer { margin-top:70px; border-top:1px solid var(--border); padding:26px 0 40px; font-size:12.5px; color:var(--faint); }
+  footer p { margin-top:5px; max-width:88ch; }
+  .frow { display:flex; gap:18px; margin-bottom:10px; }
+  .frow a { color:var(--muted); text-decoration:none; }
+  .frow a:hover { color:var(--ink); }
+
+  @media (max-width:880px){
+    .trio,.feats,.types { grid-template-columns:1fr; }
+    .navlinks { display:none; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="navwrap wrap">
+    <a class="brand" href="/">
+      <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 3v18M20 3v18M4 7h16M4 12h16M4 17h16"/></svg></span>
+      <b>Care Ladder</b>
+    </a>
+    <div class="navlinks">
+      <a href="/">Overview</a>
+      <a href="/site/family/">For families</a>
+      <a href="/#pricing">Pricing</a>
+    </div>
+    <a class="cta" href="/#demo">Try the demo</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="kicker">For facilities · Starter $49/mo · Growth $99/mo</div>
+    <h1>A command center that only interrupts when <em>the floor can't cope</em>.</h1>
+    <p class="lede">
+      Pages route to your shift channel first - Slack, Teams, WhatsApp or Telegram -
+      and staff acknowledge in chat. The console is where the floor lead triages what
+      auto-routing couldn't place, watches cases, and hands auditors a trail they can read:
+      <b>time-to-ack, handling time, response transcripts</b>, and every override with a name on it.
+    </p>
+    <div class="heroctas">
+      <a class="cta big" href="/#demo">Open the facility demo</a>
+      <a class="cta big ghost" style="background:transparent;border:1px solid var(--border2);color:var(--ink)" href="#console">See the console</a>
+    </div>
+  </header>
+
+  <!-- ============ CONSOLE MOCK ============ -->
+  <section class="block" id="console">
+    <div class="shead"><h2>Alert center · triage that shows its work</h2></div>
+    <p class="ssub">Priority order, aging timers, the resident's reply verbatim, and one-click
+    actions. Everything the lead needs to decide in five seconds.</p>
+    <div class="mock" aria-label="Alert center mock">
+      <div class="mock-bar"><span class="dot"></span><b>Floor is self-managing</b><span>3 open · 1 awaiting ack</span></div>
+      <div class="mock-body">
+        <div class="mockrow P1">
+          <span class="pri P1">P1</span><b>Room 9 · Robin S.</b>
+          <span class="chip hot">negative reply</span><span class="chip hot">ack window missed</span>
+          <span class="ago">CL-1043 · 36m</span>
+        </div>
+        <div class="mockrow P1">
+          <span class="pri P1">P1</span><b>Common room · fall signature</b>
+          <span class="chip hot">group timeout</span><span class="chip">escalated to you</span>
+          <span class="ago">CL-1040 · 51m</span>
+        </div>
+        <div class="mockrow P2">
+          <span class="pri P2">P2</span><b>Room 12 · Pat M.</b>
+          <span class="chip">awaiting ack</span><span class="chip">02:41 to target</span>
+          <span class="ago">CL-1042 · assigned</span>
+        </div>
+        <div class="mockrow P3">
+          <span class="pri P3">P3</span><b>Room 2 · Lee K.</b>
+          <span class="chip">quiet hours</span><span class="chip" style="color:var(--ok);border-color:rgba(52,201,142,.35)">can de-escalate</span>
+          <span class="ago">resumes 07:00</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ THREE SURFACES ============ -->
+  <section class="block">
+    <div class="shead"><h2>Three tabs, three jobs</h2></div>
+    <p class="ssub">The console is deliberately quiet: triage what needs a human, track what
+    humans are handling, audit what humans did.</p>
+    <div class="trio">
+      <div class="tcard">
+        <span class="tag">Alert center</span>
+        <h3>Triage + override</h3>
+        <p>Priority queue with aging and SLA countdowns. Assign to available staff (breaks respected), reprioritize, de-escalate, suppress - every override logged with the lead's name.</p>
+      </div>
+      <div class="tcard">
+        <span class="tag">Cases</span>
+        <h3>Handled in chat, tracked here</h3>
+        <p>Acknowledged cases get owners and handling clocks; over-target cases get SLA nudges in-thread; closures require documentation submitted in chat.</p>
+      </div>
+      <div class="tcard">
+        <span class="tag">Audit</span>
+        <h3>The review surface</h3>
+        <p>Median time-to-ack, handling times, outcome mix - and per-incident drill-downs: full ladder, reply transcript, documentation, overrides, clips. CSV export for compliance.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURES ============ -->
+  <section class="block">
+    <div class="shead"><h2>Built for how floors actually run</h2></div>
+    <div class="feats">
+      <div class="feat">
+        <div class="fico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div>
+        <div><b>Shift-channel first</b><span>Pages land in the channel the shift already watches; the console only lights up on group timeout, zero availability, or lead choice.</span><span class="mono">auto-routing · spill rules stated</span></div>
+      </div>
+      <div class="feat">
+        <div class="fico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></div>
+        <div><b>Breaks that mean something</b><span>Responders set breaks from chat with auto-return; routing skips them; P1 can break through; the lead can pull someone back as a logged override.</span><span class="mono">/break 15 · countdown shown</span></div>
+      </div>
+      <div class="feat">
+        <div class="fico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <div><b>Negative replies jump the queue</b><span>"No, I can't get up" auto-raises to P1, skips wait rungs and pages immediately - with the resident's words on the card and reclassification auditable.</span><span class="mono">P2 to P1 automatic · lead can correct</span></div>
+      </div>
+      <div class="feat">
+        <div class="fico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="12" height="13" rx="1"/><path d="M15 11h4a1 1 0 0 1 1 1v8h-5"/><path d="M7 11h1M7 15h1"/></svg></div>
+        <div><b>Places, people, privacy per camera</b><span>Room zones with per-camera privacy mode (blur or silhouette), lens-covered states, and vocabulary that matches your facility type.</span><span class="mono">assisted living · rehab · daycare</span></div>
+      </div>
+      <div class="feat">
+        <div class="fico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 3 22l1.5-4.5Z"/></svg></div>
+        <div><b>Audit that survives questions</b><span>Every hop timestamped; every override named; every closure documented; CSV and per-shift exports for the people who ask.</span><span class="mono">time-to-ack · handling · outcomes</span></div>
+      </div>
+      <div class="feat">
+        <div class="fico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/><circle cx="12" cy="12" r="3"/></svg></div>
+        <div><b>Honest configuration</b><span>Quiet hours, ack windows, handling targets and escalation order are stated in Settings in plain language - the same words the audit uses.</span><span class="mono">policy as readable rules</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FACILITY TYPES ============ -->
+  <section class="block">
+    <div class="shead"><h2>Speaks your facility's language</h2></div>
+    <p class="ssub">Vocabulary adapts to the facility type - the console, the chat threads and the audit reports all follow.</p>
+    <div class="types">
+      <div class="type">
+        <b>Assisted living</b>
+        <span>Rooms and common areas, shift rosters, family contact ladders alongside staff escalation.</span>
+        <span class="mono">resident · room · floor lead</span>
+      </div>
+      <div class="type">
+        <b>Rehab</b>
+        <span>Gym and therapy spaces with transit zones; patients in for weeks, not years - documentation geared to discharge notes.</span>
+        <span class="mono">patient · gym · therapist</span>
+      </div>
+      <div class="type">
+        <b>Daycare</b>
+        <span>Classrooms and play zones; elevated supervision vocabulary and guardian-facing language.</span>
+        <span class="mono">child · classroom · supervisor</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PRICING ============ -->
+  <section class="block" id="pricing">
+    <div class="shead"><h2>Facility pricing</h2></div>
+    <table class="ptable">
+      <thead><tr><th>Tier</th><th>Price</th><th>What you get</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><div class="tier">Facility Starter</div><div class="tier-cap">Small assisted-living</div></td>
+          <td class="price">$49<small>/mo</small></td>
+          <td>Up to 10 rooms · shift channel queue · alert center, cases and audit · CSV export</td>
+        </tr>
+        <tr>
+          <td><div class="tier">Facility Growth</div><div class="tier-cap">Multi-unit operators</div></td>
+          <td class="price">$99<small>/mo</small></td>
+          <td>Unlimited rooms · multi-tenant admin · learning schedules with freeze controls · priority support</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:12px;font-size:12px;color:var(--faint)">Checkout runs live via Stripe (test mode during the Galuxium build). Home plan for families: $9/mo.</p>
+  </section>
+
+  <footer>
+    <div class="frow">
+      <a href="/">Overview</a>
+      <a href="/site/family/">For families</a>
+      <a href="/#pricing">Pricing</a>
+      <a href="/#demo">Try the demo</a>
+      <a href="/ui/facility/">Facility console</a>
+    </div>
+    <p>Care Ladder is a wellness workflow, not a medical device: it does not diagnose, does not score clinical risk, and does not contact emergency services - the emergency rung ships disabled and stays behind a human gate.</p>
+    <p>Frames are processed as blur or silhouettes before anything is stored. Reserved fictional phone numbers are used throughout demos. Galuxium Nexus V2 submission.</p>
+  </footer>
+</div>
+
+</body>
+</html>

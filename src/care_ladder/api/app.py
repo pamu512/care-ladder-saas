@@ -865,6 +865,7 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
 
     static_dir = Path(__file__).resolve().parent / "static"
     application.mount("/ui", StaticFiles(directory=static_dir, html=True), name="ui")
+    application.mount("/site", StaticFiles(directory=static_dir / "site", html=True), name="site")
 
     # Landing page (Task 9): GET / serves the SaaS landing (pricing + demo
     # login); the caregiver console stays at /ui/.

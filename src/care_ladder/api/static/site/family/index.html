@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Care Ladder for Families - the care conversation lives in your chat</title>
+<meta name="description" content="Care Ladder for families: a bot thread in WhatsApp or Telegram that informs with a countdown, takes your acknowledgment in chat, and only escalates when the chat goes quiet.">
+<style>
+  :root {
+    --bg: #faf8f5; --card: #ffffff; --sink: #f3efe9;
+    --ink: #22303a; --ink2: #5a6b76; --faint: #8d99a3;
+    --hair: #e8e2d8; --hair2: #d8d0c2;
+    --teal: #0e7490; --teal-deep: #0b5c73; --teal-soft: #e5f2f6; --teal-ink: #0c4a5e;
+    --amber: #a16207; --amber-soft: #fdf3d8; --amber-line: #ecd9a8;
+    --bad: #b3423a; --bad-soft: #fbebea;
+    --ok: #22703f; --ok-soft: #e9f4ec;
+    --vio: #6d5bb8; --vio-soft: #efecfa;
+    --serif: Charter, "Iowan Old Style", Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, Menlo, monospace;
+  }
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+  a { color: inherit; }
+
+  nav.top { position: sticky; top: 0; z-index: 40; background: rgba(250,248,245,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--hair); }
+  .navwrap { display: flex; align-items: center; gap: 20px; padding: 12px 24px; }
+  .brand { display: flex; gap: 10px; align-items: center; text-decoration: none; }
+  .mark { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(160deg, #18a4c2, #0e7490); display: grid; place-items: center; color: #fff; }
+  .mark svg { width: 15px; height: 15px; }
+  .brand b { font-size: 15px; }
+  .navlinks { display: flex; gap: 4px; margin-left: auto; }
+  .navlinks a { color: var(--ink2); text-decoration: none; font-size: 13.5px; padding: 7px 12px; border-radius: 8px; }
+  .navlinks a:hover { color: var(--ink); background: var(--sink); }
+  .cta { display: inline-block; background: var(--teal); border: 1px solid var(--teal); color: #fff; text-decoration: none; font-weight: 600; font-size: 13.5px; border-radius: 9px; padding: 8px 16px; }
+  .cta:hover { background: var(--teal-deep); }
+
+  .hero { padding: 72px 0 56px; display: grid; grid-template-columns: minmax(0,1fr) 380px; gap: 44px; align-items: center; }
+  .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--vio); margin-bottom: 14px; }
+  h1 { font-family: var(--serif); font-size: clamp(30px, 4.4vw, 46px); line-height: 1.12; font-weight: 500; letter-spacing: -.01em; }
+  h1 em { color: var(--teal); }
+  .lede { margin-top: 16px; font-size: 17px; color: var(--ink2); max-width: 52ch; }
+  .lede b { color: var(--ink); }
+  .heroctas { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
+  .cta.big { padding: 12px 22px; font-size: 15px; }
+  .cta.ghost { background: transparent; border: 1px solid var(--hair2); color: var(--ink); }
+  .cta.ghost:hover { border-color: var(--teal); color: var(--teal); }
+
+  section.block { padding: 64px 0; border-top: 1px solid var(--hair); }
+  .shead h2 { font-family: var(--serif); font-size: clamp(24px, 3vw, 30px); font-weight: 550; letter-spacing: -.01em; margin-bottom: 8px; }
+  .ssub { color: var(--ink2); font-size: 15.5px; max-width: 62ch; margin-bottom: 30px; }
+  .ssub b { color: var(--ink); }
+
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .step { background: var(--card); border: 1px solid var(--hair); border-radius: 14px; padding: 18px 20px; }
+  .step .k { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--teal); margin-bottom: 8px; }
+  .step b { font-size: 15.5px; display: block; margin-bottom: 5px; }
+  .step span { font-size: 13.5px; color: var(--ink2); line-height: 1.55; display: block; }
+  .step .ex { margin-top: 9px; font-family: var(--serif); font-style: italic; color: var(--vio); font-size: 13.5px; }
+
+  /* phone */
+  .phone { border: 1px solid var(--hair2); border-radius: 24px; background: var(--card); overflow: hidden; box-shadow: 0 1px 3px rgba(34,48,58,.06); }
+  .phead { display: flex; gap: 9px; align-items: center; padding: 11px 14px; border-bottom: 1px solid var(--hair); }
+  .pava { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(160deg, #18a4c2, #0e7490); display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; }
+  .phead b { font-size: 13.5px; display: block; } .phead span { font-size: 10.5px; color: var(--faint); }
+  .pbody { padding: 14px 12px 16px; display: flex; flex-direction: column; gap: 9px; min-height: 380px; }
+  .bubble { max-width: 86%; border-radius: 13px; padding: 9px 12px; font-size: 13px; line-height: 1.55; }
+  .bubble .bt { display: flex; justify-content: flex-end; font-size: 9.5px; color: var(--faint); font-family: var(--mono); margin-top: 4px; }
+  .bot { align-self: flex-start; background: var(--sink); border: 1px solid var(--hair); border-top-left-radius: 4px; }
+  .bot.alert { background: var(--bad-soft); border-color: #eec7c4; }
+  .bot.warn { background: var(--amber-soft); border-color: var(--amber-line); }
+  .bot.good { background: var(--ok-soft); border-color: #cbe5d3; }
+  .me { align-self: flex-end; background: #dcf8c6; border: 1px solid #cde8b6; border-top-right-radius: 4px; }
+  .bubble b { font-weight: 650; }
+  .bubble .q { font-family: var(--serif); font-style: italic; }
+  .bbtn { display: block; margin-top: 7px; border: 1px solid var(--teal); color: var(--teal); background: #fff; border-radius: 9px; padding: 7px; font-size: 12px; font-weight: 650; cursor: default; }
+  .bbtn.danger { border-color: var(--bad); color: var(--bad); }
+  .sysline { align-self: center; font-size: 10px; color: var(--faint); background: var(--sink); border-radius: 999px; padding: 3px 12px; }
+
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .pairbox { background: var(--card); border: 1px solid var(--hair); border-radius: 14px; padding: 20px 22px; }
+  .pairbox h3 { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); margin-bottom: 12px; }
+  .qr { width: 104px; height: 104px; border-radius: 12px; border: 1px solid var(--hair2);
+        background: repeating-conic-gradient(var(--ink) 0 25%, #fff 0 50%) 0 0/14px 14px; position: relative; margin: 0 auto 10px; }
+  .qr::after { content: "CL"; position:absolute; inset:34px; background:#fff; border:1px solid var(--hair2); border-radius:8px; display:grid; place-items:center; font-weight:800; font-size:12px; color:var(--teal); }
+  .pair-steps { font-size: 13.5px; color: var(--ink2); display: flex; flex-direction: column; gap: 8px; }
+  .pair-steps b { color: var(--ink); font-weight: 650; }
+  .pair-steps .mono { font-family: var(--mono); font-size: 12px; background: var(--sink); border-radius: 5px; padding: 1px 7px; }
+  .matrix { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .matrix th { text-align: left; font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 6px 8px; border-bottom: 1px solid var(--hair2); }
+  .matrix td { padding: 8px; border-bottom: 1px solid var(--hair); }
+  .matrix .who b { font-weight: 650; display: block; }
+  .matrix .who span { font-size: 11px; color: var(--faint); }
+  .pill { font-size: 10.5px; border-radius: 999px; padding: 2px 10px; border: 1px solid var(--hair2); color: var(--ink2); white-space: nowrap; }
+  .pill.on { background: var(--vio-soft); border-color: rgba(109,91,184,.35); color: var(--vio); }
+  .pill.esc { background: var(--bad-soft); border-color: #eec7c4; color: var(--bad); }
+
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .fact { background: var(--card); border: 1px solid var(--hair); border-radius: 12px; padding: 16px 18px; }
+  .fact b { font-size: 14.5px; display: block; margin-bottom: 4px; }
+  .fact span { font-size: 13px; color: var(--ink2); line-height: 1.5; display: block; }
+  .fact .mono { font-family: var(--mono); font-size: 11px; color: var(--faint); margin-top: 6px; display: block; }
+
+  footer { margin-top: 70px; border-top: 1px solid var(--hair); padding: 26px 0 40px; font-size: 12.5px; color: var(--faint); }
+  footer p { margin-top: 5px; max-width: 88ch; }
+  .frow { display: flex; gap: 18px; margin-bottom: 10px; }
+  .frow a { color: var(--ink2); text-decoration: none; }
+  .frow a:hover { color: var(--ink); }
+
+  @media (max-width: 880px) {
+    .hero { grid-template-columns: 1fr; padding-top: 48px; }
+    .pair { grid-template-columns: 1fr; }
+    .navlinks { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="navwrap wrap">
+    <a class="brand" href="/">
+      <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M4 3v18M20 3v18M4 7h16M4 12h16M4 17h16"/></svg></span>
+      <b>Care Ladder</b>
+    </a>
+    <div class="navlinks">
+      <a href="/">Overview</a>
+      <a href="/site/facility/">For facilities</a>
+      <a href="/#pricing">Pricing</a>
+    </div>
+    <a class="cta" href="/#demo">Try the demo</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div>
+      <div class="kicker">For families · Home plan · $9/mo</div>
+      <h1>Nobody opens a console when Mom might need help. They open <em>WhatsApp</em>.</h1>
+      <p class="lede">
+        Care Ladder for families runs as a bot thread in the chat app you already use.
+        It <b>informs with a countdown</b>, takes your acknowledgment with one tap,
+        takes your update as a plain reply, and only climbs to the next contact when
+        the chat stays quiet. The web console is for setup and looking back.
+      </p>
+      <div class="heroctas">
+        <a class="cta big" href="/#demo">Open the family demo</a>
+        <a class="cta big ghost" href="#how">How the thread works</a>
+      </div>
+    </div>
+
+    <div class="phone" aria-label="Example WhatsApp conversation">
+      <div class="phead">
+        <div class="pava">CL</div>
+        <div><b>Care Ladder · Mom</b><span>bot · silent unless it matters</span></div>
+      </div>
+      <div class="pbody">
+        <div class="sysline">encrypted · notifications on for James + Sarah</div>
+        <div class="bubble bot">
+          Morning check-in answered.
+          <span class="q">"I'm up, I'm making tea."</span>
+          <span class="bt">08:56</span>
+        </div>
+        <div class="bubble bot alert">
+          <b>Check-in not answered.</b> No movement in the living room for 15 minutes.
+          If nobody responds in 5:00, I'll call you, then Sarah.
+          <span class="bt">14:27</span>
+          <span class="bbtn">I'm on it - call her myself</span>
+          <span class="bbtn">Call Mom now (speakerphone)</span>
+          <span class="bbtn danger">Can't talk - go to Sarah</span>
+        </div>
+        <div class="bubble me">1 - on it, calling her now
+          <span class="bt">14:43</span></div>
+        <div class="bubble bot good">
+          <b>Noted, James. Escalation stopped.</b> Sarah will not be contacted.
+          <span class="bt">14:43</span>
+        </div>
+        <div class="bubble me">she's fine - balcony again, phone inside
+          <span class="bt">14:51</span></div>
+        <div class="bubble bot good">
+          <b>Closed · all fine.</b> You acked in 52s. Clip: 3 frames, faces blurred, kept 30 days.
+          <span class="bt">14:51</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ HOW ============ -->
+  <section class="block" id="how">
+    <div class="shead"><h2>Four beats, one thread</h2></div>
+    <p class="ssub">The conversation is the runtime. Every beat is timestamped into the same
+    audit trail a facility reviewer would read.</p>
+    <div class="steps">
+      <div class="step">
+        <span class="k">Inform · 0:00</span>
+        <b>Mom is asked first</b>
+        <span>The speaker or pendant check-in gets a 5:00 window. Most incidents end here - the family never hears about them.</span>
+        <span class="ex">"I'm fine, thanks - just resting."</span>
+      </div>
+      <div class="step">
+        <span class="k">Acknowledge · in chat</span>
+        <b>One tap, three choices</b>
+        <span>Take it yourself, start a speakerphone call, or pass to the next contact. Buttons or a one-word reply both work.</span>
+        <span class="ex">"Noted, James. Sarah will not be contacted."</span>
+      </div>
+      <div class="step">
+        <span class="k">Update · free text</span>
+        <b>Your reply becomes the record</b>
+        <span>"Balcony again, phone inside" is stored as the case note. No forms, no console visit.</span>
+      </div>
+      <div class="step">
+        <span class="k">Escalate · only if quiet</span>
+        <b>Countdown pressure, then calls</b>
+        <span>No acknowledgment in the window means the next contact gets called - and the thread says so at every step.</span>
+        <span class="ex">"Calling you now. Sarah is next if you can't take it."</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SETUP ============ -->
+  <section class="block">
+    <div class="shead"><h2>Set up once, from the console</h2></div>
+    <p class="ssub">Pairing takes two minutes; after that the console is a mirror - today's
+    check-ins, the week's recap, clips with faces blurred, billing.</p>
+    <div class="pair">
+      <div class="pairbox">
+        <h3>Pair the household chat</h3>
+        <div class="qr" role="img" aria-label="QR code to pair the chat bot"></div>
+        <div class="pair-steps">
+          <span><b>1.</b> Scan with WhatsApp or Telegram (or tap the link on your phone)</span>
+          <span><b>2.</b> Send <span class="mono">start</span> - the thread becomes the runtime</span>
+          <span><b>3.</b> Each family member pairs their own chat and picks a role</span>
+          <span><b>4.</b> Console stays for review: day timeline, clips, plan edits</span>
+        </div>
+      </div>
+      <div class="pairbox">
+        <h3>Who gets told what</h3>
+        <table class="matrix">
+          <tr><th>Member</th><th>Daily rhythm</th><th>Alerts</th><th>Escalation</th></tr>
+          <tr><td class="who"><b>James</b><span>son · primary</span></td><td><span class="pill on">recap only</span></td><td><span class="pill on">yes · buttons</span></td><td><span class="pill esc">1st · call</span></td></tr>
+          <tr><td class="who"><b>Sarah</b><span>daughter</span></td><td><span class="pill">none</span></td><td><span class="pill on">if James quiet</span></td><td><span class="pill esc">2nd · call</span></td></tr>
+          <tr><td class="who"><b>Mrs. Alvarez</b><span>neighbor</span></td><td><span class="pill">none</span></td><td><span class="pill">call only</span></td><td><span class="pill esc">3rd · daytime</span></td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FACTS ============ -->
+  <section class="block">
+    <div class="shead"><h2>The household facts, stated plainly</h2></div>
+    <p class="ssub">Because trust with family is built on specifics, not adjectives.</p>
+    <div class="facts">
+      <div class="fact"><b>A human always decides</b><span>Emergency services are never dialed automatically. The ladder calls people, in the order you set.</span><span class="mono">emergency rung · fail-closed</span></div>
+      <div class="fact"><b>Faces blurred before saving</b><span>Frames are privacy-transformed before anything persists; clips state how long they are kept.</span><span class="mono">retention · 30 days default</span></div>
+      <div class="fact"><b>Quiet hours are real</b><span>Non-urgent check-ins pause overnight. Distress cues still alert instantly.</span><span class="mono">22:00 - 07:00 default</span></div>
+      <div class="fact"><b>Pause for visitors</b><span>Pause the ladder for an afternoon from chat; falls still break through.</span><span class="mono">/pause 2h · distress bypasses</span></div>
+      <div class="fact"><b>Recap, not surveillance</b><span>You get an evening summary: check-ins answered, calls placed, median response time.</span><span class="mono">20:00 · muted by default</span></div>
+      <div class="fact"><b>Not a medical device</b><span>Care Ladder checks in and escalates. It does not diagnose and does not score clinical risk.</span><span class="mono">wellness workflow only</span></div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="frow">
+      <a href="/">Overview</a>
+      <a href="/site/facility/">For facilities</a>
+      <a href="/#pricing">Pricing</a>
+      <a href="/#demo">Try the demo</a>
+      <a href="/ui/">Family console</a>
+    </div>
+    <p>Care Ladder is a wellness companion, not a medical device: it does not diagnose and never calls emergency services on its own - a human always decides.</p>
+    <p>Frames are blurred before anything is saved. Reserved fictional phone numbers are used throughout demos. Galuxium Nexus V2 submission.</p>
+  </footer>
+</div>
+
+</body>
+</html>
