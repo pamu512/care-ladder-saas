@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -116,6 +117,7 @@ class AuditEvent(BaseModel):
     cue_kind: str | None = None
     rung_id: str | None = None
     detail: dict[str, Any] = Field(default_factory=dict)
+    at: datetime | None = None  # wall clock at append; null on legacy events
 
 
 IncidentStatus = Literal["open", "resolved", "exhausted", "suppressed"]

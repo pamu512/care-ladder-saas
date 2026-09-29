@@ -34,12 +34,15 @@ def _append(
     rung_id: str | None = None,
     detail: dict[str, Any] | None = None,
 ) -> None:
+    from datetime import datetime, timezone as _tz
+
     events.append(
         AuditEvent(
             tool=tool,
             cue_kind=cue_kind,
             rung_id=rung_id,
             detail=detail or {},
+            at=datetime.now(_tz.utc),
         )
     )
 

@@ -7,7 +7,7 @@
 <style>
   :root{
     --bg:#0b0f14;--card:#121820;--card2:#0e141b;--border:#1f2a36;--text:#e8eef4;--muted:#8b9bab;
-    --accent:#4f9cf9;--accent-ink:#0b0f14;--ok:#34c98e;--warn:#f5b544;--p1:#f4574d;--p2:#f5a044;--p3:#5b8def;
+    --accent:#0e7490;--accent-ink:#e8eef4;--ok:#34c98e;--warn:#f5b544;--p1:#f4574d;--p2:#f5a044;--p3:#5b8def;
     --radius:12px;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   }
   *{box-sizing:border-box;margin:0}
@@ -58,7 +58,38 @@
   textarea{width:100%;min-height:70px;background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit}
   footer{max-width:1280px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);font-size:12px}
   .demo-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
-  @media (max-width:1020px){ .grid{grid-template-columns:1fr} .detail{position:static} .kpi{grid-template-columns:repeat(2,1fr)} }
+  .alert.selected{outline:2px solid var(--accent); outline-offset:2px; border-color:var(--accent)}
+  .alert:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  #toast{position:fixed;bottom:20px;right:20px;background:var(--card);border:1px solid var(--border);padding:10px 14px;border-radius:10px;z-index:20;max-width:320px}
+  #toast.err{border-color:var(--p1)}
+  .form-error{color:var(--p1);font-size:12px;margin-top:6px}
+  .doc-count{font-size:11px;color:var(--muted);margin-top:4px}
+  .demo-strip{border:1px dashed #345;border-radius:var(--radius);padding:10px 12px;background:#0d1520}
+  .demo-strip summary{cursor:pointer;color:var(--muted);font-size:12px;margin-bottom:8px}
+  .loading .alert-queue,.loading #alert-queue,.loading #open-cases{opacity:.45;pointer-events:none}
+  .reg{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;background:var(--card2)}
+  .reg-head{display:flex;gap:10px;align-items:center;padding:10px 14px;cursor:pointer}
+  .reg-head:hover{border-color:var(--accent)}
+  .reg-body{display:grid;grid-template-columns:1fr 300px;gap:14px;padding:12px 14px;border-top:1px solid var(--border)}
+  .origin-chip{font-size:11px;border-radius:999px;padding:1px 9px;border:1px solid var(--border)}
+  .origin-chip.resident{color:#c4a5ff;border-color:#7c6bd9}
+  .origin-chip.negative{color:var(--p1)}
+  .origin-chip.timeout{color:var(--warn)}
+  .r-line{display:grid;grid-template-columns:150px 1fr 70px;gap:8px;padding:5px 0;border-bottom:1px dashed #1a2430;font-size:12px}
+  .r-line.key .nm{color:var(--accent)} .r-line.stop .nm{color:var(--ok)} .r-line.jump .nm{color:var(--warn)}
+  .r-line .quote{color:#9fd0a8;font-style:italic} .r-line .delta{color:var(--muted);margin-left:6px} .r-line .ts{color:var(--muted);text-align:right}
+  .rail .box{border:1px solid var(--border);border-radius:9px;padding:10px;margin-bottom:10px}
+  .rail .box h6{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+  .metric{display:flex;justify-content:space-between;font-size:12px;padding:3px 0}
+  .metric .v{font-variant-numeric:tabular-nums}
+  .kpi .vio{color:#c4a5ff} .kpi .good{color:var(--ok)} .kpi .bad{color:var(--p1)}
+  .doc-block{border:1px solid var(--border);border-radius:9px;padding:10px;margin-top:10px;background:#0d1520}
+  .doc-block .sig{color:var(--muted);font-size:11px;margin-top:6px}
+  .filter-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .filter-chip{font-size:12px;border:1px solid var(--border);border-radius:999px;padding:3px 12px;cursor:pointer;background:none;color:var(--muted)}
+  .filter-chip.on{color:var(--text);border-color:var(--accent)}
+  .break-group{display:flex;gap:4px}
+  @media (max-width:1020px){ .grid{grid-template-columns:1fr} .detail{position:static} .kpi{grid-template-columns:repeat(2,1fr)} .reg-body{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -66,7 +97,7 @@
   <div class="hwrap">
     <div class="logo">
       <div class="logo-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 4h12M4 9h7M4 14h12M4 19h7"/></svg>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v18M20 3v18M4 7h16M4 12h16M4 17h16"/></svg>
       </div>
       <div><h1>Care Ladder</h1><div class="env">Floor console · <span id="tenant-label">facility</span></div></div>
     </div>
@@ -81,11 +112,14 @@
   </nav>
 </header>
 <main>
-  <div class="demo-actions">
-    <button class="btn" data-fixture="facility_negative_reply">Demo · negative reply (P1)</button>
-    <button class="btn" data-fixture="facility_positive_reply">Demo · resident answers OK</button>
-    <button class="btn" data-fixture="facility_notify_silence">Demo · silence escalation</button>
-  </div>
+  <details class="demo-strip" open>
+    <summary>Demo scenarios (judge / local only)</summary>
+    <div class="demo-actions" style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" data-fixture="facility_negative_reply">Demo · negative reply (P1)</button>
+      <button class="btn" data-fixture="facility_positive_reply">Demo · resident answers OK</button>
+      <button class="btn" data-fixture="facility_notify_silence">Demo · silence escalation</button>
+    </div>
+  </details>
   <div class="banner" id="reply-banner" hidden></div>
   <div class="banner" id="quiet-chip" hidden style="border-color:var(--border)"></div>
 
@@ -122,13 +156,28 @@
     <div class="card">
       <h3>Today</h3>
       <div class="kpi" id="kpi"></div>
-      <h3 style="margin-top:18px">Outcome mix</h3>
-      <div class="bars" id="outcome-bars"></div>
-      <p class="muted small" style="margin-top:14px" id="overrides-line"></p>
-      <a class="btn subtle" style="display:inline-block;margin-top:10px" href="/facility/audit/export.csv">Export cases CSV</a>
+      <div class="filter-row" id="audit-filters">
+        <button class="filter-chip on" data-filter="all">All outcomes</button>
+        <button class="filter-chip" data-filter="staff">Staff-handled</button>
+        <button class="filter-chip" data-filter="resident">Resolved by response</button>
+        <button class="filter-chip" data-filter="negative">Negative replies</button>
+        <span style="flex:1"></span>
+        <button class="filter-chip" data-range="7d">7 days</button>
+        <button class="filter-chip" data-range="shift">Shift...</button>
+      </div>
+      <div id="audit-register"></div>
+      <div class="card" style="margin-top:14px" id="lead-actions">
+        <h3>Lead actions</h3>
+        <div id="lead-actions-list" class="muted small">No overrides today.</div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <a class="btn subtle" href="/facility/audit/export.csv">Export audit CSV</a>
+          <button class="btn subtle" data-act="pdf">Export PDF</button>
+        </div>
+      </div>
     </div>
   </section>
 </main>
+<div id="toast" hidden role="status" aria-live="polite"></div>
 <footer>
   Care Ladder is not a medical device. Telephony is stubbed in this demo; video is blurred before persistence.
   <a href="/" style="color:var(--muted)">Landing</a>
@@ -136,7 +185,40 @@
 <script>
 "use strict";
 const $ = (s,el)=> (el||document).querySelector(s);
-const state = { alerts:[], resident:[], cases:{open:[],closed_today:[]}, staff:[], selected:null };
+function ownerLabel(c){
+  if (c.owner_display_name){ return (c.owner_initials ? c.owner_initials + " · " : "") + c.owner_display_name; }
+  return "unassigned";
+}
+
+function slaLine(c){
+  const opened = c.opened_at ? new Date(c.opened_at) : null;
+  if (!opened) return "SLA ack " + (c.sla_ack_sec||120) + "s / handling " + (c.sla_handling_sec||900) + "s";
+  const age = Math.floor((Date.now()-opened.getTime())/1000);
+  let line = "open " + age + "s";
+  if (c.ack_at){ const ackSec = Math.floor((new Date(c.ack_at)-opened)/1000); line += " · ack " + ackSec + "s (target " + (c.sla_ack_sec||120) + "s)"; }
+  if (c.ack_at && c.closed_at){ const hh = Math.floor((new Date(c.closed_at)-new Date(c.ack_at))/1000); line += " · handled " + hh + "s"; }
+  return line;
+}
+
+function escapeHtml(s){ return String(s||"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+
+function fmtDur(sec){
+  if (sec == null) return "n/a";
+  sec = Math.max(0, Math.floor(sec));
+  const m = Math.floor(sec/60), s = sec % 60;
+  return m + "m " + String(s).padStart(2,"0") + "s";
+}
+
+function kpiBox(cls, val, label){ return `<div><div class="n ${cls}">${val}</div><div class="l">${label}</div></div>`; }
+
+function showToast(msg, err=false){
+  const t = $("#toast");
+  if (!t){ return; }
+  t.hidden = false; t.textContent = msg; t.className = err ? "err" : "";
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=>{ t.hidden = true; }, 4000);
+}
+const state = { alerts:[], resident:[], cases:{open:[],closed_today:[]}, staff:[], selected:null, detailDirty:false, detailDraft:null, loading:false, auditRows:[], auditFilter:"all" };
 
 async function api(path, opts){
   const r = await fetch(path, Object.assign({headers:{"Content-Type":"application/json"}}, opts));
@@ -145,7 +227,12 @@ async function api(path, opts){
 }
 async function japi(path, opts){ const r = await api(path, opts); return {status:r.status, body: await r.json().catch(()=>({}))}; }
 
-function tick(){ const n = new Date(); $("#clock").textContent = n.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}); }
+function tick(){
+  const n = new Date();
+  $("#clock").textContent = n.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+  if (state.staff && state.staff.length) renderRoster();
+  if (state.alerts && state.alerts.length && document.querySelector("#tab-alerts").getAttribute("aria-selected")==="true") renderAlerts();
+}
 setInterval(tick, 30000); tick();
 
 document.querySelectorAll(".tab").forEach(t=> t.addEventListener("click", ()=>{
@@ -154,6 +241,17 @@ document.querySelectorAll(".tab").forEach(t=> t.addEventListener("click", ()=>{
 }));
 
 async function refresh(){
+  state.loading = true;
+  document.body.classList.add("loading");
+  try {
+    await _refreshInner();
+  } finally {
+    state.loading = false;
+    document.body.classList.remove("loading");
+  }
+}
+
+async function _refreshInner(){
   const [al, cs, st] = await Promise.all([japi("/facility/alerts"), japi("/facility/cases"), japi("/facility/staff")]);
   if (al.status===200){ state.alerts = al.body.queue||[]; state.resident = al.body.resident_resolved||[];
     if (al.body.quiet_hours){ $("#quiet-chip").hidden = false; $("#quiet-chip").textContent = "Quiet hours " + al.body.quiet_hours.start + "-" + al.body.quiet_hours.end + " (soft suppress)"; }
@@ -168,18 +266,31 @@ async function refresh(){
 
 function renderAlerts(){
   const el = $("#alert-queue");
-  if (!state.alerts.length){ el.innerHTML = '<div class="card muted">No open alerts. Run a demo scenario above.</div>'; return; }
-  el.innerHTML = state.alerts.map(a=>`
-    <div class="alert ${a.priority}" data-incident="${a.incident_id}">
+  if (!state.alerts.length){ el.innerHTML = '<p class="muted">Floor clear. No open alerts.</p>'; return; }
+  el.innerHTML = state.alerts.map(a=>{
+    const opened = a.case && a.case.opened_at ? new Date(a.case.opened_at) : null;
+    const ageMin = opened ? Math.max(0, Math.floor((Date.now()-opened.getTime())/60000)) : null;
+    const sla = (a.case && a.case.sla_ack_sec) || 120;
+    const leftMin = opened ? Math.max(0, Math.ceil((sla*1000 - (Date.now()-opened.getTime()))/60000)) : null;
+    const selected = state.selected === a.incident_id;
+    return `<div class="alert ${a.priority}${selected?" selected":""}" data-incident="${a.incident_id}"
+      role="button" tabindex="0" aria-selected="${selected}">
       <div class="row1">
         <span class="pri ${a.priority}">${a.priority}</span>
         <strong>${a.title}</strong>
-        <span class="muted small">room ${a.room_label}</span>
-        <span style="margin-left:auto" class="muted small">${a.case.human_id}</span>
+        <span class="chip">room ${a.room_label}</span>
+        <span class="chip">${a.case.human_id}</span>
+        ${ageMin!==null?`<span class="chip">aging ${ageMin}m</span>`:""}
+        ${leftMin!==null?`<span class="chip">${leftMin}m to ack target</span>`:""}
+        <span style="margin-left:auto"></span>
       </div>
       <div class="row1" style="margin-top:6px">${(a.chips||[]).map(c=>`<span class="chip">${c}</span>`).join("")}</div>
-    </div>`).join("");
-  el.querySelectorAll(".alert").forEach(x=> x.addEventListener("click", ()=> loadDetail(x.dataset.incident)));
+    </div>`;}).join("");
+  el.querySelectorAll(".alert").forEach(x=>{
+    const activate = ()=> loadDetail(x.dataset.incident);
+    x.addEventListener("click", activate);
+    x.addEventListener("keydown", (e)=>{ if (e.key==="Enter"||e.key===" "){ e.preventDefault(); activate(); } });
+  });
 }
 
 function renderResolved(){
@@ -191,7 +302,9 @@ function renderResolved(){
 
 async function loadDetail(incidentId){
   state.selected = incidentId;
-  const {body} = await japi(`/facility/alerts/${incidentId}`);
+  renderAlerts(); // refresh selected ring
+  const {status, body} = await japi(`/facility/alerts/${incidentId}`);
+  if (status !== 200){ showToast((body&&body.detail)||"Could not load alert", true); return; }
   const d = $("#alert-detail");
   const c = body.case||{};
   const rungs = (body.rungs||[]).join(" → ");
@@ -211,11 +324,35 @@ async function loadDetail(incidentId){
       <input type="checkbox" id="pull_off_break"> pull off break (logged override)
     </label>
     <a class="btn subtle" style="display:inline-block;margin-top:10px" href="${c.slack_thread_url||"#"}" target="_blank" rel="noopener">Open chat thread (stub)</a>`;
-  d.querySelectorAll("[data-pri]").forEach(b=> b.addEventListener("click", ()=> japi(`/facility/alerts/${incidentId}/priority`, {method:"POST", body:JSON.stringify({priority:b.dataset.pri})}).then(refresh)));
-  $("#assign-btn").addEventListener("click", ()=>{
+  const sel = $("#assign-select");
+  const pull = $("#pull_off_break");
+  if (state.detailDirty && state.detailDraft && state.detailDraft.incidentId === incidentId) {
+    if (sel && state.detailDraft.staff_id) sel.value = state.detailDraft.staff_id;
+    if (pull) pull.checked = !!state.detailDraft.pull_off_break;
+  }
+  const markDirty = () => {
+    state.detailDirty = true;
+    state.detailDraft = {
+      incidentId,
+      staff_id: sel ? sel.value : null,
+      pull_off_break: pull ? pull.checked : false,
+    };
+  };
+  if (sel) sel.addEventListener("change", markDirty);
+  if (pull) pull.addEventListener("change", markDirty);
+  d.querySelectorAll("[data-pri]").forEach(b=> b.addEventListener("click", async ()=>{
+    const {status, body} = await japi(`/facility/alerts/${incidentId}/priority`, {method:"POST", body:JSON.stringify({priority:b.dataset.pri})});
+    if (status!==200){ showToast((body&&body.detail)||"Priority update failed", true); return; }
+    state.detailDirty = false; state.detailDraft = null;
+    refresh();
+  }));
+  $("#assign-btn").addEventListener("click", async ()=>{
     const staff_id = $("#assign-select").value;
     const pull_off_break = $("#pull_off_break").checked;
-    japi(`/facility/alerts/${incidentId}/assign`, {method:"POST", body:JSON.stringify({staff_id, pull_off_break})}).then(refresh);
+    const {status, body} = await japi(`/facility/alerts/${incidentId}/assign`, {method:"POST", body:JSON.stringify({staff_id, pull_off_break})});
+    if (status!==200){ showToast((body&&body.detail)||"Assign failed", true); return; }
+    state.detailDirty = false; state.detailDraft = null;
+    refresh();
   });
 }
 
@@ -226,9 +363,11 @@ function renderCases(){
       <span class="pri ${c.priority}">${c.priority}</span>
       <div style="flex:1">
         <div><strong>${c.human_id}</strong> · ${c.title} <span class="muted small">room ${c.room_label}</span></div>
-        <div class="muted small">state ${c.state} · SLA ack 120s / handling 900s · owner ${c.owner_staff_id?("staff "+c.owner_staff_id.split("-").pop()):"unassigned"}</div>
+        <div class="muted small">state ${c.state} · ${slaLine(c)} · owner ${ownerLabel(c)}</div>
         ${c.state!=="closed"?`
-        <textarea class="small" style="margin-top:8px" data-doc="${c.id}" placeholder="Closing documentation (required, min 20 chars)"></textarea>
+        <textarea class="small" style="margin-top:8px" data-doc="${c.id}" placeholder="Closing notes (min 20 chars)"></textarea>
+        <div class="doc-count" data-doc-count="${c.id}">0/20</div>
+        <div class="form-error" data-doc-err="${c.id}"></div>
         <div style="display:flex;gap:8px;margin-top:6px">
           <button class="btn subtle" data-ack="${c.id}">Acknowledge</button>
           <button class="btn subtle" data-close="${c.id}">Close with docs</button>
@@ -240,37 +379,205 @@ function renderCases(){
     <div class="staff"><span class="pri ${c.priority}">${c.priority}</span>
       <div style="flex:1"><div><strong>${c.human_id}</strong> · ${c.title}</div>
       <div class="muted small">${c.documentation||""}</div></div></div>`).join("") : "None yet.";
-  open.querySelectorAll("[data-ack]").forEach(b=> b.addEventListener("click", ()=> japi(`/facility/cases/${b.dataset.ack}/ack`, {method:"POST", body:"{}"}).then(refresh)));
-  open.querySelectorAll("[data-close]").forEach(b=> b.addEventListener("click", ()=>{
-    const doc = open.querySelector(`[data-doc="${b.dataset.close}"]`).value;
-    japi(`/facility/cases/${b.dataset.close}/close`, {method:"POST", body:JSON.stringify({documentation:doc})}).then(refresh);
+  open.querySelectorAll("[data-ack]").forEach(b=> b.addEventListener("click", async ()=>{
+    const {status, body} = await japi(`/facility/cases/${b.dataset.ack}/ack`, {method:"POST", body:"{}"});
+    if (status!==200){ showToast((body&&body.detail)||"Ack failed", true); return; }
+    refresh();
   }));
+  open.querySelectorAll("[data-close]").forEach(b=> b.addEventListener("click", async ()=>{
+    const ta = open.querySelector(`[data-doc="${b.dataset.close}"]`);
+    const err = open.querySelector(`[data-doc-err="${b.dataset.close}"]`);
+    const {status, body} = await japi(`/facility/cases/${b.dataset.close}/close`, {method:"POST", body:JSON.stringify({documentation:ta.value})});
+    if (status!==200){
+      if (err) err.textContent = (body && body.detail) || "Close failed (documentation min 20 chars)";
+      showToast((body && body.detail) || "Close failed", true);
+      return;
+    }
+    if (err) err.textContent = "";
+    refresh();
+  }));
+  open.querySelectorAll("textarea[data-doc]").forEach(ta=>{
+    const counter = open.querySelector(`[data-doc-count="${ta.dataset.doc}"]`);
+    const sync = ()=>{ if (counter) counter.textContent = ta.value.trim().length + "/20"; };
+    ta.addEventListener("input", sync); sync();
+  });
+}
+
+function breakLeftLabel(s){
+  if (s.status !== "on_break" || !s.break_until) return s.status.replace("_"," ");
+  const ms = new Date(s.break_until).getTime() - Date.now();
+  if (ms <= 0) return "break ended";
+  const m = Math.ceil(ms/60000);
+  return "on break · " + m + "m left";
 }
 
 function renderRoster(){
   $("#staff-roster").innerHTML = state.staff.map(s=>`
     <div class="staff">
       <div class="avatar">${s.initials}</div>
-      <div style="flex:1"><div>${s.display_name} <span class="muted small">${s.role}</span></div></div>
-      <span class="status ${s.status}">${s.status.replace("_"," ")}</span>
-      <button class="btn subtle" data-break="${s.id}" data-to="${s.status==="on_break"?"off":"on"}">${s.status==="on_break"?"End break":"Break 15m"}</button>
+      <div style="flex:1">
+        <div>${s.display_name} <span class="muted small">${s.role}</span></div>
+        <div class="status ${s.status}">${breakLeftLabel(s)}</div>
+      </div>
+      ${s.status === "on_break"
+        ? `<button class="btn subtle" data-break="${s.id}" data-to="off">End break</button>`
+        : `<span class="break-group">
+             <button class="btn subtle" data-break="${s.id}" data-to="on" data-minutes="15">15m</button>
+             <button class="btn subtle" data-break="${s.id}" data-to="on" data-minutes="30">30m</button>
+             <button class="btn subtle" data-break="${s.id}" data-to="on" data-minutes="60">60m</button>
+           </span>`}
     </div>`).join("");
-  $("#staff-roster").querySelectorAll("[data-break]").forEach(b=> b.addEventListener("click", ()=>{
+  $("#staff-roster").querySelectorAll("[data-break]").forEach(b=> b.addEventListener("click", async ()=>{
     const on = b.dataset.to === "on";
-    japi(`/facility/staff/${b.dataset.break}/break`, {method:"POST", body:JSON.stringify({on_break:on, minutes:15})}).then(refresh);
+    const minutes = parseInt(b.dataset.minutes || "15", 10);
+    const {status, body} = await japi(`/facility/staff/${b.dataset.break}/break`, {method:"POST", body:JSON.stringify({on_break:on, minutes})});
+    if (status!==200){ showToast((body&&body.detail)||"Break update failed", true); return; }
+    refresh();
   }));
 }
 
+const ORIGIN_CHIP = {
+  resident: ["origin-chip resident", "resolved by response"],
+  negative: ["origin-chip negative", "negative reply"],
+  timeout: ["origin-chip timeout", "group timeout"],
+  silence: ["origin-chip timeout", "silence"],
+  cue: ["origin-chip", "cue"],
+  manual: ["origin-chip", "manual"],
+};
+
+function auditRowShell(r){
+  const chip = ORIGIN_CHIP[r.origin_key] || ["origin-chip", r.origin_key];
+  const owner = r.kind === "resident_resolved"
+    ? "no staff action"
+    : (r.owner_display_name ? ((r.owner_initials?r.owner_initials+" · ":"")+r.owner_display_name) : "unassigned");
+  const time = r.kind === "resident_resolved"
+    ? (r.response_sec!=null ? "response "+fmtDur(r.response_sec) : "response n/a")
+    : (r.ack_sec!=null ? "ack "+fmtDur(r.ack_sec) : "ack n/a");
+  return `<div class="reg" data-incident="${r.incident_id}">
+    <div class="reg-head" role="button" tabindex="0" aria-expanded="false">
+      <span class="pri ${r.priority||""}">${r.priority||"-"}</span>
+      <strong>${r.human_id}</strong>
+      <span class="muted small">room ${r.room_label} · ${escapeHtml(r.title)}</span>
+      <span class="${chip[0]}">${chip[1]}</span>
+      <span class="muted small">${owner}</span>
+      <span style="margin-left:auto" class="muted small">${time}</span>
+    </div>
+  </div>`;
+}
+
 async function renderAudit(){
-  const {body} = await japi("/facility/audit/summary");
-  const k = $("#kpi");
-  const kpis = [["Open cases",body.cases_open],["Closed today",body.cases_closed_today],["Resident-resolved",body.resident_resolved_today],["Overrides",body.overrides_today]];
-  k.innerHTML = kpis.map(([l,n])=>`<div><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
-  const out = body.outcomes||{};
-  const total = Object.values(out).reduce((a,b)=>a+b,0)||1;
-  $("#outcome-bars").innerHTML = Object.entries(out).map(([k2,v])=>`
-    <div class="bar"><span>${k2}</span><div class="track"><div class="fill" style="width:${Math.round(100*v/total)}%"></div></div><span class="muted">${v}</span></div>`).join("") || '<p class="muted small">No cases yet today.</p>';
-  $("#overrides-line").textContent = `${body.overrides_today||0} logged override(s) today (priority changes, pull-off-break).`;
+  const [sum, reg] = await Promise.all([japi("/facility/audit/summary"), japi("/facility/audit/register")]);
+  if (sum.status !== 200){ showToast((sum.body&&sum.body.detail)||"Audit failed", true); return; }
+  const b = sum.body;
+  const total = b.resolved_by_response_total || ((b.cases_closed_today||0)+(b.resident_resolved_today||0)) || 0;
+  $("#kpi").innerHTML = [
+    kpiBox("vio", `${b.resolved_by_response??0} <small>of ${total||0}</small>`, "Resolved by response"),
+    kpiBox("vio", b.median_response_sec==null?"n/a":fmtDur(b.median_response_sec), "Median response time"),
+    kpiBox("good", b.median_ack_sec==null?"n/a":fmtDur(b.median_ack_sec), "Median time-to-ack"),
+    kpiBox("good", b.pct_acked_in_sla==null?"n/a":(b.pct_acked_in_sla+"%"), "Acked in window"),
+    kpiBox("good", b.median_handling_sec==null?"n/a":fmtDur(b.median_handling_sec), "Median handling"),
+    kpiBox("bad", String(b.group_timeouts??0), "Group timeouts"),
+  ].join("");
+
+  state.auditRows = (reg.status===200 ? (reg.body.rows||[]) : []);
+  renderAuditFilters();
+  renderAuditRegister();
+  renderLeadActions(b);
+}
+
+function renderAuditFilters(){
+  const root = $("#audit-filters");
+  root.querySelectorAll("[data-filter]").forEach(ch=> ch.addEventListener("click", ()=>{
+    state.auditFilter = ch.dataset.filter;
+    root.querySelectorAll("[data-filter]").forEach(x=> x.classList.toggle("on", x===ch));
+    renderAuditRegister();
+  }));
+  root.querySelectorAll("[data-range]").forEach(ch=> ch.addEventListener("click", ()=> showToast("Range not available yet")));
+}
+
+function renderAuditRegister(){
+  const rows = (state.auditRows||[]).filter(r=>{
+    if (state.auditFilter === "staff") return r.kind === "staff_case";
+    if (state.auditFilter === "resident") return r.kind === "resident_resolved";
+    if (state.auditFilter === "negative") return r.origin_key === "negative";
+    return true;
+  });
+  const root = $("#audit-register");
+  if (!rows.length){ root.innerHTML = '<p class="muted">No closed cases or resident resolutions today.</p>'; return; }
+  root.innerHTML = rows.map(auditRowShell).join("");
+  root.querySelectorAll(".reg-head").forEach(hd=> hd.addEventListener("click", ()=> toggleRegRow(hd.parentElement)));
+}
+
+async function toggleRegRow(reg){
+  const isOpen = reg.classList.contains("open");
+  const root = $("#audit-register");
+  root.querySelectorAll(".reg.open").forEach(x=>{ if (x!==reg){ x.classList.remove("open"); const b=x.querySelector(".reg-body"); if(b) b.remove(); } });
+  if (isOpen){ reg.classList.remove("open"); const b=reg.querySelector(".reg-body"); if(b) b.remove(); return; }
+  reg.classList.add("open");
+  const head = reg.querySelector(".reg-head");
+  if (head) head.setAttribute("aria-expanded","true");
+  const {status, body} = await japi(`/facility/audit/register/${reg.dataset.incident}`);
+  if (status !== 200){ showToast("Could not load incident report", true); return; }
+  let bodyEl = reg.querySelector(".reg-body");
+  if (!bodyEl){ bodyEl = document.createElement("div"); bodyEl.className = "reg-body"; reg.appendChild(bodyEl); }
+  bodyEl.innerHTML = renderDrillDown(body);
+  wireDrillActions(bodyEl);
+  if (head) head.setAttribute("aria-expanded", String(reg.classList.contains("open")));
+}
+
+function renderDrillDown(d){
+  const lines = (d.timeline||[]).map(e=>`
+    <div class="r-line ${e.kind||""}">
+      <span class="nm">${e.label||e.tool}</span>
+      <span class="ds">${escapeHtml(e.detail||"")}${e.quote?` <span class="quote">"${escapeHtml(e.quote)}"</span>`:""}${e.delta_sec!=null?`<span class="delta">Δ ${fmtDur(e.delta_sec)}</span>`:""}</span>
+      <span class="ts">${e.at ? new Date(e.at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}) : ""}</span>
+    </div>`).join("");
+  const t = d.timing||{};
+  const ov = (d.overrides&&d.overrides.length)
+    ? d.overrides.map(o=>`<div class="metric"><span class="k">${escapeHtml(o.action)}</span><span class="v">${o.at?String(o.at).slice(11,19):""}</span></div>`).join("")
+    : '<div class="metric"><span class="k">None</span><span class="v">fully auto-routed</span></div>';
+  const doc = d.documentation
+    ? `<div class="doc-block"><h6>Submitted documentation</h6><p>${escapeHtml(d.documentation)}</p>
+         <div class="sig">${(d.documentation_meta&&d.documentation_meta.owner_display_name)||"staff"} · via console · ${(d.documentation_meta&&d.documentation_meta.closed_at)||""}</div></div>`
+    : "";
+  return `
+    <div class="report">
+      <h5>Care Ladder incident report</h5>
+      <span class="muted small">inc ${d.row.incident_id} · ${escapeHtml(d.row.title||"")}</span>
+      ${lines}${doc}
+    </div>
+    <aside class="rail">
+      <div class="box"><h6>Timing</h6>
+        <div class="metric"><span class="k">Time-to-ack</span><span class="v">${fmtDur(t.ack_sec)} / ${fmtDur(t.ack_target_sec)}</span></div>
+        <div class="metric"><span class="k">Handling time</span><span class="v">${fmtDur(t.handling_sec)} / ${fmtDur(t.handling_target_sec)}</span></div>
+        <div class="metric"><span class="k">Cue to first page</span><span class="v">${fmtDur(t.cue_to_page_sec)}</span></div>
+        <div class="metric"><span class="k">Nudges</span><span class="v">${t.nudges||0}</span></div>
+      </div>
+      <div class="box"><h6>Evidence</h6>
+        <div class="metric"><span class="k">Frames</span><span class="v">${(d.evidence&&d.evidence.frame_count)||0}</span></div>
+        <div class="metric"><span class="k">Privacy</span><span class="v">${(d.evidence&&d.evidence.privacy)||"n/a"}</span></div>
+      </div>
+      <div class="box"><h6>Overrides on this case</h6>${ov}</div>
+      <div class="box actions" style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" class="btn subtle" data-act="pdf">Export PDF</button>
+        <a class="btn subtle" href="${(d.evidence&&d.evidence.slack_thread_url)||"#"}" target="_blank" rel="noopener">Open chat thread</a>
+      </div>
+    </aside>`;
+}
+
+function wireDrillActions(scope){
+  scope.querySelectorAll('[data-act="pdf"]').forEach(b=> b.addEventListener("click", ()=> showToast("PDF export coming soon")));
+}
+
+function renderLeadActions(b){
+  const el = $("#lead-actions-list");
+  const ov = b.overrides_recent;
+  if (ov && ov.length){
+    el.innerHTML = ov.map(o=>`<div>${escapeHtml(o.action)} · ${o.case_id||""} ${o.at?String(o.at).slice(11,19):""}</div>`).join("");
+  } else {
+    el.textContent = (b.overrides_today||0) + " override(s) today. None · fully auto-routed.";
+  }
+  document.querySelectorAll('#lead-actions [data-act="pdf"]').forEach(x=> x.addEventListener("click", ()=> showToast("PDF export coming soon")));
 }
 
 document.querySelectorAll("[data-tab]").forEach(t=> t.addEventListener("click", ()=>{ if(t.dataset.tab==="audit") renderAudit(); }));
@@ -295,6 +602,10 @@ document.querySelectorAll("[data-fixture]").forEach(b=> b.addEventListener("clic
 }));
 
 $("#logout").addEventListener("click", async ()=>{ await api("/auth/logout", {method:"POST"}); location.href="/ui/"; });
+
+document.addEventListener("click", (e)=>{
+  if (e.target && e.target.id === "banner-dismiss"){ $("#reply-banner").hidden = true; }
+});
 
 (async()=>{
   const me = await japi("/auth/me").catch(()=>({status:401}));
