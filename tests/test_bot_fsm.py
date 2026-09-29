@@ -40,7 +40,7 @@ def _thread(clock: _Clock, *, registry: AckRegistry | None = None, dialer=None) 
         now=clock,
         sender=sender,
         dialer=dialer or StubDialer(behavior={"caregiver": "no_answer", "secondary": "no_answer"}),
-        ack_registry=registry or AckRegistry(secret="fsm-test"),
+        ack_registry=registry or AckRegistry(secret="fsm-test", now=clock),
     )
     thread.sent = sent  # type: ignore[attr-defined]
     return thread
