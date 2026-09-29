@@ -318,8 +318,11 @@ footer a{color:var(--faint)}
             <button class="btn" type="button" data-fixture="rehab_gym_no_visibility">Rehab demo · patient not visible (gym)</button>
           </div>
         </details>
+        <div class="banner info" id="alerts-banner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <div><b>Resident answers first</b><span class="sub">Positive reply closes the incident · negative reply raises priority and jumps the ladder · silence pages staff. <span id="quiet-chip" hidden></span></span></div>
+        </div>
         <div class="banner info" id="reply-banner" hidden></div>
-        <div class="banner info" id="quiet-chip" hidden></div>
         <div id="pin-rail" aria-label="Pinned alerts" hidden></div>
         <div class="grid2">
           <div>
@@ -666,8 +669,9 @@ async function _refreshInner(){
     state.resident = al.body.resident_resolved||[];
     state.quiet = al.body.quiet_hours || null;
     if (al.body.quiet_hours){
-      $("#quiet-chip").hidden = false;
-      $("#quiet-chip").innerHTML = `<div><b>Quiet hours</b><span class="sub">${al.body.quiet_hours.start} to ${al.body.quiet_hours.end} (soft suppress)</span></div>`;
+      const qc = $("#quiet-chip");
+      qc.hidden = false;
+      qc.textContent = "Quiet hours " + al.body.quiet_hours.start + " to " + al.body.quiet_hours.end + " (soft suppress).";
     }
     const el = $("#count-alerts");
     el.textContent = String(state.alerts.length);
@@ -736,12 +740,21 @@ function renderResolved(){
     : "None yet today.";
 }
 
+const RUNG_LABELS = {
+  cue:"Cue", reperceive:"Re-perceive", speaker_prompt:"Voice check-in",
+  jump:"Wait rungs skipped", notify_and_await_ack:"Page caretakers",
+  notify_supervisor:"Page group", notify_channel:"Page group",
+  ack_timeout:"Ack window", dial_contact:"Dial caregiver", wait:"Wait",
+  resolve:"Resolved", suppress:"Suppressed"
+};
 function ladderHtml(rungs){
   if (!rungs || !rungs.length) return '<p class="muted small">ladder pending</p>';
   return rungs.map((tool,i)=>{
-    const jump = String(tool).toLowerCase().includes("jump");
+    const key = String(tool);
+    const jump = key.toLowerCase().includes("jump");
     const kind = jump ? "jump" : (i === rungs.length-1 ? "cur" : "done");
-    return `<div class="mr ${kind}"><span class="dot"></span><span class="nm">${escapeHtml(String(tool).replace(/_/g," "))}</span><span class="ts"></span></div>`;
+    const label = RUNG_LABELS[key] || key.replace(/_/g," ");
+    return `<div class="mr ${kind}"><span class="dot"></span><span class="nm">${escapeHtml(label)}</span><span class="ts"></span></div>`;
   }).join("");
 }
 
@@ -772,7 +785,7 @@ async function loadDetail(incidentId){
     </div>
     <div class="dsec">
       <h4>Assign to</h4>
-      <label class="muted small">Assign</label>
+      <label class="muted small" for="assign-select">Assign</label>
       <div style="display:flex;gap:8px;margin:6px 0 10px;flex-wrap:wrap">
         <select id="assign-select">${(body.assign_candidates||[]).map(s=>`<option value="${s.id}" ${s.assignable?"":"disabled"}>${escapeHtml(s.initials)} ${escapeHtml(s.display_name)} (${s.status})</option>`).join("")}</select>
         <button class="btn primary subtle" type="button" id="assign-btn">Assign</button>
@@ -1143,17 +1156,18 @@ document.querySelectorAll("[data-fixture]").forEach(b=> b.addEventListener("clic
   const {status, body} = await japi("/demo/run", {method:"POST", body:JSON.stringify({fixture:b.dataset.fixture})});
   b.disabled = false;
   const banner = $("#reply-banner");
-  banner.hidden = false;
   if (status===200){
-    banner.className = "banner info";
-    banner.innerHTML = b.dataset.fixture==="facility_positive_reply"
-      ? "<div><b>Resident answered OK.</b><span class=\"sub\">Incident resolved by resident response; no case opened.</span></div>"
+    const msg = b.dataset.fixture==="facility_positive_reply"
+      ? "Resident answered OK. Incident resolved by resident response; no case opened."
       : b.dataset.fixture==="facility_negative_reply"
-        ? "<div><b>Resident answered negative.</b><span class=\"sub\">Priority P1, wait rungs skipped, case opened.</span></div>"
-        : "<div><b>Check-in silence.</b><span class=\"sub\">Ladder paging supervisors per plan.</span></div>";
+        ? "Resident answered negative. Priority P1, wait rungs skipped, case opened."
+        : "Check-in silence. Ladder paging supervisors per plan.";
+    if (banner){ banner.hidden = true; banner.textContent = msg; }
+    showToast(msg, false);
   } else {
-    banner.className = "banner info";
-    banner.textContent = (body&&body.detail)||"Fixture failed.";
+    const msg = (body&&body.detail)||"Fixture failed.";
+    if (banner){ banner.hidden = true; banner.textContent = msg; }
+    showToast(msg, true);
   }
   refresh();
 }));

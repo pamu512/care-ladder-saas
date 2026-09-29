@@ -131,6 +131,7 @@ def test_facility_shell_uses_guide_tokens_and_232px_sidebar(client):
     assert 'id="view-audit"' in html
     assert 'id="view-staff"' in html
     assert "Staff · shifts" in html
+    assert "Resident answers first" in html
 
 
 def test_facility_shell_omits_unwired_product_nav(client):
