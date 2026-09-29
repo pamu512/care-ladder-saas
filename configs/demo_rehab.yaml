@@ -1,0 +1,65 @@
+household_id: demo-rehab-1
+mode: facility
+caregiver:
+  display_name: Guardian
+  phone_e164: "+12125550101"   # reserved fiction in demos
+monitored:
+  display_name: Patient
+supervisor:
+  display_name: Charge Nurse
+  slack_user_id: "U0DEMO"
+  phone_e164: "+12125550103"   # reserved fiction in demos
+notifications:
+  slack:
+    enabled: true
+    channel: "#rehab-floor"
+  teams:
+    enabled: false
+  whatsapp:
+    enabled: false
+  telegram:
+    enabled: false
+zones:
+  - id: bay_1
+    polygon: [[0, 0], [640, 0], [640, 480], [0, 480]]
+    kind: private
+  - id: gym
+    polygon: [[0, 0], [640, 0], [640, 480], [0, 480]]
+    kind: common
+triggers:
+  no_movement:
+    enabled: true
+    timeout_sec: 900
+  no_visibility:
+    enabled: true
+  distress_heuristic:
+    enabled: true
+rungs:
+  - id: reperceive
+    tool: reperceive
+    params: { roi: auto }
+  - id: ask_ok
+    tool: speaker_prompt
+    params:
+      text: "Are you okay? Press or say OK, or your charge nurse will be notified."
+      channel: nest_or_alexa_then_phone
+  - id: wait_reply
+    tool: wait
+    params: { sec: 120 }
+  - id: notify_ops_await_ack
+    tool: notify_and_await_ack
+    params:
+      channel: slack
+      message: "patient not visible in gym; acknowledge if you're helping"
+      ack_timeout_sec: 300
+  - id: notify_lead
+    tool: notify_supervisor
+    params:
+      message: "patient not visible in gym; calling guardian"
+  - id: dial_primary
+    tool: dial_contact
+    params: { contact: caregiver }
+  - id: emergency
+    tool: emergency
+    params: { enabled: false }
+next_rung_after_no_answer: emergency

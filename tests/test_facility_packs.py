@@ -42,11 +42,16 @@ def test_zone_kind_defaults_private():
 
 
 def test_settings_merges_pack(monkeypatch):
+    import sys
+
     from fastapi.testclient import TestClient
 
     from care_ladder.api.app import create_app
     from care_ladder.audit.store import AuditStore
 
+    _appmod = sys.modules["care_ladder.api.app"]
+    _appmod._FACILITY_STATES.clear()
+    _appmod._SETTINGS_OVERRIDES.clear()
     monkeypatch.setenv("CARE_LADDER_AUTH", "on")
     monkeypatch.setenv("SESSION_SECRET", "tm-t2")
     c = TestClient(create_app(store=AuditStore()))
