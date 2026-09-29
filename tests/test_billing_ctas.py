@@ -54,6 +54,20 @@ def test_governance_strip_no_em_dashes(client_home):
     assert "\u2014" not in html
 
 
+def test_governance_strip_on_facility(client_facility):
+    html = client_facility.get("/ui/facility/").text
+    assert "governance" in html.lower()
+    assert "tenant isolation" in html.lower()
+    assert "fail-closed webhook" in html.lower()
+    assert "privacy by default" in html.lower()
+    assert "silhouette" in html.lower() or "blur" in html.lower()
+
+
+def test_governance_strip_no_em_dashes_facility(client_facility):
+    html = client_facility.get("/ui/facility/").text
+    assert "\u2014" not in html
+
+
 def test_portal_empty_state_is_honest_503(client_home):
     r = client_home.post("/billing/portal")
     assert r.status_code == 503

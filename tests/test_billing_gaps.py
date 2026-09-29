@@ -94,10 +94,18 @@ def test_portal_url_created_when_customer_exists(monkeypatch):
     class FakeSession:
         url = "https://billing.stripe.com/p/session/test"
 
-    with patch.object(stripe.billing_portal.Session, "create", return_value=FakeSession()):
+    captured: dict = {}
+
+    def fake_create(**kwargs):
+        captured.update(kwargs)
+        return FakeSession()
+
+    with patch.object(stripe.billing_portal.Session, "create", side_effect=fake_create):
         r = client.post("/billing/portal")
     assert r.status_code == 200
     assert r.json()["url"].startswith("https://billing.stripe.com/")
+    assert "/billing/return" in captured["return_url"]
+    assert "from=portal" in captured["return_url"]
 
 
 def test_webhook_persists_customer_id(monkeypatch):
