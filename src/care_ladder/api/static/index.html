@@ -1,196 +1,332 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Care Ladder · Caregiver Console</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Care Ladder · Family console</title>
 <style>
-  :root {
-    --fg:#0f172a; --muted:#5b6b7e; --faint:#75849a;
-    --accent:#0e7490; --accent-deep:#0b5c73; --accent-ink:#0c4a5e; --accent-soft:#e6f4f8;
-    --border:#dde5ec; --border-soft:#e9eff5; --card:#fff; --bg:#f4f7f9;
-    --ok:#15803d; --ok-soft:#e8f5ec;
-    --warn:#a16207; --warn-soft:#fdf3d8;
-    --bad:#b91c1c; --bad-soft:#fdeaea;
-    --info:#075985; --info-soft:#e3f2fa;
-    --ladder-line:#c9d6e0;
+  :root{
+    --paper:#faf8f5; --card:#ffffff; --sink:#f3efe9;
+    --ink:#22303a; --ink2:#5a6b76; --faint:#8d99a3;
+    --hair:#e8e2d8; --hair2:#d8d0c2;
+    --teal:#0e7490; --teal-deep:#0b5c73; --teal-soft:#e5f2f6; --teal-ink:#0c4a5e;
+    --amber:#a16207; --amber-soft:#fdf3d8; --amber-line:#ecd9a8;
+    --bad:#b3423a; --bad-soft:#fbebea;
+    --ok:#22703f; --ok-soft:#e9f4ec;
+    --vio:#6d5bb8; --vio-soft:#efecfa;
+    --serif:Charter, "Iowan Old Style", Georgia, "Times New Roman", serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   }
-  * { box-sizing:border-box; margin:0; }
-  body { background:var(--bg); color:var(--fg);
-         font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--paper);color:var(--ink);font:15px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
 
-  /* ---------- header ---------- */
-  header { background:var(--card); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; }
-  .hwrap { max-width:980px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-  .logo { display:flex; align-items:center; gap:10px; }
-  .logo-mark { width:32px; height:32px; border-radius:9px; background:linear-gradient(160deg,var(--accent),var(--accent-deep));
-               display:flex; align-items:center; justify-content:center; color:#fff; flex-shrink:0; }
-  .logo-mark svg { width:16px; height:16px; }
-  .logo h1 { font-size:15.5px; font-weight:700; letter-spacing:-.01em; }
-  .logo .env { font-size:11px; color:var(--muted); }
-  .actions { margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  .btn { border:1px solid var(--border); background:var(--card); color:var(--fg); border-radius:8px;
-         padding:7px 13px; font-size:13px; cursor:pointer; transition:border-color .12s, color .12s, background .12s; white-space:nowrap; }
-  .btn:hover { border-color:var(--accent); color:var(--accent); }
-  .btn:focus-visible, .ack-btn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-  .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
-  .btn.primary:hover { background:var(--accent-deep); color:#fff; }
-  .btn:disabled { opacity:.45; cursor:default; }
-  .upload-label { border-style:dashed; border-color:var(--accent); color:var(--accent); }
-  #upload-status { font-size:12.5px; color:var(--muted); }
+  header{background:rgba(250,248,245,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--hair);position:sticky;top:0;z-index:10}
+  .hwrap{max-width:1020px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(160deg,#18a4c2,#0e7490);display:grid;place-items:center;color:#fff;flex-shrink:0}
+  .mark svg{width:17px;height:17px}
+  .hh{line-height:1.25}
+  .hh b{font-size:15px;font-weight:700;letter-spacing:-.01em}
+  .hh span{display:block;font-size:11.5px;color:var(--faint)}
+  .cam{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--hair2);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--ink2)}
+  .cam .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+  .hbtns{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .btn{background:var(--card);border:1px solid var(--hair2);color:var(--ink);border-radius:9px;padding:7px 13px;font-size:13px;cursor:pointer;font-family:var(--sans);text-decoration:none;display:inline-flex;align-items:center}
+  .btn:hover{border-color:var(--teal);color:var(--teal)}
+  .btn:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  .btn.primary{background:var(--teal);border-color:var(--teal);color:#fff;font-weight:600}
+  .btn.primary:hover{background:var(--teal-deep);color:#fff}
+  .btn.subtle{font-size:12px;padding:5px 10px}
+  .btn:disabled{opacity:.45;cursor:default}
+  .iconbtn{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;border:1px solid var(--hair2);background:var(--card);cursor:pointer;color:var(--ink2)}
+  .iconbtn:hover{border-color:var(--teal);color:var(--teal)}
+  .iconbtn svg{width:15px;height:15px}
 
-  /* ---------- ack panel ---------- */
-  main { max-width:980px; margin:0 auto; padding:20px 20px 56px; }
-  .ack-panel { display:flex; flex-direction:column; gap:10px; }
-  .ack-card { background:var(--card); border:1px solid #ecd9a8; border-left:4px solid var(--warn); border-radius:12px;
-              padding:14px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
-              box-shadow:0 1px 3px rgba(15,23,42,.05); }
-  .ack-icon { width:34px; height:34px; border-radius:9px; background:var(--warn-soft); color:var(--warn);
-              display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-  .ack-icon svg { width:18px; height:18px; }
-  .ack-body { flex:1; min-width:230px; }
-  .ack-msg { font-size:14.5px; font-weight:600; }
-  .ack-meta { font-size:12px; color:var(--faint); margin-top:2px; font-family:var(--mono); }
-  .ack-deadline { font-size:12.5px; color:var(--warn); font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .btn.ack { background:var(--ok); border-color:var(--ok); color:#fff; font-weight:600; }
-  .btn.ack:hover { filter:brightness(1.08); color:#fff; }
-  .ack-allclear { background:var(--ok-soft); border:1px solid #cbe8d4; border-radius:12px;
-                  padding:10px 16px; font-size:13px; color:#1a6b3c; display:flex; gap:9px; align-items:center; }
-  .ack-allclear svg { width:15px; height:15px; flex-shrink:0; }
+  main{max-width:1020px;margin:0 auto;padding:26px 22px 60px}
 
-  /* ---------- stats ---------- */
-  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:18px 0; }
-  .stat { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:13px 16px; }
-  .stat .n { font-size:25px; font-weight:700; letter-spacing:-.5px; font-variant-numeric:tabular-nums; }
-  .stat .l { font-size:11.5px; color:var(--muted); margin-top:1px; }
-  .stat.alert .n { color:var(--bad); }
+  .chatstrip{background:var(--card);border:1px solid #cbe5d3;border-left:5px solid var(--ok);border-radius:14px;
+            padding:14px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:22px}
+  .chatstrip.paged{border-color:var(--amber-line);border-left-color:#d9a514}
+  .chatstrip .dot{width:9px;height:9px;border-radius:50%;background:var(--ok);flex-shrink:0}
+  .chatstrip.paged .dot{background:#d9a514}
+  .chatstrip .msg{flex:1;min-width:230px}
+  .chatstrip .msg b{font-size:14.5px}
+  .chatstrip .msg span{display:block;font-size:12.5px;color:var(--ink2);margin-top:2px}
+  .chatstrip .msg .mono{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .btn.wa{background:#1e3a2f;border-color:#1e3a2f;color:#dff0e5;font-weight:600}
+  .btn.wa:hover{filter:brightness(1.1);color:#fff}
+  .btn.tg2{background:#233242;border-color:#233242;color:#cfe4f2;font-weight:600}
+  .btn.tg2:hover{filter:brightness(1.15);color:#fff}
 
-  /* ---------- incident cards ---------- */
-  .empty { background:var(--card); border:1px dashed var(--border); border-radius:14px; text-align:center;
-           padding:52px 20px; color:var(--muted); }
-  .empty .big { width:34px; height:34px; margin:0 auto 10px; color:var(--faint); }
-  .empty .big svg { width:34px; height:34px; }
-  .incident { background:var(--card); border:1px solid var(--border); border-radius:14px; margin-bottom:18px; overflow:hidden; }
-  .incident.distress { border-color:#f2b8b8; box-shadow:0 0 0 3px var(--bad-soft); }
-  .incident.distress .inc-head { background:linear-gradient(90deg,#fdf4f4,#fff); }
-  .inc-head { padding:15px 20px; display:flex; align-items:center; gap:11px; flex-wrap:wrap; border-bottom:1px solid var(--border-soft); }
-  .inc-head .id { font-family:var(--mono); font-size:12.5px; color:var(--muted); }
-  .badge { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; border-radius:999px; padding:3px 10px; }
-  .b-resolved { background:var(--ok-soft); color:var(--ok); }
-  .b-open, .b-suppressed { background:var(--warn-soft); color:var(--warn); }
-  .b-exhausted { background:var(--bad-soft); color:var(--bad); }
-  .b-cue { background:var(--info-soft); color:var(--info); }
-  .b-count { background:var(--accent-soft); color:var(--accent-ink); font-family:var(--mono); text-transform:none; }
-  .b-facility { background:#eef2ff; color:#4338ca; border:1px solid #c7d2fe; }
-  .b-distress { background:var(--bad-soft); color:var(--bad); }
-  .inc-meta { margin-left:auto; font-size:12px; color:var(--faint); }
-  .fall-banner { display:flex; align-items:center; gap:10px; background:var(--bad-soft); color:var(--bad);
-                 font-size:13px; font-weight:600; padding:10px 20px; border-bottom:1px solid #f5c9c9; }
-  .fall-banner svg { width:16px; height:16px; flex-shrink:0; }
+  .hero{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:26px;align-items:start;margin-bottom:30px}
+  .hello .when{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .hello h1{font-family:var(--serif);font-size:clamp(26px,4vw,34px);line-height:1.15;letter-spacing:-.01em;font-weight:500;margin:6px 0 10px}
+  .hello h1 em{font-style:italic;color:var(--teal)}
+  .hello .sub{font-size:14.5px;color:var(--ink2);max-width:52ch}
+  .hello .sub b{color:var(--ink);font-weight:600}
+  .glance{display:flex;gap:26px;margin-top:18px;flex-wrap:wrap}
+  .g .n{font-family:var(--mono);font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+  .g .n small{font-size:11px;color:var(--faint);font-weight:500}
+  .g .l{font-size:11px;color:var(--faint);margin-top:1px}
 
-  /* ---------- ladder timeline ---------- */
-  .ladder { padding:16px 20px 12px; }
-  .rung { display:grid; grid-template-columns:30px 150px 1fr; gap:2px 12px; padding:7px 0; }
-  .rung + .rung { border-top:1px solid var(--border-soft); }
-  .rung-node { display:flex; justify-content:center; padding-top:3px; }
-  .rung-node .dot { width:11px; height:11px; border-radius:50%; background:var(--card); border:2.5px solid var(--ladder-line); }
-  .rung.passed .dot { border-color:var(--accent); background:var(--accent-soft); }
-  .rung.active .dot { border-color:var(--accent); background:var(--accent); box-shadow:0 0 0 4px rgba(14,116,144,.14); }
-  .rung.terminal .dot { border-color:var(--ok); background:var(--ok); }
-  .rung.terminal-bad .dot { border-color:var(--bad); background:var(--bad); }
-  .rung.muted { opacity:.55; }
-  .rung.active { background:linear-gradient(90deg, rgba(14,116,144,.05), transparent 72%); border-radius:8px; }
-  .rung-name { font-size:12.5px; font-weight:650; color:var(--fg); line-height:1.3; }
-  .rung-name .sub { display:block; font-size:10.5px; font-weight:500; color:var(--faint); }
-  .rung.terminal .rung-name { color:var(--ok); }
-  .rung.active .rung-name { color:var(--accent-ink); }
-  .rung-desc { font-size:13px; color:var(--muted); min-width:0; align-self:center; }
-  .rung-desc .d { overflow-wrap:anywhere; }
-  .rung-desc .d.ok { color:var(--ok); }
-  .rung-desc .d.err { color:var(--bad); }
+  .ladder-rest{background:var(--card);border:1px solid var(--hair);border-radius:16px;padding:16px 18px}
+  .ladder-rest h3{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+  .lr-row{display:grid;grid-template-columns:22px 1fr auto;gap:9px;align-items:center;padding:5px 0;font-size:12.5px}
+  .lr-row .dot{width:10px;height:10px;border-radius:50%;border:2.5px solid var(--hair2);justify-self:center}
+  .lr-row.armed .dot{border-color:var(--teal);background:var(--teal-soft)}
+  .lr-row.rest .dot{background:var(--ok);border-color:var(--ok)}
+  .lr-row .nm{font-weight:600}
+  .lr-row.rest .nm{color:var(--ok)}
+  .lr-row .st{font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .ladder-rest .note{font-size:11px;color:var(--faint);margin-top:8px;line-height:1.5}
 
-  /* ---------- clip ---------- */
-  .clip { padding:14px 20px; background:#eef2f6; border-bottom:1px solid var(--border-soft); }
-  .clip-head { display:flex; align-items:center; gap:10px; font-size:13px; margin-bottom:10px; }
-  .clip-strip { position:relative; background:#0f172a; border-radius:8px; overflow:hidden; }
-  .clip-strip img { display:block; width:100%; max-height:280px; object-fit:contain; }
-  .clip-strip:focus { outline:2px solid var(--accent); }
-  .clip-note { font-size:11px; color:var(--muted); margin-top:8px; }
-  .step-btn { padding:3px 11px; font-size:13px; }
-  .clip-pos { color:var(--muted); min-width:40px; text-align:center; font-variant-numeric:tabular-nums; }
+  .dayhead{display:flex;align-items:baseline;gap:12px;margin:6px 0 14px}
+  .dayhead h2{font-family:var(--serif);font-size:22px;font-weight:550;letter-spacing:-.01em}
+  .dayhead .sub{font-size:12.5px;color:var(--faint)}
+  .workspace{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:26px;align-items:start}
+  .feed{display:flex;flex-direction:column;gap:0}
+  .moment{display:grid;grid-template-columns:74px 26px minmax(0,1fr);gap:0 12px}
+  .moment .t{font-family:var(--mono);font-size:11px;color:var(--faint);text-align:right;padding-top:5px}
+  .moment .rail{position:relative;display:flex;justify-content:center}
+  .moment .rail::before{content:"";position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--hair);transform:translateX(-50%);left:50%}
+  .moment:first-child .rail::before{top:8px}
+  .moment:last-child .rail::before{bottom:calc(100% - 10px)}
+  .moment .node{width:12px;height:12px;border-radius:50%;background:var(--paper);border:3px solid var(--hair2);z-index:1;margin-top:3px}
+  .moment.ok .node{background:var(--ok);border-color:var(--ok)}
+  .moment.vo .node{background:#9c8ae0;border-color:#9c8ae0}
+  .moment.warn .node{background:#d9a514;border-color:#d9a514}
+  .moment.bad .node{background:var(--bad);border-color:var(--bad)}
+  .moment .body{padding:0 0 20px;min-width:0}
+  .moment .body b{font-size:14px;font-weight:650}
+  .moment .body .d{font-size:13px;color:var(--ink2);margin-top:1px}
+  .moment .body .d .q{font-family:var(--serif);font-style:italic;font-size:14.5px;color:var(--ink)}
+  .moment .body .meta{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:3px}
+  .reply-chip{display:inline-flex;align-items:center;gap:7px;background:var(--vio-soft);color:var(--vio);border-radius:999px;padding:2px 11px;font-size:11px;font-weight:650}
 
-  .tracks { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
-  .track-chip { font-size:11px; font-family:var(--mono); background:var(--accent-soft); color:var(--accent-ink); border-radius:6px; padding:2px 8px; }
-  .pose-chips { display:flex; gap:6px; flex-wrap:wrap; margin:10px 20px 0; }
-  .pose-chip { font-size:11px; font-family:var(--mono); background:#fef2f2; color:#991b1b; border:1px solid #fecaca; border-radius:6px; padding:2px 8px; }
-  footer { text-align:center; color:var(--faint); font-size:11.5px; padding:20px; }
+  .inc{background:var(--card);border:1px solid var(--hair);border-radius:14px;margin-top:8px;overflow:hidden}
+  .inc-head{display:flex;align-items:center;gap:9px;padding:11px 16px;border-bottom:1px solid var(--hair);flex-wrap:wrap}
+  .inc-head .badge{font-size:9.5px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;border-radius:5px;padding:2px 8px}
+  .b-ok{background:var(--ok-soft);color:var(--ok)} .b-warn{background:var(--amber-soft);color:var(--amber)}
+  .b-bad{background:var(--bad-soft);color:var(--bad)} .b-teal{background:var(--teal-soft);color:var(--teal-ink)}
+  .b-resolved{background:var(--ok-soft);color:var(--ok)}
+  .b-open,.b-suppressed{background:var(--amber-soft);color:var(--amber)}
+  .b-exhausted{background:var(--bad-soft);color:var(--bad)}
+  .inc-head .mono{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .inc-head .right{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .rung{display:grid;grid-template-columns:24px 148px 1fr;gap:2px 10px;padding:6px 16px;font-size:12.5px}
+  .rung + .rung{border-top:1px solid var(--sink)}
+  .rung .dot{width:10px;height:10px;border-radius:50%;border:2.5px solid var(--hair2);justify-self:center;margin-top:3px}
+  .rung.done .dot,.rung.passed .dot{border-color:var(--teal);background:var(--teal-soft)}
+  .rung.stop .dot,.rung.terminal .dot{background:var(--ok);border-color:var(--ok)}
+  .rung.warn .dot,.rung.active .dot{border-color:#d9a514;box-shadow:0 0 0 3px rgba(217,165,20,.15)}
+  .rung.terminal-bad .dot{background:var(--bad);border-color:var(--bad)}
+  .rung.muted{opacity:.55}
+  .rung .nm{font-weight:600}
+  .rung.done .nm,.rung.passed .nm{color:var(--ink2);font-weight:550}
+  .rung.stop .nm,.rung.terminal .nm{color:var(--ok)}
+  .rung .ds{color:var(--ink2);align-self:center;font-size:12px}
+  .rung .ds .mono{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .clipstrip{display:flex;gap:6px;padding:10px 16px;background:var(--sink);border-top:1px solid var(--hair);flex-wrap:wrap;align-items:center}
+  .frame{width:64px;height:44px;border-radius:6px;background:#1d2a33;display:grid;place-items:center;color:#7c8b96;overflow:hidden}
+  .frame img{width:100%;height:100%;object-fit:cover}
+  .clipnote{font-size:10.5px;color:var(--faint);align-self:center;margin-left:6px}
+  .empty{background:var(--card);border:1px dashed var(--hair);border-radius:14px;padding:28px 18px;color:var(--ink2);font-size:14px}
 
-  .upload-live { display:inline-flex; align-items:center; gap:8px; }
-  .upload-live .bar { width:110px; height:5px; border-radius:3px; background:var(--border); overflow:hidden; }
-  .upload-live .bar>div { height:100%; width:0%; background:var(--accent); transition:width 1s linear; }
-  @media (max-width:720px){
-    .stats{grid-template-columns:repeat(2,1fr);}
-    .rung{grid-template-columns:26px 1fr; gap:2px 10px;}
-    .rung-node{grid-row:1/3;}
-    .rung-name{grid-column:2;}
-    .rung-desc{grid-column:2;}
+  .railcards{display:flex;flex-direction:column;gap:14px}
+  .rc{background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:14px 16px}
+  .rc h3{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:10px;display:flex;align-items:center}
+  .rc h3 .edit{margin-left:auto;font-size:10px;color:var(--teal);cursor:pointer;letter-spacing:.02em;text-transform:none;font-family:var(--sans);background:none;border:0;padding:0}
+  .call-row{display:flex;align-items:center;gap:10px;padding:6px 0}
+  .call-row .ava{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;flex-shrink:0}
+  .ava.you{background:var(--teal-soft);color:var(--teal-ink)}
+  .ava.sis{background:#f3e8dd;color:#9a6700}
+  .ava.nbr{background:var(--sink);color:var(--ink2)}
+  .call-row .who{flex:1;font-size:13px}
+  .call-row .who b{font-weight:650}
+  .call-row .who span{display:block;font-size:10.5px;color:var(--faint)}
+  .call-row .ord{font-family:var(--mono);font-size:10px;color:var(--faint);border:1px solid var(--hair2);border-radius:999px;padding:1px 8px}
+  .call-note{font-size:11px;color:var(--faint);margin-top:6px;line-height:1.55}
+  .set-line{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:13px;border-bottom:1px dashed var(--hair)}
+  .set-line:last-child{border-bottom:0}
+  .set-line .k{color:var(--ink2)}
+  .set-line .v{font-family:var(--mono);font-size:12px}
+  .set-line .v.ok{color:var(--ok)}
+  .week{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .wk .n{font-family:var(--mono);font-size:17px;font-weight:700}
+  .wk .l{font-size:10.5px;color:var(--faint)}
+
+  .sheet{background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:16px 18px;margin-bottom:18px}
+  .sheet h3{font-family:var(--serif);font-size:18px;font-weight:550;margin-bottom:8px}
+  .sheet p{font-size:13.5px;color:var(--ink2);margin-bottom:10px}
+  .sheet label{display:block;font-size:11px;color:var(--faint);margin-bottom:4px}
+  .sheet input{width:100%;border:1px solid var(--hair2);border-radius:8px;padding:8px 10px;font-family:var(--mono);font-size:13px;margin-bottom:10px}
+  .sheet .row{display:flex;gap:8px;flex-wrap:wrap}
+
+  details.demo{border:1px dashed var(--hair2);border-radius:12px;padding:10px 14px;background:rgba(255,255,255,.6);margin-top:34px}
+  details.demo summary{cursor:pointer;color:var(--faint);font-size:12px}
+  .demo-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  #upload-status{font-size:12.5px;color:var(--ink2);align-self:center}
+
+  footer{max-width:1020px;margin:0 auto;padding:0 22px 40px;color:var(--faint);font-size:11.5px;line-height:1.7}
+  .gov-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:18px 0 6px}
+  .gov-card{border:1px solid var(--hair);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--ink2)}
+  .gov-card strong{font-size:13px;color:var(--ink)}
+  #billing-toast{position:fixed;bottom:14px;right:14px;max-width:420px;padding:10px 14px;border-radius:10px;border:1px solid var(--hair2);background:var(--card);font-size:13px;z-index:60;box-shadow:0 6px 24px rgba(34,48,58,.12)}
+
+  @media (max-width:880px){
+    .hero,.workspace{grid-template-columns:1fr}
+    .moment{grid-template-columns:52px 20px minmax(0,1fr)}
+    .moment .t{font-size:10px}
+    .rung{grid-template-columns:20px 1fr}
+    .rung .ds{grid-column:2}
+    .glance{gap:18px}
   }
-
-/* governance strip (judge) */
-.gov-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:18px 0 6px}
-.gov-card{border:1px solid var(--border,#2a3a4a);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted,#9fb3c8)}
-.gov-card strong{font-size:13px;color:var(--fg,#e8eef4)}
-#billing-toast{position:fixed;bottom:14px;right:14px;max-width:420px;padding:10px 14px;border-radius:10px;border:1px solid var(--border,#2a3a4a);background:var(--card,#101a26);font-size:13px;z-index:60;box-shadow:0 6px 24px rgba(0,0,0,.35)}
 </style>
 </head>
 <body>
 <header>
   <div class="hwrap">
-    <div class="logo">
-      <div class="logo-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v18M20 3v18M4 7h16M4 12h16M4 17h16"/></svg>
-      </div>
-      <div><h1>Care Ladder</h1><div class="env">Caregiver console · demo household</div></div>
-    </div>
-    <div class="actions">
-      <button class="btn primary" data-fixture="no_movement_ok">Path A · verbal OK</button>
-      <button class="btn primary" data-fixture="no_movement_silence">Path B · escalation</button>
-      <button class="btn" data-fixture="facility_ack_resolved">Facility · caretaker acks</button>
-      <button class="btn" data-fixture="facility_ack_timeout">Facility · no ack → escalate</button>
-      <button class="btn" data-fixture="facility_notify_silence">Facility · notify → supervisor</button>
-      <button class="btn" data-fixture="opencv_dnn_person">DNN · real photo</button>
-      <button class="btn" data-fixture="opencv_stillness">Stillness</button>
-      <a class="btn" href="/ui/facility/" style="text-decoration:none">Facility floor console</a>
-      <button class="btn" id="upgrade-btn" data-plan="home">Upgrade plan</button>
-      <button class="btn" id="portal-btn">Customer portal</button>
-      <label class="btn upload-label">Upload clip<input type="file" id="clip-input" accept="video/mp4,video/quicktime,video/x-msvideo,video/webm" hidden></label>
-      <span id="upload-status"></span>
+    <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 3v18M20 3v18M4 7h16M4 12h16M4 17h16"/></svg></div>
+    <div class="hh"><b>Care Ladder</b><span id="hh-sub">The Marshall home · Ellen's apartment</span></div>
+    <span class="cam" id="cam-chip"><span class="dot"></span>Watching · living room</span>
+    <div class="hbtns">
+      <button class="btn subtle" id="invite" type="button">Invite family</button>
+      <button class="iconbtn" id="settings-btn" type="button" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></svg></button>
     </div>
   </div>
 </header>
-<main>
-  <div class="ack-panel" id="ack-panel" hidden>
-    <div id="ack-rows"></div>
-  </div>
-  <div class="stats" id="stats" hidden>
-    <div class="stat"><div class="n" id="s-total">0</div><div class="l">Incidents</div></div>
-    <div class="stat"><div class="n" id="s-resolved">0</div><div class="l">Resolved</div></div>
-    <div class="stat"><div class="n" id="s-open">0</div><div class="l">Open / awaiting ack</div></div>
-    <div class="stat alert"><div class="n" id="s-esc">0</div><div class="l">Escalated to dial</div></div>
-  </div>
-  <div id="incidents"><div class="empty"><div class="big" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v18M20 3v18M4 7h16M4 12h16M4 17h16"/></svg></div><div>No incidents yet</div><div style="font-size:13px;margin-top:4px;">Run a demo path or upload a clip above.</div></div></div>
-  <footer>
-    Not a medical device · no real telephony (reserved NANP fiction) · emergency fail-closed ·
-    frames privacy-transformed (blur/silhouette) before persist · person tracking uses shape geometry only, never identity.
-  </footer>
 
+<main>
+  <section class="chatstrip" id="chatstrip" aria-label="Chat runtime status">
+    <span class="dot"></span>
+    <div class="msg">
+      <b id="strip-title">All quiet - the bot is idle in your family chat</b>
+      <span id="strip-sub">Alerts, acknowledgments and updates happen in WhatsApp now. This console mirrors them for review.</span>
+      <span class="mono" id="strip-meta">last bot message: evening recap · 20:00 · notifications on for James + Sarah</span>
+    </div>
+    <a class="btn wa" id="wa-link" href="https://wa.me/">Open WhatsApp</a>
+    <a class="btn tg2" id="tg-link" href="https://t.me/">Open Telegram</a>
+  </section>
+
+  <div id="invite-panel" class="sheet" hidden>
+    <h3>Invite family</h3>
+    <p>Each member pairs their own chat by opening WhatsApp or Telegram and starting a conversation with the household bot. Acknowledging in chat stops the ladder; this console never needs to stay open.</p>
+    <p>This build is a console mirror. Chat adapters are not live here. The signed ack-link page remains the fallback that works on any channel.</p>
+    <label for="invite-code">Demo household pairing code</label>
+    <input id="invite-code" readonly value="CL-DEMO-MARSHALL"/>
+    <div class="row">
+      <button class="btn primary" id="copy-invite" type="button">Copy pairing code</button>
+      <button class="btn" id="close-invite" type="button">Close</button>
+    </div>
+  </div>
+
+  <div id="settings-panel" class="sheet" hidden>
+    <h3>Settings and billing</h3>
+    <p>Plan upgrades and the customer portal live here. Checkout is refused until Stripe is configured; the portal stays locked until a customer exists on file.</p>
+    <div class="row">
+      <button class="btn primary" id="upgrade-btn" data-plan="home" type="button">Upgrade plan</button>
+      <button class="btn" id="portal-btn" type="button">Customer portal</button>
+      <a class="btn" href="/ui/facility/">Facility floor console</a>
+      <button class="btn" id="signout-btn" type="button">Sign out</button>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="hello">
+      <div class="when" id="hero-when">Family archive</div>
+      <h1 id="hero-title">Mom is settled in. The archive waits for the <em>next check-in</em>.</h1>
+      <p class="sub" id="hero-sub">Care Ladder keeps the day here so you can look back. <b>Respond in your chat</b> when something needs you; this page is setup and archive, not the runtime.</p>
+      <div class="glance">
+        <div class="g"><div class="n" id="g-answered">0<small id="g-sent"> / 0</small></div><div class="l">check-ins answered today</div></div>
+        <div class="g"><div class="n" id="g-since">-</div><div class="l">since her last response</div></div>
+        <div class="g"><div class="n" id="g-calls">0</div><div class="l">calls placed this week</div></div>
+      </div>
+    </div>
+    <aside class="ladder-rest" id="ladder-rest">
+      <h3>The ladder · at rest</h3>
+      <div class="lr-row armed"><span class="dot"></span><span class="nm">Check in by voice</span><span class="st">every 2h</span></div>
+      <div class="lr-row"><span class="dot"></span><span class="nm">Page the family</span><span class="st">if no answer</span></div>
+      <div class="lr-row"><span class="dot"></span><span class="nm">Call you</span><span class="st">step 4</span></div>
+      <div class="lr-row"><span class="dot"></span><span class="nm">Call Sarah</span><span class="st">step 5</span></div>
+      <div class="lr-row rest"><span class="dot"></span><span class="nm">Resting here</span><span class="st">all clear</span></div>
+      <p class="note">Emergency services are never called automatically - a human always decides. Quiet hours 22:00-07:00 pause non-urgent check-ins.</p>
+    </aside>
+  </div>
+
+  <div class="workspace">
+    <div>
+      <div class="dayhead">
+        <h2>Today with Mom</h2>
+        <span class="sub" id="day-sub">living room camera</span>
+      </div>
+      <div class="feed" id="incidents">
+        <div class="empty">No check-ins on the archive yet. Run a demo path below, or wait for the next voice check-in.</div>
+      </div>
+    </div>
+    <div class="railcards">
+      <div class="rc">
+        <h3>Family chat <button class="edit" id="pair-edit" type="button">Pair a member</button></h3>
+        <div id="channel-rows">
+          <div class="call-row"><div class="ava you">WA</div><div class="who"><b>WhatsApp · connected</b><span>James · Sarah · alerts + buttons</span></div><span class="ord">live</span></div>
+          <div class="call-row"><div class="ava nbr">TG</div><div class="who"><b>Telegram · available</b><span>daily rhythm + commands</span></div><span class="ord">pair</span></div>
+        </div>
+        <p class="call-note">Each member pairs their own chat from Invite family. Acknowledging in chat stops the ladder - this console never needs to be open.</p>
+      </div>
+      <div class="rc">
+        <h3>If Mom doesn't answer <button class="edit" id="contacts-edit" type="button">Edit</button></h3>
+        <div id="contact-rows">
+          <div class="call-row"><div class="ava you">You</div><div class="who"><b>You · James</b><span>call + WhatsApp</span></div><span class="ord">1st</span></div>
+          <div class="call-row"><div class="ava sis">S</div><div class="who"><b>Sarah · sister</b><span>call + text</span></div><span class="ord">2nd</span></div>
+          <div class="call-row"><div class="ava nbr">N</div><div class="who"><b>Mrs. Alvarez · next door</b><span>call only · daytime</span></div><span class="ord">3rd</span></div>
+        </div>
+        <p class="call-note">Each step waits for an answer before the next. Emergency services are never dialed automatically.</p>
+      </div>
+      <div class="rc">
+        <h3>Household</h3>
+        <div class="set-line"><span class="k">Quiet hours</span><span class="v" id="hh-quiet">22:00-07:00</span></div>
+        <div class="set-line"><span class="k">Check-in cadence</span><span class="v" id="hh-cadence">every 2h · 08:00-20:00</span></div>
+        <div class="set-line"><span class="k">Camera</span><span class="v ok" id="hh-cam">living room · online</span></div>
+        <div class="set-line"><span class="k">Privacy mode</span><span class="v" id="hh-privacy">faces blurred</span></div>
+        <div class="set-line"><span class="k">Clips kept</span><span class="v" id="hh-clips">30 days</span></div>
+      </div>
+      <div class="rc">
+        <h3>This week</h3>
+        <div class="week">
+          <div class="wk"><div class="n" id="wk-answered">0</div><div class="l">check-ins answered</div></div>
+          <div class="wk"><div class="n" id="wk-rate">-</div><div class="l">response rate</div></div>
+          <div class="wk"><div class="n" id="wk-calls">0</div><div class="l">call placed</div></div>
+          <div class="wk"><div class="n" id="wk-median">-</div><div class="l">median response</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <details class="demo">
+    <summary>Demo scenarios (family mode) · for walkthroughs only</summary>
+    <div class="demo-row">
+      <button class="btn subtle" data-fixture="no_movement_ok" type="button">Path A · Mom answers OK</button>
+      <button class="btn subtle" data-fixture="no_movement_silence" type="button">Path B · silence, you get called</button>
+      <button class="btn subtle" data-fixture="facility_ack_resolved" type="button">Facility · caretaker acks</button>
+      <button class="btn subtle" data-fixture="facility_ack_timeout" type="button">Facility · no ack, escalate</button>
+      <button class="btn subtle" data-fixture="facility_notify_silence" type="button">Facility · notify, supervisor</button>
+      <button class="btn subtle" data-fixture="opencv_dnn_person" type="button">DNN · real photo</button>
+      <button class="btn subtle" data-fixture="opencv_stillness" type="button">Stillness</button>
+      <label class="btn subtle">Upload a clip<input type="file" id="clip-input" accept="video/mp4,video/quicktime,video/x-msvideo,video/webm" hidden></label>
+      <span id="upload-status"></span>
+    </div>
+  </details>
+</main>
+
+<footer>
+  Care Ladder is a wellness companion, not a medical device: it does not diagnose and never calls emergency services on its own - a human always decides.
+  Camera frames are blurred before anything is saved; raw video never leaves the device. Reserved fictional numbers are used throughout demos.
   <section class="gov-strip" id="governance" aria-label="Governance guarantees">
     <div class="gov-card"><strong>Tenant isolation</strong><span>Every request is session-scoped to one tenant; incidents, cases, and audit trails never cross tenants.</span></div>
     <div class="gov-card"><strong>Fail-closed webhook</strong><span>Unsigned or invalid Stripe events are rejected before any plan change; billing truth only moves on verified signatures.</span></div>
     <div class="gov-card"><strong>Privacy by default</strong><span>Camera frames are blurred or silhouetted before persist; raw pixels never leave the device pipeline.</span></div>
   </section>
-</main>
+</footer>
+
 <script>
 const TOOL_LABEL = {
   cue:"OpenCV cue", reperceive:"re-perceive", speaker_prompt:"speaker check-in",
@@ -217,7 +353,7 @@ const RUNG_META = {
 function esc(s){const d=document.createElement("div");d.textContent=s??"";return d.innerHTML;}
 function detailText(ev){
   const d = ev.detail||{}; const b=[];
-  if(d.text) b.push("“"+d.text+"”");
+  if(d.text) b.push('"'+d.text+'"');
   if(d.reply_kind) b.push("reply: "+d.reply_kind+(d.reply_raw?` ("${d.reply_raw}")`:""));
   if(d.status) b.push("status: "+d.status);
   if(d.result) b.push("result: "+d.result);
@@ -233,17 +369,6 @@ function detailText(ev){
   if(d.channel && d.delivered===false) b.push("channel: "+d.channel);
   return b.join(" · ");
 }
-function trackChips(cueDetail){
-  const out = [];
-  if(cueDetail.person_count != null) out.push(`<span class="badge b-count">people: ${cueDetail.person_count}</span>`);
-  for(const t of cueDetail.tracks||[]){
-    out.push(`<span class="track-chip">t${t.track_id} h=${t.height_ratio} a=${t.aspect}</span>`);
-  }
-  for(const e of cueDetail.track_events||[]){
-    if(e.type==="enter"||e.type==="leave") out.push(`<span class="track-chip">${e.type} t${e.track_id} @${e.t}s</span>`);
-  }
-  return out.length?`<div class="tracks">${out.join("")}</div>`:"";
-}
 async function fetchJson(url){
   try{ const r=await fetch(url); return r.ok?await r.json():null; }catch{return null;}
 }
@@ -251,153 +376,177 @@ async function loadFrames(id){
   const body=await fetchJson(`/incidents/${id}/frames`);
   return (body && Number.isFinite(body.count))?body:null;
 }
+function eventAt(ev){
+  if(!ev || !ev.at) return null;
+  const d=new Date(ev.at);
+  return Number.isNaN(d.getTime())?null:d;
+}
+function fmtTime(d){
+  if(!d) return "";
+  return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+}
 function rungClass(ev, inc){
   const t=ev.tool;
-  if(t==="resolve") return "terminal";
+  if(t==="resolve") return "stop terminal";
   if(t==="suppress"||t==="jump") return "muted";
-  if(t==="cue") return "active";
-  if(t==="ack_timeout") return "";
-  if(t==="notify_and_await_ack") return (inc.status==="resolved") ? "passed" : "active";
-  if(t==="dial_contact") return (inc.status==="resolved") ? "terminal" : "passed";
-  return "passed";
+  if(t==="cue") return "done passed";
+  if(t==="ack_timeout") return "warn";
+  if(t==="notify_and_await_ack") return (inc.status==="resolved") ? "done passed" : "warn active";
+  if(t==="dial_contact") return (inc.status==="resolved") ? "stop terminal" : "done passed";
+  return "done passed";
 }
 function renderRung(ev, inc){
   const cls = rungClass(ev, inc);
   const meta = RUNG_META[ev.tool] || {label:(TOOL_LABEL[ev.tool]||ev.tool), sub:""};
   const detail = detailText(ev) || (TOOL_LABEL[ev.tool]||ev.tool);
-  const tone = ev.tool==="resolve" ? "ok" : (ev.tool==="ack_timeout" ? "err" : "");
-  return `<div class="rung ${cls}">
-    <div class="rung-node"><span class="dot"></span></div>
-    <div class="rung-name">${esc(meta.label)}${meta.sub?`<span class="sub">${esc(meta.sub)}</span>`:""}</div>
-    <div class="rung-desc"><span class="d ${tone}">${esc(detail)}</span></div>
-  </div>`;
+  return `<div class="rung ${cls}"><span class="dot"></span><span class="nm">${esc(meta.label)}</span><span class="ds">${esc(detail)}</span></div>`;
+}
+function momentTone(inc){
+  if(inc.cue && inc.cue.kind==="distress_heuristic") return "bad";
+  if(inc.events.some(e=>e.tool==="dial_contact")) return "bad";
+  if(inc.events.some(e=>e.tool==="speaker_prompt" && e.detail && e.detail.reply_kind==="ok")) return "vo";
+  if(inc.status==="resolved") return "ok";
+  return "warn";
+}
+function momentTitle(inc){
+  const sp = [...inc.events].reverse().find(e=>e.tool==="speaker_prompt");
+  if(sp && sp.detail && sp.detail.reply_kind==="ok"){
+    const chip = sp.detail.reply_raw ? "by voice" : "answered";
+    return `Check-in answered <span class="reply-chip">${esc(chip)}</span>`;
+  }
+  if(inc.events.some(e=>e.tool==="dial_contact")) return "An evening check-in went unanswered · you were called";
+  if(inc.cue && inc.cue.kind==="distress_heuristic") return "Distress cue · ladder opened";
+  return "Stillness noticed · check-in sent";
+}
+function momentQuote(inc){
+  const sp = [...inc.events].reverse().find(e=>e.tool==="speaker_prompt" && e.detail && (e.detail.reply_raw||e.detail.text));
+  if(!sp) return inc.cue && inc.cue.kind ? ("cue: "+inc.cue.kind) : "";
+  const q = sp.detail.reply_raw || sp.detail.text || "";
+  return q ? `<span class="q">"${esc(q)}"</span>` : esc(detailText(sp));
 }
 function renderIncident(inc, frames){
-  const isDistress = inc.cue.kind==="distress_heuristic";
+  const when = eventAt(inc.events[0]) || eventAt(inc.events.find(e=>e.at));
   const rows = inc.events.map(ev=>renderRung(ev, inc)).join("");
-  let clip="";
+  let clips="";
   if(frames && frames.count>0){
-    const imgs = frames.frame_urls.map((u,i)=>`<img src="${u}" data-i="${i}" alt="pre-event frame ${i+1}" ${i?'style="display:none"':''}>`).join("");
-    clip = `<div class="clip">
-      <div class="clip-head">
-        <strong>Pre-event clip</strong>
-        <span class="badge b-cue">privacy: ${esc(frames.privacy||"?")}</span>
-        <span style="margin-left:auto"></span>
-        <button class="btn step-btn" data-inc="${esc(inc.id)}" data-dir="-1" aria-label="previous frame">◀</button>
-        <span class="clip-pos" id="pos-${esc(inc.id)}">1/${frames.count}</span>
-        <button class="btn step-btn" data-inc="${esc(inc.id)}" data-dir="1" aria-label="next frame">▶</button>
-      </div>
-      <div class="clip-strip" id="strip-${esc(inc.id)}" tabindex="0">${imgs}</div>
-      <div class="clip-note">Frames are the privacy-transformed copies persisted with this incident; raw video never leaves the device path.</div>
-    </div>`;
+    const thumbs = frames.frame_urls.map((u,i)=>`<div class="frame"><img src="${u}" alt="pre-event frame ${i+1}"></div>`).join("");
+    clips = `<div class="clipstrip">${thumbs}<span class="clipnote">${frames.count} frames · privacy ${esc(frames.privacy||"blur")} · kept 30 days</span></div>`;
   }
-  const pose = inc.cue.detail||{};
-  const poseChips = isDistress ? `<div class="pose-chips">
-    ${pose.pattern?`<span class="pose-chip">pattern: ${esc(pose.pattern)}</span>`:""}
-    ${pose.torso_angle_deg!=null?`<span class="pose-chip">torso ${pose.torso_angle_deg}°</span>`:""}
-    ${pose.hip_y_ratio!=null?`<span class="pose-chip">hip ${pose.hip_y_ratio}</span>`:""}
-    ${pose.down_sec!=null?`<span class="pose-chip">down ${pose.down_sec}s</span>`:""}
-    ${pose.clip_duration_sec!=null?`<span class="pose-chip">scanned ${pose.clip_duration_sec}s</span>`:""}
-  </div>` : "";
-  const banner = isDistress ? `<div class="fall-banner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0z"/></svg>Fall signature detected: sudden vertical to horizontal transition; ladder escalated past the verbal rung.</div>` : "";
-  const fx = inc.cue.detail && inc.cue.detail.fixture || "";
-  const facilityBadge = fx.startsWith("facility") ? `<span class="badge b-facility">facility</span>` : "";
-  return `<section class="incident ${isDistress?"distress":""}">
-    <div class="inc-head">
-      <span class="id">${esc(inc.id.slice(0,10))}</span>
-      <span class="badge b-${esc(inc.status)}">${esc(inc.status)}</span>
-      ${isDistress?`<span class="badge b-distress">fall signature</span>`:`<span class="badge b-cue">cue: ${esc(inc.cue.kind)}</span>`}
-      ${trackChips(inc.cue.detail||{})}
-      <span class="inc-meta">household ${esc(inc.household_id)} · ${inc.events.length} events</span>
-      ${facilityBadge}
-    </div>
-    ${banner}
-    ${poseChips}
-    ${clip}
-    <div class="ladder">${rows}</div>
-  </section>`;
-}
-function bindSteppers(){
-  document.querySelectorAll("button.step-btn").forEach(btn=>{
-    btn.onclick=()=>{
-      const id=btn.dataset.inc, strip=document.getElementById("strip-"+id);
-      const imgs=[...strip.querySelectorAll("img")];
-      let cur=imgs.findIndex(i=>i.style.display!=="none"); if(cur<0)cur=0;
-      imgs[cur].style.display="none";
-      cur=Math.min(imgs.length-1,Math.max(0,cur+Number(btn.dataset.dir)));
-      imgs[cur].style.display="block";
-      document.getElementById("pos-"+id).textContent=(cur+1)+"/"+imgs.length;
-    };
-  });
-}
-function bindAcks(){
-  document.querySelectorAll("button.ack-btn").forEach(btn=>{
-    btn.onclick=async()=>{
-      btn.disabled=true;
-      try{
-        const r=await fetch("/acks/"+encodeURIComponent(btn.dataset.token),{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({by:"console caretaker"})});
-        if(r.ok){ await refresh(); await loadAcks(); }
-        else { const b=await r.json().catch(()=>({})); btn.disabled=false; alert(b.detail||"could not acknowledge"); }
-      }catch(e){ btn.disabled=false; alert(e.message); }
-    };
-  });
-}
-async function loadAcks(){
-  const list = await fetchJson("/acks/pending");
-  const panel = document.getElementById("ack-panel");
-  const rows = document.getElementById("ack-rows");
-  if(!panel||!rows) return;
-  if(!Array.isArray(list)||!list.length){ panel.hidden=true; rows.innerHTML=""; return; }
-  panel.hidden=false;
-  rows.innerHTML = list.map(p=>`
-    <div class="ack-card">
-      <div class="ack-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
-      <div class="ack-body">
-        <div class="ack-msg">${esc(p.message)}</div>
-        <div class="ack-meta">incident ${esc(String(p.incident_id).slice(0,10))} · rung ${esc(p.rung_id||"")} · ${esc(p.channel)}</div>
+  const tone = momentTone(inc);
+  return `<div class="moment ${tone}">
+    <span class="t">${esc(fmtTime(when)||"now")}</span><span class="rail"><span class="node"></span></span>
+    <div class="body">
+      <b>${momentTitle(inc)}</b>
+      <div class="d">${momentQuote(inc)}</div>
+      <div class="meta">${esc(inc.status)} · ${inc.events.length} events · household ${esc(inc.household_id||"")}</div>
+      <div class="inc">
+        <div class="inc-head">
+          <span class="badge b-${esc(inc.status)}">${esc(inc.status)}</span>
+          <span class="badge b-teal">cue: ${esc(inc.cue.kind)}</span>
+          <span class="mono">${esc(String(inc.id).slice(0,8))}</span>
+          <span class="right">${inc.events.length} hops</span>
+        </div>
+        ${rows}
+        ${clips}
       </div>
-      <span class="ack-deadline" data-deadline="${esc(p.deadline)}"></span>
-      <button class="btn ack ack-btn" data-token="${esc(p.token)}">Acknowledge: I'm on it</button>
-    </div>`).join("");
-  bindAcks();
-  tickDeadlines();
+    </div>
+  </div>`;
 }
-function tickDeadlines(){
-  document.querySelectorAll(".ack-deadline[data-deadline]").forEach(el=>{
-    const dl=new Date(el.dataset.deadline); const s=Math.round((dl-Date.now())/1000);
-    el.textContent = s>0 ? `respond in ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}` : "window closed";
-  });
+function paintHero(rt){
+  const h=rt.hero||{};
+  const sent=h.checkins_sent_today||0;
+  const ans=h.checkins_answered_today||0;
+  document.getElementById("g-answered").innerHTML = `${ans}<small id="g-sent"> / ${sent}</small>`;
+  document.getElementById("g-since").textContent = (h.since_last_response && h.since_last_response.label) || "-";
+  document.getElementById("g-calls").textContent = h.calls_this_week||0;
+  const wk=h.week||{};
+  document.getElementById("wk-answered").textContent = wk.checkins_answered||0;
+  document.getElementById("wk-rate").textContent = (wk.response_rate_pct==null) ? "-" : (wk.response_rate_pct+"%");
+  document.getElementById("wk-calls").textContent = wk.calls_placed||0;
+  document.getElementById("wk-median").textContent = (wk.median_response_sec==null) ? "-" : (wk.median_response_sec+"s");
+  const hh=rt.household||{};
+  if(hh.name) document.getElementById("hh-sub").textContent = `${hh.name} · ${hh.place||""}`.trim();
+  if(hh.camera && hh.camera.label) document.getElementById("cam-chip").innerHTML = `<span class="dot"></span>${esc(hh.camera.label)}`;
+  if(hh.quiet_hours) document.getElementById("hh-quiet").textContent = hh.quiet_hours;
+  if(hh.cadence) document.getElementById("hh-cadence").textContent = hh.cadence;
+  if(hh.camera) document.getElementById("hh-cam").textContent = `${hh.camera.zone||"camera"} · ${hh.camera.online?"online":"offline"}`;
+  if(hh.privacy) document.getElementById("hh-privacy").textContent = hh.privacy;
+  if(hh.clips_kept) document.getElementById("hh-clips").textContent = hh.clips_kept;
+  const title=document.getElementById("hero-title");
+  const sub=document.getElementById("hero-sub");
+  if(ans>0 && sent>0 && ans>=sent){
+    title.innerHTML = `Mom is settled in. She answered <em>every check-in</em> today.`;
+    const q = h.last_quote ? ` The last one: <span style="font-family:var(--serif);font-style:italic">"${esc(h.last_quote)}"</span>.` : "";
+    sub.innerHTML = `Care Ladder checked in <b>${ans} time${ans===1?"":"s"}</b> so far.${q} <b>Respond in your chat</b> when something needs you; this page is for looking back.`;
+  } else if((h.calls_this_week||0)>0){
+    title.innerHTML = `The ladder placed a call this week. The archive has the hops.`;
+    sub.innerHTML = `Review the day feed for every rung. <b>Respond in your chat</b> when something needs you.`;
+  } else {
+    title.innerHTML = `Mom is settled in. The archive waits for the <em>next check-in</em>.`;
+    sub.innerHTML = `Care Ladder keeps the day here so you can look back. <b>Respond in your chat</b> when something needs you; this page is setup and archive, not the runtime.`;
+  }
+  const ch=rt.channels||{};
+  const wa=ch.whatsapp||{};
+  const tg=ch.telegram||{};
+  if(wa.deep_link) document.getElementById("wa-link").href = wa.deep_link;
+  if(tg.deep_link) document.getElementById("tg-link").href = tg.deep_link;
+  if(rt.contacts){
+    document.getElementById("contact-rows").innerHTML = rt.contacts.map(c=>`
+      <div class="call-row"><div class="ava ${esc(c.kind||"nbr")}">${esc(c.initials)}</div>
+      <div class="who"><b>${esc(c.name)}</b><span>${esc(c.detail)}</span></div><span class="ord">${esc(c.ord)}</span></div>`).join("");
+  }
+  if(rt.ladder){
+    document.getElementById("ladder-rest").innerHTML = `<h3>The ladder · at rest</h3>` +
+      rt.ladder.map(r=>`<div class="lr-row ${esc(r.status||"")}"><span class="dot"></span><span class="nm">${esc(r.name)}</span><span class="st">${esc(r.note||"")}</span></div>`).join("") +
+      `<p class="note">Emergency services are never called automatically - a human always decides. Quiet hours ${esc(hh.quiet_hours||"22:00-07:00")} pause non-urgent check-ins.</p>`;
+  }
+}
+function paintStrip(rt, pending){
+  const strip=document.getElementById("chatstrip");
+  const paged = (rt && rt.state==="family_paged") || (Array.isArray(pending) && pending.length>0);
+  strip.classList.toggle("paged", !!paged);
+  const title=document.getElementById("strip-title");
+  const sub=document.getElementById("strip-sub");
+  const meta=document.getElementById("strip-meta");
+  if(paged){
+    const p = (rt && rt.pending_ack) || (pending && pending[0]) || {};
+    title.textContent = "A page is waiting in your family chat";
+    sub.textContent = p.message || "Acknowledge there (button, numbered reply, or the signed ack link). This console only mirrors the window.";
+    meta.textContent = `channel ${p.channel||"chat"} · deadline ${p.deadline||"open"} · mirror only`;
+  } else {
+    title.textContent = "All quiet - the bot is idle in your family chat";
+    sub.textContent = "Alerts, acknowledgments and updates happen in WhatsApp now. This console mirrors them for review.";
+    meta.textContent = (rt && rt.last_message && rt.last_message.label)
+      ? ("last bot message: "+rt.last_message.label)
+      : "last bot message: evening recap · 20:00 · notifications on for James + Sarah";
+  }
 }
 async function refresh(){
+  const rt = await fetchJson("/family/runtime");
+  const pending = await fetchJson("/acks/pending");
+  if(rt) paintHero(rt);
+  paintStrip(rt, pending);
   const list = await fetchJson("/incidents");
   const el = document.getElementById("incidents");
   if(!Array.isArray(list)) return;
-  document.getElementById("stats").hidden = false;
-  document.getElementById("s-total").textContent = list.length;
-  document.getElementById("s-resolved").textContent = list.filter(s=>s.status==="resolved").length;
-  document.getElementById("s-open").textContent = list.filter(s=>s.status==="open"||s.status==="escalated").length;
   if(!list.length){
-    document.getElementById("s-esc").textContent = "0";
-    el.innerHTML = `<div class="empty"><div class="big" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v18M20 3v18M4 7h16M4 12h16M4 17h16"/></svg></div><div>No incidents yet</div><div style="font-size:13px;margin-top:4px;">Run a demo path or upload a clip above.</div></div>`;
+    el.innerHTML = `<div class="empty">No check-ins on the archive yet. Run a demo path below, or wait for the next voice check-in.</div>`;
     return;
   }
-  const parts=[]; let dialCount=0;
+  const parts=[];
   for(const s of [...list].reverse()){
     const inc = await fetchJson("/incidents/"+s.id);
     const view = (inc && inc.cue && Array.isArray(inc.events))
       ? inc
       : (s && s.cue ? Object.assign({}, s, {events: []}) : null);
     if(!view) continue;
-    if(view.events.some(e=>e.tool==="dial_contact")) dialCount++;
     const frames = await loadFrames(s.id);
     try { parts.push(renderIncident(view, frames)); }
     catch(e) { /* one bad card must not blank the list after stats update */ }
   }
-  document.getElementById("s-esc").textContent = dialCount;
   el.innerHTML = parts.length
     ? parts.join("")
-    : `<div class="empty"><div class="big" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v18M20 3v18M4 7h16M4 12h16M4 17h16"/></svg></div><div>No incidents yet</div><div style="font-size:13px;margin-top:4px;">Run a demo path or upload a clip above.</div></div>`;
-  bindSteppers();
+    : `<div class="empty">No check-ins on the archive yet. Run a demo path below, or wait for the next voice check-in.</div>`;
 }
 document.querySelectorAll("[data-fixture]").forEach(btn=>{
   btn.addEventListener("click", async ()=>{
@@ -411,40 +560,68 @@ document.querySelectorAll("[data-fixture]").forEach(btn=>{
 document.getElementById("clip-input").addEventListener("change", async ev=>{
   const file=ev.target.files[0]; if(!file) return;
   const status=document.getElementById("upload-status");
-  status.textContent=`uploading ${file.name}…`;
+  status.textContent=`uploading ${file.name}...`;
   try{
     const fd=new FormData(); fd.append("file",file);
     const r=await fetch("/demo/upload",{method:"POST",body:fd});
     const body=await r.json();
-    if(!r.ok){ status.textContent=`⚠️ ${body.detail||r.statusText}`; return; }
-    const jobId=body.incident_id; // async job contract
+    if(!r.ok){ status.textContent=`upload failed: ${body.detail||r.statusText}`; return; }
+    const jobId=body.incident_id;
     const t0=Date.now();
-    status.innerHTML=`<span class="upload-live"><span>analyzing ${esc(file.name)}… <span id="up-elapsed">0:00</span></span><span class="bar"><div id="up-bar"></div></span></span>`;
+    status.textContent=`analyzing ${file.name}...`;
     for(let i=0;i<600;i++){
       await new Promise(res=>setTimeout(res,1000));
-      const el=document.getElementById("up-elapsed"), bar=document.getElementById("up-bar");
-      if(el) el.textContent=Math.floor((Date.now()-t0)/60000)+":"+String(Math.floor(((Date.now()-t0)%60000)/1000)).padStart(2,"0");
-      if(bar) bar.style.width=Math.min(96,(Date.now()-t0)/(5.5*60000)*100)+"%";
+      status.textContent=`analyzing ${file.name}... ${Math.floor((Date.now()-t0)/60000)}:${String(Math.floor(((Date.now()-t0)%60000)/1000)).padStart(2,"0")}`;
       const jr=await fetch(`/demo/upload/${jobId}`);
-      if(!jr.ok){ status.textContent=`⚠️ job lost`; return; }
+      if(!jr.ok){ status.textContent=`upload job lost`; return; }
       const j=await jr.json();
       if(j.status==="done"){
-        status.textContent=`✅ incident ${j.incident_id.slice(0,8)} from ${file.name}`;
+        status.textContent=`incident ${j.incident_id.slice(0,8)} from ${file.name}`;
         await refresh(); return;
       }
-      if(j.status==="error"){ status.textContent=`⚠️ ${j.error||"analysis failed"}`; return; }
+      if(j.status==="error"){ status.textContent=`analysis failed: ${j.error||"unknown error"}`; return; }
     }
-    status.textContent=`⚠️ analysis timed out`;
-  }catch(e){ status.textContent=`⚠️ ${e.message}`; }
+    status.textContent=`analysis timed out`;
+  }catch(e){ status.textContent=`upload failed: ${e.message}`; }
   finally{ ev.target.value=""; }
 });
+function toggle(id, show){
+  const el=document.getElementById(id);
+  if(!el) return;
+  el.hidden = (show===undefined) ? !el.hidden : !show;
+}
+document.getElementById("invite").addEventListener("click", ()=>{
+  toggle("invite-panel", true);
+  toggle("settings-panel", false);
+});
+document.getElementById("pair-edit").addEventListener("click", ()=>{
+  toggle("invite-panel", true);
+  window.scrollTo({top:0,behavior:"smooth"});
+});
+document.getElementById("contacts-edit").addEventListener("click", ()=>{
+  toggle("settings-panel", true);
+  window.scrollTo({top:0,behavior:"smooth"});
+});
+document.getElementById("close-invite").addEventListener("click", ()=>toggle("invite-panel", false));
+document.getElementById("settings-btn").addEventListener("click", ()=>{
+  toggle("settings-panel");
+  toggle("invite-panel", false);
+});
+document.getElementById("copy-invite").addEventListener("click", async ()=>{
+  const v=document.getElementById("invite-code").value;
+  try{ await navigator.clipboard.writeText(v); document.getElementById("copy-invite").textContent="Copied"; }
+  catch{
+    const box=document.getElementById("invite-code"); box.focus(); box.select();
+    document.getElementById("copy-invite").textContent="Select and copy";
+  }
+});
+document.getElementById("signout-btn").addEventListener("click", async ()=>{
+  await fetch("/auth/logout",{method:"POST"});
+  window.location.href="/";
+});
 refresh();
-loadAcks();
-setInterval(()=>{ if(!document.querySelector(".upload-live")) refresh(); }, 20000);
-setInterval(()=>{ loadAcks(); }, 5000);
-setInterval(()=>{ tickDeadlines(); }, 1000);
+setInterval(()=>{ if(!document.getElementById("upload-status").textContent.includes("analyzing")) refresh(); }, 20000);
 
-// ---- billing CTAs (B+C polish) ----
 async function billingPost(path, body){
   const r = await fetch(path, {method:"POST", headers:{"Content-Type":"application/json"}, body: body ? JSON.stringify(body) : null});
   return {status: r.status, body: await r.json().catch(()=>({}))};

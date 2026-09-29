@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Mockup · Care Ladder in WhatsApp & Telegram · the family runtime</title>
+<style>
+  :root{
+    --paper:#faf8f5; --card:#ffffff; --sink:#f3efe9;
+    --ink:#22303a; --ink2:#5a6b76; --faint:#8d99a3;
+    --hair:#e8e2d8; --hair2:#d8d0c2;
+    --teal:#0e7490; --teal-deep:#0b5c73; --teal-soft:#e5f2f6; --teal-ink:#0c4a5e;
+    --amber:#a16207; --amber-soft:#fdf3d8; --amber-line:#ecd9a8;
+    --bad:#b3423a; --bad-soft:#fbebea;
+    --ok:#22703f; --ok-soft:#e9f4ec;
+    --vio:#6d5bb8; --vio-soft:#efecfa;
+    --wa:#e7f0e9; --wa-bubble:#dcf8c6; --tg:#1d2a33;
+    --serif:Charter,"Iowan Old Style",Georgia,serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--paper);color:var(--ink);font:15px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+
+  header{border-bottom:1px solid var(--hair);background:rgba(250,248,245,.94);position:sticky;top:0;z-index:10;backdrop-filter:blur(8px)}
+  .hwrap{max-width:1180px;margin:0 auto;padding:12px 22px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .mark{width:34px;height:34px;border-radius:10px;background:linear-gradient(160deg,#18a4c2,#0e7490);display:grid;place-items:center;color:#fff}
+  .mark svg{width:17px;height:17px}
+  .hh b{font-size:15px}
+  .hh span{display:block;font-size:11.5px;color:var(--faint)}
+  .hmeta{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+
+  main{max-width:1180px;margin:0 auto;padding:24px 22px 60px}
+  .lede{font-family:var(--serif);font-size:clamp(20px,2.6vw,26px);font-weight:500;line-height:1.3;max-width:56ch;margin-bottom:8px}
+  .lede em{font-style:italic;color:var(--teal)}
+  .sub{color:var(--ink2);font-size:14px;max-width:72ch;margin-bottom:26px}
+  .sub b{color:var(--ink)}
+
+  .phones{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,410px));gap:26px;justify-content:center;margin-bottom:34px}
+
+  /* ---- phone frame ---- */
+  .phone{border:1px solid var(--hair2);border-radius:30px;background:var(--card);overflow:hidden;box-shadow:0 1px 3px rgba(34,48,58,.06)}
+  .p-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--hair)}
+  .p-ava{width:34px;height:34px;border-radius:50%;background:linear-gradient(160deg,#18a4c2,#0e7490);display:grid;place-items:center;color:#fff;font-size:13px;font-weight:800}
+  .p-title b{font-size:14.5px;display:block}
+  .p-title span{font-size:11px;color:var(--faint)}
+  .p-ver{margin-left:auto;font-family:var(--mono);font-size:9.5px;color:var(--faint);border:1px solid var(--hair2);border-radius:999px;padding:2px 8px}
+  .p-body{padding:14px 12px 16px;display:flex;flex-direction:column;gap:10px;min-height:520px}
+  .daysep{display:flex;align-items:center;gap:10px;color:var(--faint);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+  .daysep::before,.daysep::after{content:"";flex:1;height:1px;background:var(--hair)}
+
+  .msg{max-width:86%;border-radius:14px;padding:8px 11px 6px;font-size:13.5px;line-height:1.5;position:relative}
+  .msg .t{display:flex;justify-content:flex-end;gap:4px;align-items:center;font-size:9.5px;color:var(--faint);margin-top:3px;font-family:var(--mono)}
+  .bot{align-self:flex-start;background:var(--wa);border:1px solid #d5e3d8;border-top-left-radius:4px}
+  .me{align-self:flex-end;background:var(--wa-bubble);border:1px solid #cde8b6;border-top-right-radius:4px}
+  .me .t .ticks{color:#4a9de0}
+  .msg b{font-weight:650}
+  .msg .q{font-family:var(--serif);font-style:italic}
+  .msg.alert{background:var(--bad-soft);border-color:#eec7c4;border-top-left-radius:4px}
+  .msg.warn{background:var(--amber-soft);border-color:var(--amber-line)}
+  .msg.good{background:var(--ok-soft);border-color:#cbe5d3}
+  .msg .img{width:100%;height:110px;border-radius:9px;background:linear-gradient(135deg,#2a3b47,#1d2a33);display:grid;place-items:center;color:#7c8b96;margin-bottom:6px}
+  .msg .img svg{width:20px;height:20px}
+  .msg .img span{position:absolute;bottom:52px;left:22px;font-size:9px;color:#c9d6de;font-family:var(--mono)}
+
+  /* interactive buttons in chat */
+  .btnrow{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .cbtn{border:1px solid var(--teal);background:#fff;color:var(--teal);border-radius:10px;padding:8px;font-size:13px;font-weight:650;cursor:pointer;font-family:var(--sans)}
+  .cbtn.pressed{background:var(--teal);color:#fff}
+  .cbtn.danger{border-color:var(--bad);color:var(--bad)}
+  .btnrow .hint{font-size:9.5px;color:var(--faint);text-align:center}
+
+  .sysline{align-self:center;font-size:10.5px;color:var(--faint);background:var(--sink);border-radius:999px;padding:3px 12px}
+
+  .typing{align-self:flex-start;font-size:10.5px;color:var(--faint);padding-left:8px}
+
+  /* telegram dark variant */
+  .tg .p-body{background:var(--tg)}
+  .tg .msg.bot{background:#223341;border-color:#2e4254;color:#e8eef4;border-top-left-radius:4px}
+  .tg .msg.me{background:#2b5278;border-color:#3a6494;color:#fff}
+  .tg .daysep{color:#7d8fa0}
+  .tg .daysep::before,.tg .daysep::after{background:#2e4254}
+  .tg .sysline{background:#223341;color:#9fb0c0}
+  .tg .cbtn{background:#223341;color:#7dd3fc;border-color:#2e4254}
+
+  /* ---- ladder across channels ---- */
+  .flow{background:var(--card);border:1px solid var(--hair);border-radius:16px;padding:18px 20px;margin-bottom:30px}
+  .flow h3{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:14px}
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+  .step{border:1px solid var(--hair);border-radius:12px;padding:12px 14px;background:var(--paper)}
+  .step .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--teal);margin-bottom:5px}
+  .step b{font-size:13.5px;display:block;margin-bottom:3px}
+  .step span{font-size:12px;color:var(--ink2);line-height:1.5;display:block}
+  .step.hot{border-color:#eec7c4}
+  .step.hot .k{color:var(--bad)}
+  .arrowline{display:flex;gap:8px;align-items:center;margin-top:12px;color:var(--faint);font-size:11.5px;font-family:var(--mono);flex-wrap:wrap}
+
+  /* ---- setup / pairing ---- */
+  .setup{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:26px;margin-bottom:26px}
+  .pairbox{background:var(--card);border:1px solid var(--hair);border-radius:16px;padding:18px 20px}
+  .pairbox h3{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:12px}
+  .qr{width:120px;height:120px;border-radius:12px;border:1px solid var(--hair2);background:
+      repeating-conic-gradient(var(--ink) 0 25%, #fff 0 50%) 0 0/16px 16px;position:relative;margin:0 auto 10px}
+  .qr::after{content:"CL";position:absolute;inset:38px;background:#fff;border:1px solid var(--hair2);border-radius:8px;display:grid;place-items:center;font-weight:800;font-size:13px;color:var(--teal)}
+  .pair-steps{font-size:13px;color:var(--ink2);display:flex;flex-direction:column;gap:7px;margin-top:8px}
+  .pair-steps b{color:var(--ink);font-weight:650}
+  .pair-steps .mono{font-family:var(--mono);font-size:12px;background:var(--sink);border-radius:5px;padding:1px 7px}
+
+  .matrix{width:100%;border-collapse:collapse;font-size:13px}
+  .matrix th{text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:6px 8px;border-bottom:1px solid var(--hair2)}
+  .matrix td{padding:8px;border-bottom:1px solid var(--hair)}
+  .matrix .who b{font-weight:650;display:block}
+  .matrix .who span{font-size:11px;color:var(--faint)}
+  .pill{font-size:10.5px;border-radius:999px;padding:2px 10px;border:1px solid var(--hair2);color:var(--ink2);white-space:nowrap}
+  .pill.on{background:var(--teal-soft);border-color:rgba(14,116,144,.35);color:var(--teal-ink)}
+  .pill.esc{background:var(--bad-soft);border-color:#eec7c4;color:var(--bad)}
+
+  .constraints{background:var(--sink);border:1px solid var(--hair);border-radius:14px;padding:14px 18px;font-size:12.5px;color:var(--ink2);line-height:1.65;margin-bottom:26px}
+  .constraints b{color:var(--ink)}
+  .constraints .mono{font-family:var(--mono);font-size:11.5px;background:var(--card);border-radius:4px;padding:1px 6px}
+
+  footer{max-width:1180px;margin:0 auto;padding:0 22px 40px;color:var(--faint);font-size:11.5px;line-height:1.7}
+  footer .mock{font-family:var(--mono);opacity:.75}
+
+  @media (max-width:880px){ .setup{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hwrap">
+    <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 3v18M20 3v18M4 7h16M4 12h16M4 17h16"/></svg></div>
+    <div class="hh"><b>Care Ladder · family runtime</b><span>The chat is the product · the console is setup and archive</span></div>
+    <span class="hmeta">mockup · WhatsApp + Telegram flows</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="lede">Nobody opens a console when Mom might need help. They open <em>WhatsApp</em>.</div>
+  <p class="sub">
+    Care Ladder for families runs where the family already is: a bot thread per household.
+    It informs with a countdown, takes the acknowledgment <b>in chat</b> (button tap or a one-word reply),
+    sends updates while someone is on it, and only climbs the ladder — you, then Sarah, then a call — when the chat goes quiet.
+    The web console becomes the place you <b>set up once</b> (pairing, contact ladder, cadence) and visit to review.
+  </p>
+
+  <!-- ============ PHONE 1 · WhatsApp incident ============ -->
+  <div class="phones">
+    <div class="phone">
+      <div class="p-head">
+        <div class="p-ava">CL</div>
+        <div class="p-title"><b>Care Ladder · Mom</b><span>bot · always silent unless it matters</span></div>
+        <span class="p-ver">WhatsApp</span>
+      </div>
+      <div class="p-body">
+
+        <div class="sysline">Today · encrypted · notifications on</div>
+
+        <div class="msg bot">
+          <div class="img"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14"/></svg><span>living room · 14:27 · faces blurred</span></div>
+          <b>Check-in not answered.</b> No movement in the living room for 15 minutes.
+          Mom has 5:00 to answer the speaker — if she doesn't, I'll page the family.
+          <div class="t">14:27</div>
+        </div>
+
+        <div class="msg alert">
+          <b>Mom didn't answer.</b> Paging you now, James.
+          <div class="btnrow">
+            <button class="cbtn">I'm on it — call her myself</button>
+            <button class="cbtn">Call Mom now (speakerphone)</button>
+            <button class="cbtn danger">Can't talk — go to Sarah</button>
+            <div class="hint">tap a button, or reply "1 / 2 / 3" · deciding in 5:00</div>
+          </div>
+          <div class="t">14:42</div>
+        </div>
+
+        <div class="msg me">1 — on it, calling her now
+          <div class="t">14:43 <span class="ticks">✓✓</span></div>
+        </div>
+
+        <div class="msg good">
+          <b>Noted, James. Escalation stopped.</b> Sarah will not be contacted.
+          Tell me how it went when you can — I'll keep the incident open.
+          <div class="t">14:43</div>
+        </div>
+
+        <div class="msg me">she's fine — balcony again, phone inside 😅
+          <div class="t">14:51 <span class="ticks">✓✓</span></div>
+        </div>
+
+        <div class="msg good">
+          <b>Closed · all fine.</b> Mom answered from the balcony; no calls were placed by the ladder.
+          <span style="display:block;color:var(--ink2);font-size:12px;margin-top:4px">
+            cue 14:27 → page 14:42 → you acked 14:43 (52s) → closed 14:51 · clip: 3 frames, blurred, kept 30 days</span>
+          <div class="btnrow">
+            <button class="cbtn" style="border-color:var(--hair2);color:var(--ink2)">View in console</button>
+          </div>
+          <div class="t">14:51</div>
+        </div>
+
+        <div class="daysep">Yesterday · 21:17 · when nobody replied</div>
+
+        <div class="msg warn">
+          <b>No acknowledgment in 3:00.</b> If nobody responds in the next 2:00 I will
+          <b>call you</b>, then Sarah.
+          <div class="t">21:20</div>
+        </div>
+
+        <div class="msg alert">
+          <b>Calling you now.</b> Sarah is next if you can't take it.
+          <div class="t">21:22</div>
+        </div>
+
+        <div class="msg good">
+          <b>You answered. Sarah was not called.</b> Incident closed after your call-back.
+          <div class="t">21:26</div>
+        </div>
+
+        <div class="typing">bot · active only when something matters</div>
+      </div>
+    </div>
+
+    <!-- ============ PHONE 2 · Telegram daily rhythm ============ -->
+    <div class="phone tg">
+      <div class="p-head">
+        <div class="p-ava">CL</div>
+        <div class="p-title"><b>Care Ladder · Mom</b><span>bot · daily rhythm + commands</span></div>
+        <span class="p-ver">Telegram</span>
+      </div>
+      <div class="p-body">
+
+        <div class="sysline">Today · muted except alerts</div>
+
+        <div class="msg bot">
+          ☀ <b>Morning check-in answered.</b>
+          <span class="q">"I'm up, I'm making tea."</span>
+          <div class="t">08:56</div>
+        </div>
+
+        <div class="msg bot">
+          <b>Noon check-in answered</b> — pendant button.
+          <div class="t">12:31</div>
+        </div>
+
+        <div class="msg bot">
+          <b>Afternoon check-in answered.</b>
+          <span class="q">"I'm fine, thanks — just resting."</span>
+          <div class="t">14:29</div>
+        </div>
+
+        <div class="msg bot">
+          🌙 <b>Evening recap.</b> 4 of 4 check-ins answered today · 0 calls this week ·
+          median response 41s. Next check-in 16:30, quiet hours from 22:00.
+          <div class="t">20:00</div>
+        </div>
+
+        <div class="daysep">Commands · anytime</div>
+
+        <div class="msg me">/status
+          <div class="t">16:02</div>
+        </div>
+        <div class="msg bot">
+          <b>All quiet.</b> Camera online (living room) · next check-in 16:30 ·
+          ladder armed: family → you → Sarah · quiet hours 22:00–07:00.
+          <div class="t">16:02</div>
+        </div>
+
+        <div class="msg me">/pause 2h — we have visitors
+          <div class="t">16:04</div>
+        </div>
+        <div class="msg bot">
+          <b>Paused until 18:04.</b> Distress cues (fall signature) still alert instantly.
+          <div class="t">16:04</div>
+        </div>
+
+        <div class="msg me">/contacts
+          <div class="t">16:05</div>
+        </div>
+        <div class="msg bot">
+          <b>If Mom doesn't answer:</b><br>
+          1 · You — James (call + WhatsApp)<br>
+          2 · Sarah — sister (call + text)<br>
+          3 · Mrs. Alvarez — neighbor (call, daytime)<br>
+          Emergency services are never dialed automatically.
+          <div class="t">16:05</div>
+        </div>
+
+        <div class="typing">/status · /pause · /resume · /contacts · /quiet</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ LADDER ACROSS CHANNELS ============ -->
+  <div class="flow">
+    <h3>One escalation, expressed where the family lives</h3>
+    <div class="steps">
+      <div class="step"><span class="k">Step 1 · 0:00</span><b>Mom's speaker asks first</b><span>"Are you okay?" — 5:00 window, repeated once. Most incidents end here, invisible to the family.</span></div>
+      <div class="step"><span class="k">Step 2 · 5:00</span><b>Family channel informed</b><span>WhatsApp/Telegram card with blurred frame, countdown and three buttons. This is the "inform and update" beat.</span></div>
+      <div class="step"><span class="k">Step 3 · +3:00</span><b>Countdown pressure in chat</b><span>"No acknowledgment in 3:00 — calling you in 2:00 unless someone taps." Same thread, escalating tone.</span></div>
+      <div class="step hot"><span class="k">Step 4 · 5:00</span><b>Voice call to you</b><span>Actual phone call with a spoken summary. If unanswered, next contact after 2:00.</span></div>
+      <div class="step"><span class="k">Step 5</span><b>Sarah, then neighbor</b><span>Contact ladder in order, each with its own window. Emergency services stay behind a human, always.</span></div>
+    </div>
+    <div class="arrowline">every hop mirrors into the chat thread · every ack/update/close is a message · console shows the same timeline as archive</div>
+  </div>
+
+  <!-- ============ SETUP / PAIRING ============ -->
+  <div class="setup">
+    <div class="pairbox">
+      <h3>Pair the household · once, from the console</h3>
+      <div class="qr" role="img" aria-label="QR code to pair the chat bot"></div>
+      <div class="pair-steps">
+        <span><b>1.</b> Scan with WhatsApp or Telegram (or tap the deep link on your phone)</span>
+        <span><b>2.</b> Send <span class="mono">start</span> to the bot — the thread becomes the household runtime</span>
+        <span><b>3.</b> Each family member pairs their own chat and picks their role (below)</span>
+        <span><b>4.</b> Console remains for review: day timeline, clips, billing, care-plan edits</span>
+      </div>
+    </div>
+    <div class="pairbox">
+      <h3>Who gets told what · per member</h3>
+      <table class="matrix">
+        <tr><th>Member</th><th>Daily rhythm</th><th>Alerts</th><th>Escalation</th></tr>
+        <tr><td class="who"><b>James</b><span>son · primary</span></td><td><span class="pill on">recap only</span></td><td><span class="pill on">yes · buttons</span></td><td><span class="pill esc">1st · call</span></td></tr>
+        <tr><td class="who"><b>Sarah</b><span>daughter</span></td><td><span class="pill">none</span></td><td><span class="pill on">yes · if James quiet</span></td><td><span class="pill esc">2nd · call</span></td></tr>
+        <tr><td class="who"><b>Mrs. Alvarez</b><span>neighbor</span></td><td><span class="pill">none</span></td><td><span class="pill">call only</span></td><td><span class="pill esc">3rd · daytime</span></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="constraints">
+    <b>Platform honesty (affects implementation order):</b>
+    Telegram bots can send free-form messages and inline buttons any time — the fastest full experience to ship.
+    WhatsApp requires an approved <span class="mono">UTILITY</span> template for business-initiated alerts inside the 24h customer-service window;
+    until approval lands, WhatsApp alerts fall back to a templated text + tappable ack link (the existing signed-token page), and buttons arrive
+    once the template is live. Both channels already have adapters in the codebase
+    (<span class="mono">channels/router.py</span>: <span class="mono">TELEGRAM_BOT_TOKEN</span> + <span class="mono">TELEGRAM_CHAT_ID</span>, <span class="mono">WHATSAPP_TOKEN</span> + <span class="mono">WHATSAPP_PHONE_NUMBER_ID</span>) —
+    what's new is the conversation state machine: page → countdown → ack → update → close, with every hop recorded in the incident audit trail.
+  </div>
+
+</main>
+
+<footer>
+  Care Ladder is a wellness companion, not a medical device · never calls emergency services on its own · frames blurred before persisting · demo data throughout.
+  <div class="mock">static mockup — chat-first family runtime · WhatsApp + Telegram · console = setup + archive</div>
+</footer>
+
+</body>
+</html>
