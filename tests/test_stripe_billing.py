@@ -1,6 +1,6 @@
 """Task 8: Stripe Checkout + fail-closed webhook + plan gating.
 
-C2 review fix baked in: webhook with unset secret in non-demo env REJECTS;
+Unsigned webhooks reject unless CARE_LADDER_ALLOW_UNSIGNED_WEBHOOKS is set;
 stub checkout only exists in demo env; both rejection paths tested.
 """
 
@@ -223,6 +223,7 @@ def test_billing_return_html_cancel():
 def test_webhook_rejects_unsigned_when_no_secret_prod(monkeypatch):
     monkeypatch.setenv("CARE_LADDER_ENV", "production")
     monkeypatch.delenv("STRIPE_WEBHOOK_SECRET", raising=False)
+    monkeypatch.delenv("CARE_LADDER_ALLOW_UNSIGNED_WEBHOOKS", raising=False)
     client = TestClient(create_app(store=AuditStore()))
     r = client.post(
         "/billing/webhook",
@@ -248,6 +249,8 @@ def test_webhook_rejects_unsigned_in_demo_without_opt_in(monkeypatch):
     monkeypatch.setenv("CARE_LADDER_ENV", "demo")
     monkeypatch.delenv("STRIPE_WEBHOOK_SECRET", raising=False)
     monkeypatch.delenv("CARE_LADDER_ALLOW_UNSIGNED_WEBHOOKS", raising=False)
+    monkeypatch.delenv("CARE_LADDER_AUTH", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     client = TestClient(create_app(store=AuditStore()))
     r = client.post(
         "/billing/webhook",
