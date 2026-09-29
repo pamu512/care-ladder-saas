@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Polish the shipped Mockup H facility floor console so floor leads can triage with keyboard, see owners/SLA/aging, get action errors, audit time metrics with per-case drill-down, choose break durations with countdown, and experience one product language with the home console (demo chrome quarantined).
+**Goal:** Polish the shipped Mockup H facility floor console so floor leads can triage with keyboard, see owners/SLA/aging, get action errors, replace Audit with the closed-case register mock (time KPIs, expandable incident reports, lead-actions), choose break durations with countdown, and experience one product language with the home console (demo chrome quarantined).
 
 **Architecture:** Small API enrichments on existing facility endpoints (`_case_out`, `FacilityState.summary`) plus a focused rewrite of `src/care_ladder/api/static/facility/index.html` JS/CSS. No new tables. Home console gets link/logo consistency only. Implement on a feature branch from tip `1f14a61` or later main; Mac Hermes only.
 
@@ -46,19 +46,73 @@ git commit -m "docs(facility): UI polish design and Hermes plan"
 
 ---
 
-### Task 1: Enrich `_case_out` + audit time metrics (API)
+### Task 1: Enrich case payload + audit summary KPIs + register API
 
 **Files:**
-- Modify: `src/care_ladder/api/app.py` (`_case_out` and any callers that need `state`)
-- Modify: `src/care_ladder/facility/service.py` (`FacilityState.summary`)
+- Modify: `src/care_ladder/models.py` (`AuditEvent` optional `at`)
+- Modify: `src/care_ladder/ladder/orchestrator.py` (stamp `at` when appending events)
+- Modify: `src/care_ladder/api/app.py` (`_case_out`, summary route, new register route)
+- Modify: `src/care_ladder/facility/service.py` (`FacilityState.summary`, helpers for register rows)
 - Modify: `tests/test_facility_api.py`
-- Create or modify: `tests/test_facility_domain.py` (summary medians unit test)
+- Modify: `tests/test_facility_domain.py`
 
 **Interfaces:**
-- Consumes: `Case.ack_at`, `Case.closed_at`, `Case.sla_ack_sec`, `Case.sla_handling_sec`, `state.case_opened_times()`, `state.staff`
+- Consumes: `Case.ack_at` / `closed_at` / `sla_*`, `state.case_opened_times()`, `state.staff`, `state.overrides`, `store` incidents, `state.resident_resolved`
 - Produces:
-  - `_case_out(c, state) -> dict` with keys: existing plus `opened_at`, `owner_display_name`, `owner_initials`, `sla_ack_sec`, `sla_handling_sec`
-  - `summary()` adds `median_ack_sec: int | None`, `median_handling_sec: int | None`, `pct_acked_in_sla: int | None`
+  - `AuditEvent.at: datetime | None` (ISO in JSON); new events stamped at append time
+  - `_case_out(c, state) -> dict` adds `opened_at`, `owner_display_name`, `owner_initials`, `sla_ack_sec`, `sla_handling_sec`
+  - `summary()` adds mock KPI fields:
+    - `median_ack_sec`, `median_handling_sec`, `pct_acked_in_sla`
+    - `median_response_sec` (resident-resolved)
+    - `resolved_by_response`, `resolved_by_response_total`
+    - `group_timeouts`
+  - `GET /facility/audit/register` -> `{ range: "today", rows: [RegisterRow, ...] }`
+  - `GET /facility/audit/register/{incident_id}` -> drill-down payload (timeline, timing, evidence, overrides, docs)
+
+`RegisterRow` shape:
+
+```python
+{
+  "kind": "staff_case" | "resident_resolved" | "group_timeout",  # group_timeout if origin/exhausted implies missed group ack
+  "incident_id": str,
+  "case_id": str | None,
+  "human_id": str,                 # CL-#### or short "inc ab12"
+  "room_label": str,
+  "title": str,
+  "origin_key": "negative" | "silence" | "resident" | "timeout" | "cue" | "manual",
+  "origin_label": str,             # human label for chip
+  "owner_display_name": str | None,
+  "owner_initials": str | None,
+  "ack_sec": int | None,
+  "handling_sec": int | None,
+  "response_sec": int | None,      # resident-resolved only
+  "missed": bool,
+  "state": str | None,
+  "priority": str | None,
+}
+```
+
+Drill-down payload shape:
+
+```python
+{
+  "row": RegisterRow,
+  "case": dict | None,             # _case_out
+  "timeline": [
+    {"tool": str, "label": str, "detail": str, "quote": str | None,
+     "at": str | None, "delta_sec": int | None, "kind": "normal"|"key"|"stop"|"jump"}
+  ],
+  "documentation": str | None,
+  "documentation_meta": {"owner_display_name": str | None, "closed_at": str | None, "via": "console"},
+  "timing": {
+    "ack_sec": int | None, "ack_target_sec": int,
+    "handling_sec": int | None, "handling_target_sec": int,
+    "cue_to_page_sec": int | None, "nudges": int, "nudge_response_sec": int | None
+  },
+  "evidence": {"frame_count": int, "privacy": str | None, "frame_urls": list[str], "slack_thread_url": str | None},
+  "overrides": list[dict],         # filtered state.overrides for this case_id
+}
+```
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -75,7 +129,7 @@ def test_case_out_includes_owner_and_opened(client):
     c = next(x for x in cases["open"] if x["incident_id"] == iid)
     assert c["owner_display_name"] == maria["display_name"]
     assert c["owner_initials"] == maria["initials"]
-    assert c["opened_at"]  # non-empty ISO
+    assert c["opened_at"]
     assert c["sla_ack_sec"] == 120
     assert c["sla_handling_sec"] == 900
 
@@ -94,6 +148,47 @@ def test_audit_summary_time_metrics_after_ack_close(client):
     assert s["median_handling_sec"] is not None and s["median_handling_sec"] >= 0
     assert s["pct_acked_in_sla"] is not None
     assert 0 <= s["pct_acked_in_sla"] <= 100
+    assert "resolved_by_response" in s and "resolved_by_response_total" in s
+    assert "group_timeouts" in s
+    assert "median_response_sec" in s  # may be null until a positive fixture
+
+
+def test_audit_register_lists_closed_and_resident(client):
+    _facility_login(client)
+    neg = _run(client, "facility_negative_reply")
+    case = next(c for c in client.get("/facility/cases").json()["open"] if c["incident_id"] == neg)
+    client.post(f"/facility/cases/{case['id']}/ack", json={})
+    client.post(
+        f"/facility/cases/{case['id']}/close",
+        json={"documentation": "Checked room; resident OK after assist."},
+    )
+    pos = _run(client, "facility_positive_reply")
+    reg = client.get("/facility/audit/register").json()
+    assert reg["range"] == "today"
+    kinds = {r["incident_id"]: r["kind"] for r in reg["rows"]}
+    assert kinds[neg] == "staff_case"
+    assert kinds[pos] == "resident_resolved"
+    staff_row = next(r for r in reg["rows"] if r["incident_id"] == neg)
+    assert staff_row["owner_display_name"] is None or isinstance(staff_row["owner_display_name"], str)
+    assert staff_row["ack_sec"] is not None
+    assert "staff -" not in (staff_row.get("owner_display_name") or "")
+
+
+def test_audit_register_detail_has_timeline_and_timing(client):
+    _facility_login(client)
+    iid = _run(client, "facility_negative_reply")
+    case = next(c for c in client.get("/facility/cases").json()["open"] if c["incident_id"] == iid)
+    client.post(f"/facility/cases/{case['id']}/ack", json={})
+    client.post(
+        f"/facility/cases/{case['id']}/close",
+        json={"documentation": "Resident assisted back to bed safely."},
+    )
+    d = client.get(f"/facility/audit/register/{iid}").json()
+    assert d["timeline"] and any(x["tool"] for x in d["timeline"])
+    assert "timing" in d and "ack_target_sec" in d["timing"]
+    assert "evidence" in d and "frame_count" in d["evidence"]
+    assert "overrides" in d
+    assert d.get("documentation")
 ```
 
 Add unit test in `tests/test_facility_domain.py`:
@@ -116,7 +211,7 @@ def test_summary_median_ack_and_handling():
     state.cases[c.id] = c
     state._opened_times[c.id] = (now - timedelta(seconds=90)).isoformat()
     s = state.summary()
-    assert s["median_ack_sec"] == 60  # opened 90s ago, ack 30s ago
+    assert s["median_ack_sec"] == 60
     assert s["median_handling_sec"] == 30
     assert s["pct_acked_in_sla"] == 100
 ```
@@ -126,104 +221,56 @@ def test_summary_median_ack_and_handling():
 ```bash
 python -m pytest tests/test_facility_api.py::test_case_out_includes_owner_and_opened \
   tests/test_facility_api.py::test_audit_summary_time_metrics_after_ack_close \
+  tests/test_facility_api.py::test_audit_register_lists_closed_and_resident \
+  tests/test_facility_api.py::test_audit_register_detail_has_timeline_and_timing \
   tests/test_facility_domain.py::test_summary_median_ack_and_handling -v
 ```
 
-Expected: FAIL (missing keys / wrong summary fields)
+Expected: FAIL (missing keys / routes)
 
-- [ ] **Step 3: Implement `_case_out` and `summary`**
+- [ ] **Step 3: Implement**
 
-In `app.py`, replace `_case_out` with a state-aware version and update every caller inside the facility API block to pass `state`:
-
-```python
-def _case_out(c, state) -> dict:
-    owner = state.staff.get(c.owner_staff_id) if c.owner_staff_id else None
-    opened = state.case_opened_times().get(c.id)
-    return {
-        "id": c.id,
-        "human_id": c.human_id,
-        "incident_id": c.incident_id,
-        "room_label": c.room_label,
-        "title": c.title,
-        "origin": c.origin,
-        "priority": c.priority,
-        "state": c.state,
-        "owner_staff_id": c.owner_staff_id,
-        "owner_display_name": owner.display_name if owner else None,
-        "owner_initials": owner.initials if owner else None,
-        "slack_thread_url": c.slack_thread_url,
-        "ack_at": c.ack_at.isoformat() if c.ack_at else None,
-        "closed_at": c.closed_at.isoformat() if c.closed_at else None,
-        "opened_at": opened,
-        "documentation": c.documentation,
-        "sla_ack_sec": c.sla_ack_sec,
-        "sla_handling_sec": c.sla_handling_sec,
-    }
-```
-
-In `service.py`, replace `summary` with:
+1. `AuditEvent` in `models.py`: add `at: datetime | None = None`.
+2. Where orchestrator (and facility reply helpers) append `AuditEvent(...)`, set `at=datetime.now(timezone.utc)`. Existing stored incidents without `at` remain valid (null).
+3. `_case_out(c, state)` as previously specified (owner join + opened_at + sla fields). Update all facility callers.
+4. Expand `FacilityState.summary()` with the KPI fields above. For `median_response_sec` / resolved counts, use `resident_resolved` entries joined to incident events (`speaker_prompt` with `reply_class=positive`) when store is available from the route layer (prefer computing in the route if store is required).
+5. Implement `build_register(state, store) -> list[dict]` and `build_register_detail(state, store, incident_id) -> dict` in `service.py` (or `facility/audit_register.py`). Timeline humanization map:
 
 ```python
-def summary(self) -> dict[str, Any]:
-    open_cases = [c for c in self.cases.values() if c.state != "closed"]
-    closed_today = [c for c in self.cases.values() if c.state == "closed"]
-    outcomes: dict[str, int] = {}
-    for c in self.cases.values():
-        key = c.origin.replace("from_", "").replace("_reply", "")
-        outcomes[key] = outcomes.get(key, 0) + 1
-    for _ in self.resident_resolved:
-        outcomes["positive"] = outcomes.get("positive", 0) + 1
-
-    opened_times = self.case_opened_times()
-
-    def _parse(iso: str | None) -> datetime | None:
-        if not iso:
-            return None
-        try:
-            return datetime.fromisoformat(iso.replace("Z", "+00:00"))
-        except ValueError:
-            return None
-
-    ack_secs: list[int] = []
-    handling_secs: list[int] = []
-    in_sla = 0
-    ack_n = 0
-    for c in self.cases.values():
-        opened = _parse(opened_times.get(c.id))
-        if c.ack_at is not None and opened is not None:
-            ack_n += 1
-            sec = int((c.ack_at - opened).total_seconds())
-            if sec < 0:
-                sec = 0
-            ack_secs.append(sec)
-            if sec <= c.sla_ack_sec:
-                in_sla += 1
-        if c.ack_at is not None and c.closed_at is not None:
-            h = int((c.closed_at - c.ack_at).total_seconds())
-            handling_secs.append(max(0, h))
-
-    def _median(vals: list[int]) -> int | None:
-        if not vals:
-            return None
-        s = sorted(vals)
-        mid = len(s) // 2
-        if len(s) % 2:
-            return s[mid]
-        return (s[mid - 1] + s[mid]) // 2
-
-    return {
-        "cases_open": len(open_cases),
-        "cases_closed_today": len(closed_today),
-        "resident_resolved_today": len(self.resident_resolved),
-        "overrides_today": len(self.overrides),
-        "outcomes": outcomes,
-        "median_ack_sec": _median(ack_secs),
-        "median_handling_sec": _median(handling_secs),
-        "pct_acked_in_sla": int(round(100 * in_sla / ack_n)) if ack_n else None,
-    }
+TOOL_LABELS = {
+  "cue": "Cue",
+  "speaker_prompt": "Voice check-in",
+  "notify_supervisor": "Page group",
+  "wait": "Wait",
+  "jump": "Ladder jump",
+  "resolve": "Resolved",
+}
 ```
 
-Also include `opened_at` on alert queue items (each already embeds `case: _case_out(...)`).
+Color `kind`: `notify_*` / page -> `key`; case open/close / resolve -> `stop`; `jump` / SLA nudge -> `jump`; else `normal`.
+
+Deltas: prefer `event.at` differences; for ack/close lines fall back to case `opened_at`/`ack_at`/`closed_at` when event `at` is null.
+
+6. Mount:
+
+```python
+@application.get("/facility/audit/register")
+def facility_audit_register(request: Request):
+    tenant_id, state, store = _facility_ctx(request)
+    return {"range": "today", "rows": build_register(state, store)}
+
+@application.get("/facility/audit/register/{incident_id}")
+def facility_audit_register_detail(incident_id: str, request: Request):
+    tenant_id, state, store = _facility_ctx(request)
+    detail = build_register_detail(state, store, incident_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="register row not found")
+    return detail
+```
+
+Keep existing `GET /facility/audit/summary` and CSV export.
+
+**Honest gap vs the mock prose:** `AuditEvent` did not previously carry wall clocks; stamping `at` on new events is a thin write-path fix so the register can show timestamps. Case `ack_at`/`closed_at`/`created_at` already exist and drive KPI medians even when older events lack `at`. Do **not** invent fake clocks for historical events; omit `at` / show sequence-only until stamped data exists.
 
 - [ ] **Step 4: Run tests: PASS**
 
@@ -231,14 +278,14 @@ Also include `opened_at` on alert queue items (each already embeds `case: _case_
 python -m pytest tests/test_facility_api.py tests/test_facility_domain.py -q
 ```
 
-Expected: all green
-
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/care_ladder/api/app.py src/care_ladder/facility/service.py \
+git add src/care_ladder/models.py src/care_ladder/ladder/orchestrator.py \
+  src/care_ladder/api/app.py src/care_ladder/facility/service.py \
+  src/care_ladder/facility/audit_register.py \
   tests/test_facility_api.py tests/test_facility_domain.py
-git commit -m "feat(facility): case owner names, opened_at, audit time KPIs"
+git commit -m "feat(facility): audit register API, owner join, time KPIs"
 ```
 
 ---
@@ -506,118 +553,171 @@ git commit -m "feat(facility): owner labels, close counter, action toasts"
 
 ---
 
-### Task 4: Audit time KPIs, outcome labels, per-case drill-down
+### Task 4: Replace Audit tab with closed-case register (mock)
+
+**Visual source:** `docs/galuxium/mockup-audit-drill-down.html` (committed with this plan). Reuse the existing Audit tab shell; replace the KPI + outcome-bars + flat case list with the mock structure.
 
 **Files:**
 - Modify: `src/care_ladder/api/static/facility/index.html`
 - Modify: `tests/test_facility_ui.py`
+- Reference (do not serve as live UI): `docs/galuxium/mockup-audit-drill-down.html`
 
 **Interfaces:**
-- Consumes: Task 1 summary time fields; `/facility/alerts/{incident_id}` for rungs
-- Produces: labeled outcomes; case list; `#audit-detail` panel
+- Consumes: Task 1 `GET /facility/audit/summary`, `GET /facility/audit/register`, `GET /facility/audit/register/{incident_id}`, existing CSV export
+- Produces: Audit tab matching the mock: 6 KPIs, filterable expandable register, drill-down transcript + rails, lead-actions card
 
-- [ ] **Step 1: Failing test**
+**In scope (MVP / today range):**
+1. Time-metric KPIs (not just counts): resolved-by-response `N of M`, median response, median time-to-ack, % acked in window, median handling, group timeouts. Color classes: `vio` / `good` / `warn` / `bad` per mock heuristics (e.g. handling over target -> warn/bad).
+2. Closed-case register: expandable `.reg` rows with case/incident id, room + title, origin chip (`resolved by response` / `negative reply` / `group timeout` / silence), owner **display name**, ack time, handling (or response time / "no staff action" for resident rows).
+3. Filters (client-side on today's register payload): All outcomes / Staff-handled / Resolved by response / Negative replies. Date-range chips: **Today wired**; `7 days` and `Shift…` visible but toast "Range not available yet" (stretch).
+4. Drill-down body (two columns):
+   - Left: Care Ladder incident report from register detail `timeline` (color `kind` classes), documentation block + signature meta.
+   - Right rail: Timing vs targets (ack target use case `sla_ack_sec`, default display as m:ss), Evidence (frame count + privacy + Open chat stub URL), Overrides list or "None · fully auto-routed", actions: Open chat thread (stub); Export PDF button toast "PDF export coming soon" (stretch).
+5. Lead-actions card: list today's overrides (from summary or register aggregate / `state.overrides` via summary extension `overrides_recent: [...]` if needed). Export: keep working **Export audit CSV**; PDF + zip buttons are stretch (toast).
+
+**Out of scope / stretch (label in UI, do not block):**
+- Per-shift PDF, case-file zip, true 7-day/shift queries
+- Pixel-perfect copy of every mock demo sentence
+- Em dashes: strip; use commas or periods in all shipped strings
+
+- [ ] **Step 1: Failing UI tests**
 
 ```python
-def test_facility_audit_ui_hooks(client):
+def test_facility_audit_register_hooks(client):
     html = client.get("/ui/facility/").text
-    assert "median_ack_sec" in html
-    assert "audit-detail" in html
-    assert "Negative reply" in html  # label map present as string
+    assert "audit/register" in html
+    assert "Closed-case register" in html or "closed-case register" in html.lower() or "id=\"audit-register\"" in html
+    assert "Resolved by response" in html or "resolved by response" in html
+    assert "lead-actions" in html or "Lead actions" in html
+    assert "\u2014" not in html
 ```
 
 - [ ] **Step 2: Run: expect FAIL**
 
-- [ ] **Step 3: Implement `renderAudit`**
+- [ ] **Step 3: Implement Audit section HTML/CSS/JS**
+
+Port structure and CSS classes from `docs/galuxium/mockup-audit-drill-down.html` into the Audit `<section id="sec-audit">` of `facility/index.html` (keep dark theme; Task 6 may retint accent later).
+
+Key JS:
 
 ```javascript
-const OUTCOME_LABELS = {
-  negative: "Negative reply",
-  silence: "Silence",
-  cue: "Cue",
-  manual: "Manual",
-  positive: "Positive",
+const ORIGIN_CHIP = {
+  resident: ["origin-chip resident", "resolved by response"],
+  negative: ["origin-chip negative", "negative reply"],
+  timeout: ["origin-chip timeout", "group timeout"],
+  silence: ["origin-chip timeout", "silence"],
 };
 
-function fmtSec(n){
-  if (n === null || n === undefined) return "n/a";
-  return n + "s";
+function fmtDur(sec){
+  if (sec == null) return "n/a";
+  sec = Math.max(0, Math.floor(sec));
+  const m = Math.floor(sec/60), s = sec % 60;
+  return m + "m " + String(s).padStart(2,"0") + "s";
 }
 
 async function renderAudit(){
-  const {status, body} = await japi("/facility/audit/summary");
-  if (status !== 200){ showToast((body&&body.detail)||"Audit failed", true); return; }
-  const k = $("#kpi");
-  const kpis = [
-    ["Open cases", body.cases_open],
-    ["Closed today", body.cases_closed_today],
-    ["Resident-resolved", body.resident_resolved_today],
-    ["Overrides", body.overrides_today],
-    ["Median time-to-ack", body.median_ack_sec == null ? "n/a" : body.median_ack_sec + "s"],
-    ["Median handling", body.median_handling_sec == null ? "n/a" : body.median_handling_sec + "s"],
-    ["Acked in SLA", body.pct_acked_in_sla == null ? "n/a" : body.pct_acked_in_sla + "%"],
-  ];
-  k.innerHTML = kpis.map(([l,n]) => `<div class="card"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
-  // widen grid for 7 KPIs
-  k.style.gridTemplateColumns = "repeat(auto-fit,minmax(140px,1fr))";
+  const [sum, reg] = await Promise.all([
+    japi("/facility/audit/summary"),
+    japi("/facility/audit/register"),
+  ]);
+  if (sum.status !== 200){ showToast((sum.body&&sum.body.detail)||"Audit failed", true); return; }
+  const b = sum.body;
+  const total = b.resolved_by_response_total || ((b.cases_closed_today||0)+(b.resident_resolved_today||0)) || 0;
+  $("#kpi").innerHTML = [
+    kpiBox("vio", `${b.resolved_by_response??0} <small>of ${total||0}</small>`, "Resolved by response"),
+    kpiBox("vio", b.median_response_sec==null?"n/a":fmtDur(b.median_response_sec), "Median response time"),
+    kpiBox("good", b.median_ack_sec==null?"n/a":fmtDur(b.median_ack_sec), "Median time-to-ack"),
+    kpiBox("good", b.pct_acked_in_sla==null?"n/a":(b.pct_acked_in_sla+"%"), "Acked in window"),
+    kpiBox("good", b.median_handling_sec==null?"n/a":fmtDur(b.median_handling_sec), "Median handling"),
+    kpiBox("bad", String(b.group_timeouts??0), "Group timeouts"),
+  ].join("");
 
-  const out = body.outcomes || {};
-  const total = Object.values(out).reduce((a,b)=>a+b,0) || 1;
-  $("#outcome-bars").innerHTML = Object.entries(out).map(([k2,v]) => `
-    <div class="bar"><span>${OUTCOME_LABELS[k2]||k2}</span>
-    <div class="track"><div class="fill" style="width:${Math.round(100*v/total)}%"></div></div>
-    <span>${v}</span></div>`).join("") || '<p class="muted">No cases yet today.</p>';
-
-  $("#overrides-line").textContent =
-    `${body.overrides_today||0} logged override(s) today (priority changes, pull-off-break).`;
-
-  // per-case list
-  const all = [...(state.cases.open||[]), ...(state.cases.closed_today||[])];
-  const list = $("#audit-cases");
-  if (list){
-    list.innerHTML = all.length ? all.map(c => `
-      <button type="button" class="btn subtle" data-audit-incident="${c.incident_id}">
-        ${c.human_id} · ${c.priority} · ${c.state}
-      </button>`).join("") : '<p class="muted">No cases to review.</p>';
-    list.querySelectorAll("[data-audit-incident]").forEach(b => b.addEventListener("click", () => openAuditDetail(b.dataset.auditIncident)));
-  }
+  state.auditRows = (reg.status===200 ? (reg.body.rows||[]) : []);
+  state.auditFilter = state.auditFilter || "all";
+  renderAuditFilters();
+  renderAuditRegister();
+  renderLeadActions(b);
 }
 
-async function openAuditDetail(incidentId){
-  const panel = $("#audit-detail");
-  const {status, body} = await japi(`/facility/alerts/${incidentId}`);
-  if (status !== 200){ showToast("Could not load case story", true); return; }
-  const c = body.case || {};
-  panel.hidden = false;
-  panel.innerHTML = `
-    <h3>Incident report · ${c.human_id||incidentId}</h3>
-    <p class="small">Reply: <strong>${body.reply_class||"n/a"}</strong> · Origin: ${c.origin||"-"}</p>
-    <p class="small">${slaLine(c)}</p>
-    <ol class="small">${(body.rungs||[]).map(r => `<li>${r}</li>`).join("") || "<li>No ladder events</li>"}</ol>
-    <p class="small muted">${c.documentation ? ("Close notes: " + c.documentation) : "Still open or no docs."}</p>
-    <button type="button" class="btn subtle" id="audit-detail-close">Close</button>`;
-  $("#audit-detail-close").onclick = () => { panel.hidden = true; };
+function renderAuditRegister(){
+  const rows = (state.auditRows||[]).filter(r => {
+    if (state.auditFilter === "staff") return r.kind === "staff_case";
+    if (state.auditFilter === "resident") return r.kind === "resident_resolved";
+    if (state.auditFilter === "negative") return r.origin_key === "negative";
+    return true;
+  });
+  const root = $("#audit-register");
+  if (!rows.length){ root.innerHTML = '<p class="muted">No closed cases or resident resolutions today.</p>'; return; }
+  root.innerHTML = rows.map(r => auditRowShell(r)).join("");
+  root.querySelectorAll(".reg-head").forEach(h => h.addEventListener("click", async () => {
+    const reg = h.parentElement;
+    const open = !reg.classList.contains("open");
+    // accordion: close others
+    root.querySelectorAll(".reg.open").forEach(x => { if (x!==reg){ x.classList.remove("open"); x.querySelector(".reg-body")?.remove(); }});
+    if (!open){ reg.classList.remove("open"); reg.querySelector(".reg-body")?.remove(); return; }
+    reg.classList.add("open");
+    h.setAttribute("aria-expanded","true");
+    const {status, body} = await japi(`/facility/audit/register/${reg.dataset.incident}`);
+    if (status !== 200){ showToast("Could not load incident report", true); return; }
+    let bodyEl = reg.querySelector(".reg-body");
+    if (!bodyEl){ bodyEl = document.createElement("div"); bodyEl.className = "reg-body"; reg.appendChild(bodyEl); }
+    bodyEl.innerHTML = renderDrillDown(body);
+    wireDrillActions(bodyEl, body);
+  }));
+}
+
+function renderDrillDown(d){
+  const lines = (d.timeline||[]).map(e => `
+    <div class="r-line ${e.kind||""}">
+      <span class="nm">${e.label||e.tool}</span>
+      <span class="ds">${e.detail||""}${e.quote?` <span class="quote">"${e.quote}"</span>`:""}${e.delta_sec!=null?`<span class="delta">Δ ${fmtDur(e.delta_sec)}</span>`:""}</span>
+      <span class="ts">${e.at ? new Date(e.at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}) : ""}</span>
+    </div>`).join("");
+  const t = d.timing||{};
+  const ov = (d.overrides&&d.overrides.length)
+    ? d.overrides.map(o => `<div class="ov-item"><b>${o.action}</b> <span class="t">${o.at||""}</span></div>`).join("")
+    : '<div class="ov-item">None · fully auto-routed</div>';
+  const doc = d.documentation
+    ? `<div class="doc-block"><h6>Submitted documentation</h6><p>${escapeHtml(d.documentation)}</p>
+         <div class="sig">${(d.documentation_meta&&d.documentation_meta.owner_display_name)||"staff"} · via console · ${(d.documentation_meta&&d.documentation_meta.closed_at)||""}</div></div>`
+    : "";
+  return `
+    <div class="report">
+      <h5>Care Ladder incident report</h5>
+      <span class="inc-link">inc ${d.row.incident_id} · ${(d.row&&d.row.title)||""}</span>
+      ${lines}${doc}
+    </div>
+    <aside class="rail">
+      <div class="box"><h6>Timing</h6>
+        <div class="metric"><span class="k">Time-to-ack</span><span class="v">${fmtDur(t.ack_sec)} / ${fmtDur(t.ack_target_sec)}</span></div>
+        <div class="metric"><span class="k">Handling time</span><span class="v">${fmtDur(t.handling_sec)} / ${fmtDur(t.handling_target_sec)}</span></div>
+        <div class="metric"><span class="k">Cue to first page</span><span class="v">${fmtDur(t.cue_to_page_sec)}</span></div>
+        <div class="metric"><span class="k">Nudges</span><span class="v">${t.nudges||0}</span></div>
+      </div>
+      <div class="box"><h6>Evidence</h6>
+        <div class="clip-ref">${(d.evidence&&d.evidence.frame_count)||0} frames · ${(d.evidence&&d.evidence.privacy)||"n/a"}</div>
+        <div class="clip-ref">chat thread · stub</div>
+      </div>
+      <div class="box"><h6>Overrides on this case</h6>${ov}</div>
+      <div class="box actions">
+        <button type="button" class="btn small" data-act="pdf">Export PDF</button>
+        <a class="btn small" href="${(d.evidence&&d.evidence.slack_thread_url)||"#"}" target="_blank" rel="noopener">Open chat thread</a>
+      </div>
+    </aside>`;
 }
 ```
 
-Add to Audit section HTML:
+Wire filter chips and lead-actions CSV button to `/facility/audit/export.csv`. PDF/zip -> `showToast("Coming soon", false)`.
 
-```html
-<div class="card" style="margin-top:12px">
-  <h3>Cases</h3>
-  <div id="audit-cases"></div>
-  <div id="audit-detail" class="card" hidden style="margin-top:10px"></div>
-</div>
-```
-
-Do not use an em dash character anywhere in new copy (use `n/a` or `-`).
+Include `escapeHtml` helper. Never ship `\u2014`.
 
 - [ ] **Step 4: PASS + commit**
 
 ```bash
-python -m pytest tests/test_facility_ui.py -q
-git add src/care_ladder/api/static/facility/index.html tests/test_facility_ui.py
-git commit -m "feat(facility): audit time KPIs and per-case incident report"
+python -m pytest tests/test_facility_ui.py tests/test_facility_api.py -q
+git add src/care_ladder/api/static/facility/index.html tests/test_facility_ui.py \
+  docs/galuxium/mockup-audit-drill-down.html
+git commit -m "feat(facility): Audit tab closed-case register and drill-down"
 ```
 
 ---
@@ -819,16 +919,17 @@ Body: checklist Tasks 1–6, screenshots of Alert/Cases/Audit, note baseline aft
 | 2 | Change assign select, trigger refresh via priority | Draft select preserved while dirty |
 | 3 | Assign Maria | Owner `MG · Maria G.` |
 | 4 | Close with 10 chars | Inline error + toast; case stays open |
-| 5 | Ack + close with 20+ chars | Audit medians non-null; outcome "Negative reply" |
-| 6 | Audit case button | Ladder list + reply class visible |
-| 7 | Break 30m on Jamie | Countdown `on break · Nm left` |
-| 8 | Collapse demo strip | Floor UI remains; empty copy has no demo pointer |
-| 9 | Compare home vs facility logo | Same ladder mark; teal accent on facility |
-| 10 | `pytest -q` | Green offline |
+| 5 | Ack + close with 20+ chars | Audit KPIs show median ack/handling; register lists closed case |
+| 6 | Expand register row | Ladder transcript + timing rail + docs; owner is a display name |
+| 7 | Positive fixture | Resident-resolved row with violet chip; filter hides staff cases |
+| 8 | Break 30m on Jamie | Countdown `on break · Nm left` |
+| 9 | Collapse demo strip | Floor UI remains; empty copy has no demo pointer |
+| 10 | Compare home vs facility logo | Same ladder mark; teal accent on facility |
+| 11 | `pytest -q` | Green offline |
 
 ## Self-review
 
-- Spec coverage: ARIA/selection/form preserve, owner+errors+SLA, audit times+drill-down, break UX, visual/demo/loading/nav → Tasks 2–6 (+ Task 1 API). Aging chips in Task 2.
+- Spec coverage: ARIA/selection/form preserve, owner+errors+SLA, audit register mock (KPIs + expandable drill-down + lead actions), break UX, visual/demo/loading/nav → Tasks 2–6 (+ Task 1 API/register). Aging chips in Task 2.
 - No TBD placeholders; concrete code in each implement step.
 - Types/names: `_case_out(c, state)`, `median_ack_sec`, `owner_display_name`, `detailDirty`, `demo-strip` consistent.
 - N1 explicitly excluded (already fixed).

@@ -39,8 +39,8 @@ Mockup H facility console shipped at `/ui/facility/` with cases, staff, breaks, 
 | Aging timers | Client computes from `opened_at` ISO on each alert/case; SLA targets stay `sla_ack_sec` / `sla_handling_sec` (defaults 120 / 900) |
 | Owner display | API includes `owner_display_name` + `owner_initials` resolved from roster; UI never shows raw `owner_staff_id` |
 | Error surface | `japi` callers show `#toast` or inline `.form-error` on non-2xx; close shows live char count |
-| Audit times | Extend `FacilityState.summary()` with median time-to-ack (sec), median handling (sec), pct acked within `sla_ack_sec` |
-| Incident drill-down | Audit lists closed+open cases; click opens a modal/panel fed by existing `/facility/alerts/{incident_id}` + case timestamps |
+| Audit times | Extend `FacilityState.summary()` with median time-to-ack, median handling, pct acked in SLA, median resident-response time, group_timeouts count, resolved_by_response fraction |
+| Incident drill-down | Replace the simple case-button list with the **closed-case register** mock (`docs/galuxium/mockup-audit-drill-down.html`): expandable rows, outcome filters (Today only for MVP), full ladder transcript + timing rail + evidence + per-case overrides |
 | Break durations | Buttons for 15 / 30 / 60 minutes; show `on break · Xm left` from `break_until` |
 | Demo chrome | Move fixture buttons into a collapsible `.demo-strip` below the header (default expanded in demo auth-off / demo tenants) |
 | Visual unify | Facility adopts shared CSS variables for accent teal + ladder logo SVG from home; keep dark facility surface (floor ops) but same mark, type scale, and chip language |
@@ -53,11 +53,19 @@ Mockup H facility console shipped at `/ui/facility/` with cases, staff, breaks, 
    - `opened_at` from `state.case_opened_times().get(c.id)`
    - `owner_display_name`, `owner_initials` from `state.staff.get(c.owner_staff_id)`
    - `sla_ack_sec`, `sla_handling_sec` from the Case model
-2. `FacilityState.summary()` adds:
-   - `median_ack_sec`, `median_handling_sec`, `pct_acked_in_sla` (0–100 int)
-   - `outcomes` values stay counts; keys stay machine keys; UI maps labels
-3. Staff break response already returns status; ensure list includes `break_until` (already does). Optional: return `minutes_left` computed server-side; prefer client calc to avoid clock skew issues in demos.
-4. No new routes required if drill-down reuses `/facility/alerts/{incident_id}` and `/facility/cases`.
+2. `FacilityState.summary()` adds (match audit mock KPI row):
+   - `median_ack_sec`, `median_handling_sec`, `pct_acked_in_sla` (0-100 int)
+   - `median_response_sec` (resident-resolved cue→positive reply; null if none)
+   - `resolved_by_response` / `resolved_by_response_total` (e.g. 6 of 11)
+   - `group_timeouts` (count of cases/incidents with group/ack timeout origin or exhausted paging)
+   - `outcomes` stays machine keys; UI maps labels
+3. New read endpoint `GET /facility/audit/register` returns today's register rows for the UI:
+   - Staff-handled closed cases + resident-resolved incidents (no case)
+   - Each row: `kind` (`staff_case`|`resident_resolved`|`group_timeout`), ids, room, title, origin label key, owner display, `ack_sec`, `handling_sec`, `response_sec`, `missed` bool
+4. New drill-down route `GET /facility/audit/register/{incident_id}` assembles timeline from the incident + case + overrides + frames.
+5. Add optional `AuditEvent.at` and stamp it when new events are appended (backward compatible). Case `ack_at`/`closed_at`/`created_at` already drive KPI medians; do not invent clocks for old unstamped events.
+6. Staff `break_until` already returned; client computes countdown.
+7. **Stretch (not blocking):** PDF/zip exports, 7-day / shift range queries, richer nudge analytics.
 
 ## UI structure changes
 
@@ -79,11 +87,14 @@ Mockup H facility console shipped at `/ui/facility/` with cases, staff, breaks, 
 - Break control: `15m` / `30m` / `60m` when available; `End break` when on break.
 - Status chip: `on break · 18m left` when `break_until` is in the future.
 
-**Audit**
+**Audit** (visual source: `docs/galuxium/mockup-audit-drill-down.html`)
 
-- KPI row expands to 7 cards (existing 4 + 3 time metrics) or two rows.
-- Outcome bars use labels: Negative reply / Silence / Cue / Manual / Positive.
-- Case list under KPIs; selecting one shows ladder rungs + reply class + timestamps.
+- KPI row: 6 boxes matching the mock (resolved-by-response fraction, median response, median ack, % acked in window, median handling, group timeouts) with good/warn/bad/vio coloring heuristics.
+- Closed-case **register** (not a flat button list): expandable `.reg` rows with caret, human id, room/title, origin chip, owner, ack/handling mono times.
+- Filter chips (client-side for Today MVP): All / Staff-handled / Resolved by response / Negative replies. Range chips Today (on) / 7 days / Shift are visible but only Today is wired; others show toast "Coming soon" unless stretch lands.
+- Expanded body: two columns. Left = Care Ladder incident report (ordered events from `/incidents/{id}`, humanized tool names, reply quotes from detail, documentation block). Right rail = Timing (vs SLA targets), Evidence (frame count + stub chat link), Overrides on this case, actions (Open chat thread stub; Export PDF stretch).
+- Lead actions card: today's override ledger (from `state.overrides`) + Export audit CSV (existing). Per-shift PDF and zip are stretch buttons (disabled or toast).
+- Ship **no em dashes** even if the static mock contains them.
 
 **Chrome**
 
@@ -98,12 +109,25 @@ Mockup H facility console shipped at `/ui/facility/` with cases, staff, breaks, 
 2. Start typing close docs, click Acknowledge on another case's button path that triggers refresh: selected alert's assign select still holds previous choice if dirty.
 3. Assign Maria: owner reads `MG · Maria G.`, not `staff -maria`.
 4. Close with 10 chars: inline error; with 20+: case closes.
-5. Audit shows non-null median ack after ack+close fixture path; outcome bar says "Negative reply".
-6. Put Jamie on break 30m: countdown visible and ticks with the header clock.
-7. Side-by-side home vs facility: same logo glyph and teal accent; facility stays dark.
+5. Audit KPIs show median ack after ack+close; register lists the closed case; expanding it shows ladder transcript + timing rail + docs.
+6. Filter chip "Resolved by response" hides staff cases after a positive fixture.
+7. Put Jamie on break 30m: countdown visible and ticks with the header clock.
+8. Side-by-side home vs facility: same logo glyph and teal accent; facility stays dark.
 
 ## Out of scope follow-ups
 
 - Full light-theme facility option.
 - Real SLA config per tenant YAML.
 - Screen-reader live regions for new P1 arrivals.
+
+
+## Audit tab replacement (from review mock)
+
+The Audit tab is not a KPI strip plus a flat case list. It becomes the management review surface:
+
+1. **Time-metric KPIs** (presentation over persisted `ack_at` / `closed_at` / response timing): median time-to-ack, % acked in window, median handling, median resident-response time, group timeouts, resolved-by-response fraction.
+2. **Closed-case register**: filterable expandable rows (id, room + outcome chip, owner display name, ack + handling at a glance). Resident-resolved incidents are first-class violet rows ("no staff action").
+3. **Drill-down**: full ladder transcript (timestamps/deltas when available), documentation + signature, timing rail vs SLA targets, evidence (frames + chat stub), per-case overrides, export actions.
+4. **Lead-actions** card: today's overrides + CSV export (PDF/zip stretch).
+
+Visual: `docs/galuxium/mockup-audit-drill-down.html`.
