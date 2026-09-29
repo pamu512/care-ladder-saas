@@ -42,5 +42,5 @@ def test_ui_served_with_caregiver_console():
         resp = client.get("/ui/")
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
-    assert "Caregiver" in resp.text
+    assert "family" in resp.text.lower()
     assert "Path A" in resp.text

@@ -65,9 +65,11 @@ def test_console_has_ack_panel_and_fixture_buttons():
     html = ui.read_text(encoding="utf-8")
     assert 'data-fixture="facility_ack_resolved"' in html
     assert 'data-fixture="facility_ack_timeout"' in html
-    assert "ack-panel" in html
     assert "/acks/pending" in html
     assert "notify_and_await_ack" in html  # timeline label present
+    # Ack is mirrored in the chat strip; no interactive console ack surface.
+    assert "ack-btn" not in html
+    assert "chatstrip" in html
 
 
 def test_ack_page_renders_for_live_token():

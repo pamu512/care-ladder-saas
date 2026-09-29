@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
 
@@ -204,6 +204,174 @@ def _incident_summary(incident) -> dict[str, Any]:
         "status": incident.status,
         "cue": incident.cue.model_dump(),
         "event_count": len(incident.events),
+    }
+
+
+def _event_at(ev) -> datetime | None:
+    at = getattr(ev, "at", None)
+    if at is None:
+        return None
+    if isinstance(at, datetime):
+        return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+    if isinstance(at, str):
+        try:
+            parsed = datetime.fromisoformat(at.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    return None
+
+
+def _human_since(seconds: int) -> str:
+    if seconds < 90:
+        return f"{seconds}s"
+    minutes = seconds // 60
+    if minutes < 90:
+        return f"{minutes} min"
+    hours = minutes // 60
+    if hours < 36:
+        return f"{hours} hr"
+    return f"{hours // 24} d"
+
+
+def _family_hero(incidents, now: datetime) -> dict[str, Any]:
+    """Derive glance numbers from audit events. Missing `at` stamps are skipped."""
+    now = now if now.tzinfo else now.replace(tzinfo=timezone.utc)
+    day_start = now.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = now - timedelta(days=7)
+    answered_today = 0
+    answered_week = 0
+    sent_today = 0
+    last_ok: datetime | None = None
+    last_quote = ""
+    calls_week = 0
+    response_secs: list[float] = []
+    for inc in incidents:
+        cue_at = None
+        for ev in inc.events:
+            tool = getattr(ev, "tool", None)
+            detail = getattr(ev, "detail", None) or {}
+            at = _event_at(ev)
+            if tool == "cue":
+                cue_at = at
+                if at is not None and at >= day_start:
+                    sent_today += 1
+            if tool == "speaker_prompt" and detail.get("reply_kind") == "ok":
+                if at is not None and at >= day_start:
+                    answered_today += 1
+                if at is not None and at >= week_start:
+                    answered_week += 1
+                if at is not None and (last_ok is None or at > last_ok):
+                    last_ok = at
+                    last_quote = str(detail.get("reply_raw") or detail.get("text") or "")
+                if cue_at is not None and at is not None:
+                    response_secs.append(max(0.0, (at - cue_at).total_seconds()))
+            if tool == "dial_contact" and at is not None and at >= week_start:
+                calls_week += 1
+    since = None
+    if last_ok is not None:
+        secs = max(0, int((now - last_ok).total_seconds()))
+        since = {"seconds": secs, "label": _human_since(secs)}
+    median = None
+    if response_secs:
+        ordered = sorted(response_secs)
+        median = int(ordered[len(ordered) // 2])
+    sent_week = max(answered_week, sent_today)
+    rate = None
+    if sent_week:
+        rate = int(round(100 * answered_week / sent_week)) if sent_week else None
+    elif answered_week:
+        rate = 100
+    return {
+        "checkins_answered_today": answered_today,
+        "checkins_sent_today": sent_today,
+        "since_last_response": since,
+        "calls_this_week": calls_week,
+        "last_quote": last_quote,
+        "week": {
+            "checkins_answered": answered_week,
+            "response_rate_pct": rate,
+            "calls_placed": calls_week,
+            "median_response_sec": median,
+        },
+    }
+
+
+def family_runtime_payload(
+    incidents,
+    pending: list[dict[str, Any]],
+    *,
+    now: datetime | None = None,
+    live_channels: list[str] | None = None,
+) -> dict[str, Any]:
+    """Honest demo fixture for the family console strip. Not a live bot runtime."""
+    clock = now or datetime.now(timezone.utc)
+    live = set(live_channels or [])
+    state = "idle"
+    pending_ack = None
+    last_kind = "evening_recap"
+    last_label = "evening recap · 20:00 · notifications on for James + Sarah"
+    if pending:
+        p = pending[0]
+        state = "family_paged"
+        pending_ack = {
+            "incident_id": p.get("incident_id"),
+            "rung_id": p.get("rung_id"),
+            "channel": p.get("channel"),
+            "message": p.get("message"),
+            "deadline": p.get("deadline"),
+            "created_at": p.get("created_at"),
+        }
+        last_kind = "inform_card"
+        last_label = "family paged · waiting for ack in chat"
+    return {
+        "source": "demo_fixture",
+        "note": "Read-only console mirror. Telegram and WhatsApp adapters are not live in this build.",
+        "state": state,
+        "household": {
+            "name": "The Marshall home",
+            "person": "Ellen",
+            "place": "Ellen's apartment",
+            "camera": {
+                "online": True,
+                "zone": "living room",
+                "label": "Watching · living room",
+            },
+            "quiet_hours": "22:00-07:00",
+            "cadence": "every 2h · 08:00-20:00",
+            "privacy": "faces blurred",
+            "clips_kept": "30 days",
+        },
+        "last_message": {"kind": last_kind, "at": clock.isoformat(), "label": last_label},
+        "channels": {
+            "whatsapp": {
+                "status": "connected",
+                "live": "whatsapp" in live,
+                "members": ["James", "Sarah"],
+                "deep_link": "https://wa.me/",
+            },
+            "telegram": {
+                "status": "available",
+                "live": "telegram" in live,
+                "members": [],
+                "deep_link": "https://t.me/",
+            },
+        },
+        "notifications_on": ["James", "Sarah"],
+        "pending_ack": pending_ack,
+        "hero": _family_hero(incidents, clock),
+        "contacts": [
+            {"initials": "You", "name": "You · James", "detail": "call + WhatsApp", "ord": "1st", "kind": "you"},
+            {"initials": "S", "name": "Sarah · sister", "detail": "call + text", "ord": "2nd", "kind": "sis"},
+            {"initials": "N", "name": "Mrs. Alvarez · next door", "detail": "call only · daytime", "ord": "3rd", "kind": "nbr"},
+        ],
+        "ladder": [
+            {"name": "Check in by voice", "status": "armed", "note": "every 2h"},
+            {"name": "Page the family", "status": "", "note": "if no answer"},
+            {"name": "Call you", "status": "", "note": "step 4"},
+            {"name": "Call Sarah", "status": "", "note": "step 5"},
+            {"name": "Resting here", "status": "rest", "note": "all clear"},
+        ],
     }
 
 
@@ -1001,6 +1169,20 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             "ack_channels_active": channel_active_envs(),
         }
 
+    @application.get("/family/runtime")
+    def family_runtime(request: Request) -> dict[str, Any]:
+        """Read-only family console mirror. Honest demo fixture, not a live bot."""
+        session = _require_session(request)
+        if session is None and _auth_on():
+            raise HTTPException(status_code=401, detail="authentication required")
+        store = _tenant_store(request)
+        tenant_id = session.tenant_id if session is not None else None
+        return family_runtime_payload(
+            store.list_incidents(),
+            _app_ack_registry().pending_list(tenant_id),
+            live_channels=channel_active_envs(),
+        )
+
     @application.get("/incidents")
     def list_incidents(request: Request) -> list[dict[str, Any]]:
         store = _tenant_store(request)
@@ -1053,7 +1235,7 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
     # /acks/{token} endpoints are intentionally unauthenticated: the signed,
     # single-use, expiring token IS the authorization (caretakers arrive from
     # Slack/Teams/WhatsApp/Telegram links without a console session). The
-    # console's own Acknowledge button uses the same tokens via /acks/pending.
+    # family console reads /acks/pending only to mirror chat state.
 
     @application.get("/acks/pending")
     def acks_pending(request: Request) -> list[dict[str, Any]]:
