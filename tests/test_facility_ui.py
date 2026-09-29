@@ -58,3 +58,45 @@ def test_facility_alerts_aging_chips(client):
     html = client.get("/ui/facility/").text
     assert "aging" in html
     assert "to ack target" in html
+
+
+# ---- Task 3 ----
+
+
+def test_facility_ui_has_toast_and_owner_fields(client):
+    html = client.get("/ui/facility/").text
+    assert 'id="toast"' in html
+    assert "owner_display_name" in html
+    assert "data-doc-count" in html or "doc-count" in html
+
+
+# ---- Task 4 ----
+
+
+def test_facility_audit_register_hooks(client):
+    html = client.get("/ui/facility/").text
+    assert "audit/register" in html
+    assert "Closed-case register" in html or "closed-case register" in html.lower() or 'id="audit-register"' in html
+    assert "Resolved by response" in html or "resolved by response" in html
+    assert "lead-actions" in html or "Lead actions" in html
+    assert "\u2014" not in html
+
+
+# ---- Task 5 ----
+
+
+def test_facility_break_duration_hooks(client):
+    html = client.get("/ui/facility/").text
+    assert 'data-minutes="15"' in html
+    assert "break_until" in html
+    assert "m left" in html
+
+
+# ---- Task 6 ----
+
+
+def test_facility_demo_strip_and_loading(client):
+    html = client.get("/ui/facility/").text
+    assert "demo-strip" in html
+    assert "loading" in html
+    assert "/ui/facility/" in client.get("/ui/").text or "/ui/facility/" in html
