@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Care Ladder — Caregiver Console</title>
+<title>Care Ladder · Caregiver Console</title>
 <style>
   :root {
     --fg:#0f172a; --muted:#5b6b7e; --faint:#75849a;
@@ -136,6 +136,12 @@
     .rung-name{grid-column:2;}
     .rung-desc{grid-column:2;}
   }
+
+/* governance strip (judge) */
+.gov-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:18px 0 6px}
+.gov-card{border:1px solid var(--border,#2a3a4a);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted,#9fb3c8)}
+.gov-card strong{font-size:13px;color:var(--fg,#e8eef4)}
+#billing-toast{position:fixed;bottom:14px;right:14px;max-width:420px;padding:10px 14px;border-radius:10px;border:1px solid var(--border,#2a3a4a);background:var(--card,#101a26);font-size:13px;z-index:60;box-shadow:0 6px 24px rgba(0,0,0,.35)}
 </style>
 </head>
 <body>
@@ -156,6 +162,8 @@
       <button class="btn" data-fixture="opencv_dnn_person">DNN · real photo</button>
       <button class="btn" data-fixture="opencv_stillness">Stillness</button>
       <a class="btn" href="/ui/facility/" style="text-decoration:none">Facility floor console</a>
+      <button class="btn" id="upgrade-btn" data-plan="home">Upgrade plan</button>
+      <button class="btn" id="portal-btn">Customer portal</button>
       <label class="btn upload-label">Upload clip<input type="file" id="clip-input" accept="video/mp4,video/quicktime,video/x-msvideo,video/webm" hidden></label>
       <span id="upload-status"></span>
     </div>
@@ -176,6 +184,12 @@
     Not a medical device · no real telephony (reserved NANP fiction) · emergency fail-closed ·
     frames privacy-transformed (blur/silhouette) before persist · person tracking uses shape geometry only, never identity.
   </footer>
+
+  <section class="gov-strip" id="governance" aria-label="Governance guarantees">
+    <div class="gov-card"><strong>Tenant isolation</strong><span>Every request is session-scoped to one tenant; incidents, cases, and audit trails never cross tenants.</span></div>
+    <div class="gov-card"><strong>Fail-closed webhook</strong><span>Unsigned or invalid Stripe events are rejected before any plan change; billing truth only moves on verified signatures.</span></div>
+    <div class="gov-card"><strong>Privacy by default</strong><span>Camera frames are blurred or silhouetted before persist; raw pixels never leave the device pipeline.</span></div>
+  </section>
 </main>
 <script>
 const TOOL_LABEL = {
@@ -183,7 +197,7 @@ const TOOL_LABEL = {
   wait:"wait", jump:"jump (logged)", dial_contact:"dial", emergency:"emergency",
   notify:"notify", resolve:"resolve", suppress:"quiet hours",
   notify_channel:"notify ops (Slack)", notify_supervisor:"escalate supervisor",
-  notify_and_await_ack:"page caretakers · await ack", ack_timeout:"no acknowledgment — escalating",
+  notify_and_await_ack:"page caretakers · await ack", ack_timeout:"no acknowledgment; escalating",
 };
 const RUNG_META = {
   cue:{ label:"Cue", sub:"camera noticed" },
@@ -274,7 +288,7 @@ function renderIncident(inc, frames){
         <button class="btn step-btn" data-inc="${esc(inc.id)}" data-dir="1" aria-label="next frame">▶</button>
       </div>
       <div class="clip-strip" id="strip-${esc(inc.id)}" tabindex="0">${imgs}</div>
-      <div class="clip-note">Frames are the privacy-transformed copies persisted with this incident — raw video never leaves the device path.</div>
+      <div class="clip-note">Frames are the privacy-transformed copies persisted with this incident; raw video never leaves the device path.</div>
     </div>`;
   }
   const pose = inc.cue.detail||{};
@@ -285,7 +299,7 @@ function renderIncident(inc, frames){
     ${pose.down_sec!=null?`<span class="pose-chip">down ${pose.down_sec}s</span>`:""}
     ${pose.clip_duration_sec!=null?`<span class="pose-chip">scanned ${pose.clip_duration_sec}s</span>`:""}
   </div>` : "";
-  const banner = isDistress ? `<div class="fall-banner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0z"/></svg>Fall signature detected — sudden vertical→horizontal transition; ladder escalated past the verbal rung.</div>` : "";
+  const banner = isDistress ? `<div class="fall-banner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0z"/></svg>Fall signature detected: sudden vertical to horizontal transition; ladder escalated past the verbal rung.</div>` : "";
   const fx = inc.cue.detail && inc.cue.detail.fixture || "";
   const facilityBadge = fx.startsWith("facility") ? `<span class="badge b-facility">facility</span>` : "";
   return `<section class="incident ${isDistress?"distress":""}">
@@ -343,7 +357,7 @@ async function loadAcks(){
         <div class="ack-meta">incident ${esc(String(p.incident_id).slice(0,10))} · rung ${esc(p.rung_id||"")} · ${esc(p.channel)}</div>
       </div>
       <span class="ack-deadline" data-deadline="${esc(p.deadline)}"></span>
-      <button class="btn ack ack-btn" data-token="${esc(p.token)}">Acknowledge — I'm on it</button>
+      <button class="btn ack ack-btn" data-token="${esc(p.token)}">Acknowledge: I'm on it</button>
     </div>`).join("");
   bindAcks();
   tickDeadlines();
@@ -429,6 +443,38 @@ loadAcks();
 setInterval(()=>{ if(!document.querySelector(".upload-live")) refresh(); }, 20000);
 setInterval(()=>{ loadAcks(); }, 5000);
 setInterval(()=>{ tickDeadlines(); }, 1000);
+
+// ---- billing CTAs (B+C polish) ----
+async function billingPost(path, body){
+  const r = await fetch(path, {method:"POST", headers:{"Content-Type":"application/json"}, body: body ? JSON.stringify(body) : null});
+  return {status: r.status, body: await r.json().catch(()=>({}))};
+}
+function billingToast(msg){
+  let t = document.getElementById("billing-toast");
+  if (!t){ t = document.createElement("div"); t.id = "billing-toast"; document.body.appendChild(t); }
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(t._tm); t._tm = setTimeout(()=>{ t.hidden = true; }, 6000);
+}
+(function(){
+  const up = document.getElementById("upgrade-btn");
+  const po = document.getElementById("portal-btn");
+  if (up) up.addEventListener("click", async ()=>{
+    up.disabled = true;
+    try{
+      const {status, body} = await billingPost("/billing/checkout", {plan: up.dataset.plan || "home"});
+      if (status === 200 && body.url){ window.location.href = body.url; return; }
+      billingToast("Checkout unavailable right now: " + ((body && body.detail) || status));
+    } finally { up.disabled = false; }
+  });
+  if (po) po.addEventListener("click", async ()=>{
+    po.disabled = true;
+    try{
+      const {status, body} = await billingPost("/billing/portal");
+      if (status === 200 && body.url){ window.location.href = body.url; return; }
+      billingToast("No billing profile yet: complete an upgrade checkout first, then the portal unlocks.");
+    } finally { po.disabled = false; }
+  });
+})();
 </script>
 </body>
 </html>

@@ -133,6 +133,11 @@
   </details>
 <div id="pin-rail" aria-label="Pinned alerts" hidden></div>
 <div id="settings-row" hidden></div>
+<div class="billing-row" style="display:flex;gap:8px;align-items:center;margin-top:8px">
+  <button class="btn" id="upgrade-btn" data-plan="facility_growth">Upgrade plan</button>
+  <button class="btn" id="portal-btn">Customer portal</button>
+  <span id="billing-note" class="muted small"></span>
+</div>
 
   <div class="banner" id="reply-banner" hidden></div>
   <div class="banner" id="quiet-chip" hidden style="border-color:var(--border)"></div>
@@ -703,6 +708,34 @@ async function loadVocab(){
   if (me.status===200 && me.body.tenant){ $("#tenant-label").textContent = `${me.body.tenant.id} · ${me.body.tenant.plan}`; }
   await loadVocab();
   refresh();
+})();
+
+// ---- billing CTAs (B+C polish) ----
+(function(){
+  const up = document.getElementById("upgrade-btn");
+  const po = document.getElementById("portal-btn");
+  const note = document.getElementById("billing-note");
+  async function post(path, body){
+    const r = await fetch(path, {method:"POST", headers:{"Content-Type":"application/json"}, body: body ? JSON.stringify(body) : null});
+    return {status: r.status, body: await r.json().catch(()=>({}))};
+  }
+  function say(msg, err){ if (note){ note.textContent = msg; note.style.color = err ? "#f28b82" : ""; } showToast && showToast(msg, !!err); }
+  if (up) up.addEventListener("click", async ()=>{
+    up.disabled = true;
+    try{
+      const {status, body} = await post("/billing/checkout", {plan: up.dataset.plan || "facility_growth"});
+      if (status === 200 && body.url){ window.location.href = body.url; return; }
+      say("Checkout unavailable: " + ((body && body.detail) || status), true);
+    } finally { up.disabled = false; }
+  });
+  if (po) po.addEventListener("click", async ()=>{
+    po.disabled = true;
+    try{
+      const {status, body} = await post("/billing/portal");
+      if (status === 200 && body.url){ window.location.href = body.url; return; }
+      say("No billing profile yet: complete an upgrade checkout first, then the portal unlocks.", true);
+    } finally { po.disabled = false; }
+  });
 })();
 </script>
 </body>
