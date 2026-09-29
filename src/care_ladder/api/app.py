@@ -242,6 +242,7 @@ def _family_hero(incidents, now: datetime) -> dict[str, Any]:
     answered_today = 0
     answered_week = 0
     sent_today = 0
+    sent_week = 0
     last_ok: datetime | None = None
     last_quote = ""
     calls_week = 0
@@ -256,6 +257,8 @@ def _family_hero(incidents, now: datetime) -> dict[str, Any]:
                 cue_at = at
                 if at is not None and at >= day_start:
                     sent_today += 1
+                if at is not None and at >= week_start:
+                    sent_week += 1
             if tool == "speaker_prompt" and detail.get("reply_kind") == "ok":
                 if at is not None and at >= day_start:
                     answered_today += 1
@@ -264,7 +267,7 @@ def _family_hero(incidents, now: datetime) -> dict[str, Any]:
                 if at is not None and (last_ok is None or at > last_ok):
                     last_ok = at
                     last_quote = str(detail.get("reply_raw") or detail.get("text") or "")
-                if cue_at is not None and at is not None:
+                if cue_at is not None and at is not None and at >= week_start:
                     response_secs.append(max(0.0, (at - cue_at).total_seconds()))
             if tool == "dial_contact" and at is not None and at >= week_start:
                 calls_week += 1
@@ -276,12 +279,7 @@ def _family_hero(incidents, now: datetime) -> dict[str, Any]:
     if response_secs:
         ordered = sorted(response_secs)
         median = int(ordered[len(ordered) // 2])
-    sent_week = max(answered_week, sent_today)
-    rate = None
-    if sent_week:
-        rate = int(round(100 * answered_week / sent_week)) if sent_week else None
-    elif answered_week:
-        rate = 100
+    rate = int(round(100 * answered_week / sent_week)) if sent_week else None
     return {
         "checkins_answered_today": answered_today,
         "checkins_sent_today": sent_today,
@@ -309,8 +307,8 @@ def family_runtime_payload(
     live = set(live_channels or [])
     state = "idle"
     pending_ack = None
-    last_kind = "evening_recap"
-    last_label = "evening recap · 20:00 · notifications on for James + Sarah"
+    last_kind = "none"
+    last_label = "demo fixture · no live bot thread"
     if pending:
         p = pending[0]
         state = "family_paged"
@@ -324,9 +322,14 @@ def family_runtime_payload(
         }
         last_kind = "inform_card"
         last_label = "family paged · waiting for ack in chat"
+    live_note = (
+        f"Live adapters: {', '.join(sorted(live))}."
+        if live
+        else "Telegram and WhatsApp adapters are not live in this build."
+    )
     return {
         "source": "demo_fixture",
-        "note": "Read-only console mirror. Telegram and WhatsApp adapters are not live in this build.",
+        "note": f"Read-only console mirror. {live_note}",
         "state": state,
         "household": {
             "name": "The Marshall home",
