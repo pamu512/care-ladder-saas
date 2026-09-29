@@ -125,6 +125,9 @@ def _facility_after_incident(tenant_id: str, incident, fixture: str, session_fac
             {
                 "incident_id": incident.id,
                 "room_label": "204",
+                "place_label": "Room 204",
+                "subject_display_name": "Margaret Hale",
+                "subject_kind": "resident",
                 "at": None,
                 "reply_class": "positive",
             }
@@ -141,6 +144,9 @@ def _facility_after_incident(tenant_id: str, incident, fixture: str, session_fac
         origin=origin,
         priority=priority,
         human_id=state.next_human_id(),
+        subject_display_name="Margaret Hale",
+        subject_kind="resident",
+        subject_id="res-204",
     )
     state.open_case(case)
 
@@ -1307,6 +1313,10 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         return {
             "id": c.id, "human_id": c.human_id, "incident_id": c.incident_id,
             "room_label": c.room_label, "title": c.title, "origin": c.origin,
+            "place_label": (getattr(c, "place_label", "") or "") or c.room_label,
+            "subject_display_name": getattr(c, "subject_display_name", None),
+            "subject_kind": getattr(c, "subject_kind", None),
+            "subject_id": getattr(c, "subject_id", None),
             "priority": c.priority, "state": c.state, "owner_staff_id": c.owner_staff_id,
             "owner_display_name": owner.display_name if owner else None,
             "owner_initials": owner.initials if owner else None,
@@ -1348,6 +1358,8 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
                 {
                     "incident_id": i.id,
                     "room_label": "204",
+                    "place_label": "204",
+                    "subject_display_name": None,
                     "reply_class": "positive",
                 }
                 for i in resolved_incidents
@@ -1366,6 +1378,9 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
                     "case": _case_out(c, state),
                     "priority": c.priority,
                     "room_label": c.room_label,
+                    "place_label": (getattr(c, "place_label", "") or "") or c.room_label,
+                    "subject_display_name": getattr(c, "subject_display_name", None),
+                    "subject_kind": getattr(c, "subject_kind", None),
                     "origin": c.origin,
                     "title": c.title,
                     "chips": [

@@ -202,6 +202,14 @@ function slaLine(c){
 
 function escapeHtml(s){ return String(s||"").replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
 
+// Task 4: card title = place · person (vocabulary-aware fallback); no raw staff ids
+let VOCAB = { subject: "resident", place: "room", lead: "Floor lead" };
+function titleLine(a){
+  const place = a.place_label || (a.case && a.case.place_label) || a.room_label || "-";
+  const person = a.subject_display_name || (a.case && a.case.subject_display_name) || ("Unknown " + VOCAB.subject);
+  return `${escapeHtml(place)} · ${escapeHtml(person)}`;
+}
+
 function fmtDur(sec){
   if (sec == null) return "n/a";
   sec = Math.max(0, Math.floor(sec));
@@ -278,7 +286,7 @@ function renderAlerts(){
       <div class="row1">
         <span class="pri ${a.priority}">${a.priority}</span>
         <strong>${a.title}</strong>
-        <span class="chip">room ${a.room_label}</span>
+        <span class="chip">${escapeHtml(a.place_label || a.room_label || "-")}</span>
         <span class="chip">${a.case.human_id}</span>
         ${ageMin!==null?`<span class="chip">aging ${ageMin}m</span>`:""}
         ${leftMin!==null?`<span class="chip">${leftMin}m to ack target</span>`:""}
@@ -296,7 +304,7 @@ function renderAlerts(){
 function renderResolved(){
   const el = $("#resident-resolved");
   el.innerHTML = state.resident.length
-    ? state.resident.map(r=>`<div class="staff"><span class="chip">positive</span> room ${r.room_label||"204"} <span class="muted small">resident answered OK; no case opened</span></div>`).join("")
+    ? state.resident.map(r=>`<div class="staff"><span class="chip">positive</span> ${escapeHtml(r.place_label || r.room_label || "204")}${r.subject_display_name ? " · " + escapeHtml(r.subject_display_name) : ""} <span class="muted small">${escapeHtml(VOCAB.subject)} answered OK; no case opened</span></div>`).join("")
     : "None yet today.";
 }
 
@@ -309,7 +317,7 @@ async function loadDetail(incidentId){
   const c = body.case||{};
   const rungs = (body.rungs||[]).join(" → ");
   d.innerHTML = `
-    <h3>${c.human_id||"Alert"} · room ${c.room_label||"-"}</h3>
+    <h3>${c.human_id||"Alert"} · ${escapeHtml(c.place_label || c.room_label || "-")}${c.subject_display_name ? " · " + escapeHtml(c.subject_display_name) : ""}</h3>
     <p class="small" style="margin-bottom:6px">Reply: <strong>${body.reply_class||"silence"}</strong></p>
     <p class="muted small" style="margin-bottom:10px">${rungs||"ladder pending"}</p>
     <div class="row1" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">
@@ -457,7 +465,7 @@ function auditRowShell(r){
     <div class="reg-head" role="button" tabindex="0" aria-expanded="false">
       <span class="pri ${r.priority||""}">${r.priority||"-"}</span>
       <strong>${r.human_id}</strong>
-      <span class="muted small">room ${r.room_label} · ${escapeHtml(r.title)}</span>
+      <span class="muted small">${escapeHtml(r.place_label || r.room_label || "-")}${r.subject_display_name ? " · " + escapeHtml(r.subject_display_name) : ""} · ${escapeHtml(r.title)}</span>
       <span class="${chip[0]}">${chip[1]}</span>
       <span class="muted small">${owner}</span>
       <span style="margin-left:auto" class="muted small">${time}</span>
@@ -607,9 +615,18 @@ document.addEventListener("click", (e)=>{
   if (e.target && e.target.id === "banner-dismiss"){ $("#reply-banner").hidden = true; }
 });
 
+async function loadVocab(){
+  try{
+    const s = await (await fetch("/facility/settings")).json();
+    if (s && s.vocabulary) VOCAB = { ...VOCAB, ...s.vocabulary };
+    window.FACILITY_SETTINGS = s || {};
+  }catch(e){ /* settings optional in auth-off mode */ }
+}
+
 (async()=>{
   const me = await japi("/auth/me").catch(()=>({status:401}));
   if (me.status===200 && me.body.tenant){ $("#tenant-label").textContent = `${me.body.tenant.id} · ${me.body.tenant.plan}`; }
+  await loadVocab();
   refresh();
 })();
 </script>

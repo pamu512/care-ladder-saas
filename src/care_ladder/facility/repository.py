@@ -90,6 +90,10 @@ class FacilityRepository:
         row = CaseRow(
             id=case.id, human_id=case.human_id, tenant_id=case.tenant_id,
             incident_id=case.incident_id, room_label=case.room_label,
+            place_label=case.place_label or case.room_label,
+            subject_display_name=case.subject_display_name,
+            subject_kind=case.subject_kind,
+            subject_id=case.subject_id,
             title=case.title, origin=case.origin, priority=case.priority,
             state=case.state, owner_staff_id=case.owner_staff_id,
             slack_thread_url=case.slack_thread_url, ack_at=case.ack_at,
@@ -129,6 +133,10 @@ class FacilityRepository:
         return Case(
             id=r.id, human_id=r.human_id, tenant_id=r.tenant_id,
             incident_id=r.incident_id, room_label=r.room_label, title=r.title,
+            place_label=getattr(r, "place_label", "") or "",
+            subject_display_name=getattr(r, "subject_display_name", None),
+            subject_kind=getattr(r, "subject_kind", None),
+            subject_id=getattr(r, "subject_id", None),
             origin=r.origin,  # type: ignore[arg-type]
             priority=r.priority,  # type: ignore[arg-type]
             state=r.state,  # type: ignore[arg-type]
