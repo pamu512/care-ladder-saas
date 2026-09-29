@@ -18,7 +18,7 @@ OpenCV submission; this repo diverges here with tenancy, facility workflows, and
 - Caretaker acknowledgment surface: `GET /ack/{token}` one-tap mobile page (no console
   session needed — the token is the capability), `POST /acks/{token}` record endpoint,
   `GET /acks/pending` live panel in the caregiver console with an Acknowledge button
-- Stripe Checkout + webhook for Home ($29/mo) and Facility Starter ($199/mo)
+- Stripe Checkout + webhook for Home ($9/mo) and Facility Starter ($49/mo)
 - Landing page with pricing and judge demo login; public HTTPS deploy (Render + managed Postgres)
 - Home Path A/B demo fixtures unchanged from upstream
 
@@ -37,9 +37,9 @@ OpenCV submission; this repo diverges here with tenancy, facility workflows, and
 
 | Tier | Price | Scope |
 | --- | --- | --- |
-| Home | $29/mo | 1 household, 1 camera, voice check-in ladder, caregiver notify, full audit trail |
-| Facility Starter | $199/mo | Up to 10 rooms, Slack supervisor queue, shift-aware acknowledge, audit export |
-| Facility Growth | $499/mo | Unlimited rooms, multi-tenant admin, learning schedules with freeze controls, priority support |
+| Home | $9/mo | 1 household, 1 camera, voice check-in ladder, caregiver notify, full audit trail |
+| Facility Starter | $49/mo | Up to 10 rooms, Slack supervisor queue, shift-aware acknowledge, audit export |
+| Facility Growth | $99/mo | Unlimited rooms, multi-tenant admin, learning schedules with freeze controls, priority support |
 
 Stripe Checkout (test mode for the hackathon) gates plan upgrades; the
 billing webhook is fail-closed - an unset signing secret in a non-demo

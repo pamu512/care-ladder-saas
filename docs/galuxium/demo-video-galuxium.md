@@ -36,7 +36,7 @@ action.
 - Stripe checkout: test mode, use `4242 4242 4242 4242` - never show real keys.
 - The facility beat (5b) is the differentiator; if time-boxed, keep it and cut shot 6.
 - Mute test: facility notify → supervisor rows must read clearly with VO muted.
-- Numbers to say exactly: **$29 / $199 / $499 · two demo accounts · fail-closed webhook**.
+- Numbers to say exactly: **$9 / $49 / $99 · two demo accounts · fail-closed webhook**.
 
 ## Attribution
 

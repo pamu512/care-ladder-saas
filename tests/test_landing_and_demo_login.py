@@ -17,9 +17,13 @@ def test_landing_has_pricing_and_facility_wedge():
     assert r.status_code == 200
     text = r.text.lower()
     assert "facility" in text
-    assert "$29" in r.text or "29/mo" in text
-    assert "$199" in r.text or "199/mo" in text
-    assert "$499" in r.text or "499/mo" in text
+    # Bare "$9" also matches "$99"; require the Home /mo marker.
+    assert "$9<small>/mo" in r.text or "$9/mo" in r.text
+    assert "$49" in r.text
+    assert "$99" in r.text
+    assert "$29" not in r.text
+    assert "$199" not in r.text
+    assert "$499" not in r.text
     assert "not a medical" in text or "not medical" in text
     assert "diagnoses patients" not in text and "clinical accuracy" not in text
     assert "demo" in text
