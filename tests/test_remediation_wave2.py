@@ -35,10 +35,11 @@ def _login(client, email="facility@careladder.local", pw="demo-pass-facility"):
 
 
 def _signed_webhook(client, monkeypatch, payload: dict):
-    """Demo env accepts unsigned (documented); we assert the PG write, which is the fix."""
+    """Local unsigned webhook opt-in; we assert the PG write, which is the fix."""
     import json as _json
 
     monkeypatch.setenv("CARE_LADDER_ENV", "demo")
+    monkeypatch.setenv("CARE_LADDER_ALLOW_UNSIGNED_WEBHOOKS", "1")
     monkeypatch.delenv("STRIPE_WEBHOOK_SECRET", raising=False)
     return client.post(
         "/billing/webhook",

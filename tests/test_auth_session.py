@@ -84,8 +84,25 @@ def test_cross_tenant_incident_isolation(monkeypatch):
 def test_auth_off_keeps_existing_open_behavior(monkeypatch):
     # upstream Path A/B contract unchanged when auth is off (local/dev default)
     monkeypatch.delenv("CARE_LADDER_AUTH", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     app = create_app(store=AuditStore())
     client = TestClient(app)
     assert client.get("/incidents").status_code == 200
     r = client.post("/demo/run", json={"fixture": "no_movement_ok"})
     assert r.status_code == 200
+
+
+def test_auth_defaults_on_when_database_url_set(monkeypatch):
+    monkeypatch.delenv("CARE_LADDER_AUTH", raising=False)
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    client = TestClient(create_app(store=AuditStore()))
+    assert client.get("/demo/context").json()["auth"] is True
+    assert client.get("/incidents").status_code == 401
+
+
+def test_auth_explicit_off_wins_with_database_url(monkeypatch):
+    monkeypatch.setenv("CARE_LADDER_AUTH", "off")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    client = TestClient(create_app(store=AuditStore()))
+    assert client.get("/demo/context").json()["auth"] is False
+    assert client.get("/incidents").status_code == 200

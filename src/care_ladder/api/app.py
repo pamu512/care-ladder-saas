@@ -1011,12 +1011,20 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
 
     # ---- SaaS auth (Task 2) -------------------------------------------------
     # CARE_LADDER_AUTH=on requires a session on /demo/* and /incidents*;
-    # unauthenticated = 401 (no shared anonymous tenant). AUTH off (default)
-    # keeps the upstream open demo behavior untouched.
+    # unauthenticated = 401 (no shared anonymous tenant). AUTH off is the
+    # local zero-config default (no DATABASE_URL). DATABASE_URL set without
+    # an explicit AUTH=off turns auth on so hosted deploys cannot stay open.
     from care_ladder.auth.sessions import COOKIE_NAME, read_session_token
 
     def _auth_on() -> bool:
-        return os.environ.get("CARE_LADDER_AUTH", "off").lower() in ("on", "1", "true")
+        raw = os.environ.get("CARE_LADDER_AUTH")
+        if raw is not None and raw.strip() != "":
+            val = raw.strip().lower()
+            if val in ("off", "0", "false", "no"):
+                return False
+            if val in ("on", "1", "true", "yes"):
+                return True
+        return bool(os.environ.get("DATABASE_URL", "").strip())
 
     def _session_secret() -> str:
         return os.environ.get("SESSION_SECRET", "")
@@ -1289,7 +1297,10 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         return result
 
     @application.get("/billing/tenant/{tenant_id}")
-    def billing_tenant(tenant_id: str):
+    def billing_tenant(tenant_id: str, request: Request):
+        session = _require_session(request)
+        if session is not None and session.tenant_id != tenant_id:
+            raise HTTPException(status_code=403, detail="forbidden")
         t = application.state.billing_tenants.get(tenant_id)
         if t is None:
             raise HTTPException(status_code=404, detail="unknown tenant")

@@ -61,10 +61,12 @@ def test_facility_fixture_blocked_when_subscription_lapsed(monkeypatch):
     assert r.status_code == 403
 
 
-def test_auth_off_fixture_still_open():
+def test_auth_off_fixture_still_open(monkeypatch):
     """Upstream contract: no auth, no gating (local/demo default)."""
     from care_ladder.api.app import create_app as ca
 
+    monkeypatch.delenv("CARE_LADDER_AUTH", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     client = TestClient(ca(store=AuditStore()))
     assert client.post("/demo/run", json={"fixture": "facility_notify_silence"}).status_code == 200
 
@@ -111,6 +113,7 @@ def test_portal_url_created_when_customer_exists(monkeypatch):
 def test_webhook_persists_customer_id(monkeypatch):
     """checkout.session.completed must persist customer for later portal use."""
     monkeypatch.setenv("CARE_LADDER_ENV", "demo")
+    monkeypatch.setenv("CARE_LADDER_ALLOW_UNSIGNED_WEBHOOKS", "1")
     client = _client(monkeypatch)
     import json
 

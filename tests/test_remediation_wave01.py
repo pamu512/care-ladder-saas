@@ -17,6 +17,7 @@ from care_ladder.db.models import Base
 
 def test_n1_auth_off_facility_alerts_200(monkeypatch):
     monkeypatch.delenv("CARE_LADDER_AUTH", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("SESSION_SECRET", raising=False)
     app = create_app(store=AuditStore())
     c = TestClient(app)
