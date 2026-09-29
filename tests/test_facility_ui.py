@@ -43,3 +43,18 @@ def test_facility_link_appears_for_facility_mode(client):
     """Home page links to the facility console (navigation, not replacement)."""
     r = client.get("/ui/")
     assert "/ui/facility" in r.text
+
+
+def test_facility_alerts_have_aria_hooks(client):
+    r = client.get("/ui/facility/")
+    html = r.text
+    assert 'role="button"' in html or "setAttribute(\"role\"" in html
+    assert "aria-selected" in html
+    assert "detailDirty" in html or "detailDraft" in html
+    assert "keydown" in html
+
+
+def test_facility_alerts_aging_chips(client):
+    html = client.get("/ui/facility/").text
+    assert "aging" in html
+    assert "to ack target" in html

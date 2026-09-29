@@ -58,6 +58,8 @@
   textarea{width:100%;min-height:70px;background:var(--card2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit}
   footer{max-width:1280px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);font-size:12px}
   .demo-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+  .alert.selected{outline:2px solid var(--accent); outline-offset:2px; border-color:var(--accent)}
+  .alert:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
   @media (max-width:1020px){ .grid{grid-template-columns:1fr} .detail{position:static} .kpi{grid-template-columns:repeat(2,1fr)} }
 </style>
 </head>
@@ -136,7 +138,14 @@
 <script>
 "use strict";
 const $ = (s,el)=> (el||document).querySelector(s);
-const state = { alerts:[], resident:[], cases:{open:[],closed_today:[]}, staff:[], selected:null };
+function showToast(msg, err=false){
+  const t = $("#toast");
+  if (!t){ return; }
+  t.hidden = false; t.textContent = msg; t.className = err ? "err" : "";
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=>{ t.hidden = true; }, 4000);
+}
+const state = { alerts:[], resident:[], cases:{open:[],closed_today:[]}, staff:[], selected:null, detailDirty:false, detailDraft:null, loading:false, auditRows:[], auditFilter:"all" };
 
 async function api(path, opts){
   const r = await fetch(path, Object.assign({headers:{"Content-Type":"application/json"}}, opts));
@@ -168,18 +177,31 @@ async function refresh(){
 
 function renderAlerts(){
   const el = $("#alert-queue");
-  if (!state.alerts.length){ el.innerHTML = '<div class="card muted">No open alerts. Run a demo scenario above.</div>'; return; }
-  el.innerHTML = state.alerts.map(a=>`
-    <div class="alert ${a.priority}" data-incident="${a.incident_id}">
+  if (!state.alerts.length){ el.innerHTML = '<p class="muted">Floor clear. No open alerts.</p>'; return; }
+  el.innerHTML = state.alerts.map(a=>{
+    const opened = a.case && a.case.opened_at ? new Date(a.case.opened_at) : null;
+    const ageMin = opened ? Math.max(0, Math.floor((Date.now()-opened.getTime())/60000)) : null;
+    const sla = (a.case && a.case.sla_ack_sec) || 120;
+    const leftMin = opened ? Math.max(0, Math.ceil((sla*1000 - (Date.now()-opened.getTime()))/60000)) : null;
+    const selected = state.selected === a.incident_id;
+    return `<div class="alert ${a.priority}${selected?" selected":""}" data-incident="${a.incident_id}"
+      role="button" tabindex="0" aria-selected="${selected}">
       <div class="row1">
         <span class="pri ${a.priority}">${a.priority}</span>
         <strong>${a.title}</strong>
-        <span class="muted small">room ${a.room_label}</span>
-        <span style="margin-left:auto" class="muted small">${a.case.human_id}</span>
+        <span class="chip">room ${a.room_label}</span>
+        <span class="chip">${a.case.human_id}</span>
+        ${ageMin!==null?`<span class="chip">aging ${ageMin}m</span>`:""}
+        ${leftMin!==null?`<span class="chip">${leftMin}m to ack target</span>`:""}
+        <span style="margin-left:auto"></span>
       </div>
       <div class="row1" style="margin-top:6px">${(a.chips||[]).map(c=>`<span class="chip">${c}</span>`).join("")}</div>
-    </div>`).join("");
-  el.querySelectorAll(".alert").forEach(x=> x.addEventListener("click", ()=> loadDetail(x.dataset.incident)));
+    </div>`;}).join("");
+  el.querySelectorAll(".alert").forEach(x=>{
+    const activate = ()=> loadDetail(x.dataset.incident);
+    x.addEventListener("click", activate);
+    x.addEventListener("keydown", (e)=>{ if (e.key==="Enter"||e.key===" "){ e.preventDefault(); activate(); } });
+  });
 }
 
 function renderResolved(){
@@ -191,7 +213,9 @@ function renderResolved(){
 
 async function loadDetail(incidentId){
   state.selected = incidentId;
-  const {body} = await japi(`/facility/alerts/${incidentId}`);
+  renderAlerts(); // refresh selected ring
+  const {status, body} = await japi(`/facility/alerts/${incidentId}`);
+  if (status !== 200){ showToast((body&&body.detail)||"Could not load alert", true); return; }
   const d = $("#alert-detail");
   const c = body.case||{};
   const rungs = (body.rungs||[]).join(" → ");
@@ -211,11 +235,35 @@ async function loadDetail(incidentId){
       <input type="checkbox" id="pull_off_break"> pull off break (logged override)
     </label>
     <a class="btn subtle" style="display:inline-block;margin-top:10px" href="${c.slack_thread_url||"#"}" target="_blank" rel="noopener">Open chat thread (stub)</a>`;
-  d.querySelectorAll("[data-pri]").forEach(b=> b.addEventListener("click", ()=> japi(`/facility/alerts/${incidentId}/priority`, {method:"POST", body:JSON.stringify({priority:b.dataset.pri})}).then(refresh)));
-  $("#assign-btn").addEventListener("click", ()=>{
+  const sel = $("#assign-select");
+  const pull = $("#pull_off_break");
+  if (state.detailDirty && state.detailDraft && state.detailDraft.incidentId === incidentId) {
+    if (sel && state.detailDraft.staff_id) sel.value = state.detailDraft.staff_id;
+    if (pull) pull.checked = !!state.detailDraft.pull_off_break;
+  }
+  const markDirty = () => {
+    state.detailDirty = true;
+    state.detailDraft = {
+      incidentId,
+      staff_id: sel ? sel.value : null,
+      pull_off_break: pull ? pull.checked : false,
+    };
+  };
+  if (sel) sel.addEventListener("change", markDirty);
+  if (pull) pull.addEventListener("change", markDirty);
+  d.querySelectorAll("[data-pri]").forEach(b=> b.addEventListener("click", async ()=>{
+    const {status, body} = await japi(`/facility/alerts/${incidentId}/priority`, {method:"POST", body:JSON.stringify({priority:b.dataset.pri})});
+    if (status!==200){ showToast((body&&body.detail)||"Priority update failed", true); return; }
+    state.detailDirty = false; state.detailDraft = null;
+    refresh();
+  }));
+  $("#assign-btn").addEventListener("click", async ()=>{
     const staff_id = $("#assign-select").value;
     const pull_off_break = $("#pull_off_break").checked;
-    japi(`/facility/alerts/${incidentId}/assign`, {method:"POST", body:JSON.stringify({staff_id, pull_off_break})}).then(refresh);
+    const {status, body} = await japi(`/facility/alerts/${incidentId}/assign`, {method:"POST", body:JSON.stringify({staff_id, pull_off_break})});
+    if (status!==200){ showToast((body&&body.detail)||"Assign failed", true); return; }
+    state.detailDirty = false; state.detailDraft = null;
+    refresh();
   });
 }
 
