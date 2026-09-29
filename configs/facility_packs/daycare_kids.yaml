@@ -1,0 +1,17 @@
+facility_type: daycare_kids
+vocabulary:
+  subject: child
+  place: classroom
+  lead: Lead teacher
+sla_ack_sec: 60
+sla_handling_sec: 600
+cue_allowlist: [no_visibility, distress_heuristic, no_movement]
+concurrency:
+  one_focus: true
+  pin_peek: true
+  pin_limit: 3
+  multi_own: false
+roles:
+  - { id: staff-avery, display_name: Avery Kim, role: Lead teacher, initials: AK }
+  - { id: staff-blake, display_name: Blake Ortiz, role: Assistant, initials: BO }
+  - { id: staff-casey, display_name: Casey Nguyen, role: Aide, initials: CN }

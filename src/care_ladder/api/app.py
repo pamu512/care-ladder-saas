@@ -1216,7 +1216,15 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         if record is not None and record.get("mode") != "facility":
             raise HTTPException(status_code=403, detail="facility settings require a facility tenant")
         out = _facility_settings(request)
-        out["vocabulary"] = {}  # Task 2 merges pack vocabulary
+        try:
+            from care_ladder.facility.packs import load_pack
+
+            pack = load_pack(out["facility_type"])
+            out["vocabulary"] = pack.vocabulary
+            out["sla_ack_sec"] = pack.sla_ack_sec
+            out["sla_handling_sec"] = pack.sla_handling_sec
+        except Exception:
+            out["vocabulary"] = {}
         return out
 
     @application.patch("/facility/settings")
@@ -1265,7 +1273,15 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             except Exception:
                 pass
         out = _facility_settings(request)
-        out["vocabulary"] = {}
+        try:
+            from care_ladder.facility.packs import load_pack
+
+            pack = load_pack(out["facility_type"])
+            out["vocabulary"] = pack.vocabulary
+            out["sla_ack_sec"] = pack.sla_ack_sec
+            out["sla_handling_sec"] = pack.sla_handling_sec
+        except Exception:
+            out["vocabulary"] = {}
         return out
 
     # ---- facility console API (Mockup H) ------------------------------------

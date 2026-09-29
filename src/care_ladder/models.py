@@ -76,6 +76,7 @@ TriggerConfig = Triggers
 class Zone(BaseModel):
     id: str
     polygon: list[list[float]]
+    kind: Literal["private", "common"] = "private"  # common skips spoken check-in
 
 
 class QuietHours(BaseModel):

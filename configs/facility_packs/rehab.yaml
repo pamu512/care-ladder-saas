@@ -1,0 +1,17 @@
+facility_type: rehab
+vocabulary:
+  subject: patient
+  place: bay
+  lead: Charge nurse
+sla_ack_sec: 90
+sla_handling_sec: 720
+cue_allowlist: [no_visibility, distress_heuristic, no_movement]
+concurrency:
+  one_focus: true
+  pin_peek: true
+  pin_limit: 3
+  multi_own: false
+roles:
+  - { id: staff-dana, display_name: Dana Patel, role: Charge nurse, initials: DP }
+  - { id: staff-eli, display_name: Eli Brooks, role: PT, initials: EB }
+  - { id: staff-frankie, display_name: Frankie Lee, role: Aide, initials: FL }

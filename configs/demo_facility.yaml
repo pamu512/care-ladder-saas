@@ -22,6 +22,7 @@ notifications:
 zones:
   - id: common_room
     polygon: [[0, 0], [640, 0], [640, 480], [0, 480]]
+    kind: common
 triggers:
   no_movement:
     enabled: true
