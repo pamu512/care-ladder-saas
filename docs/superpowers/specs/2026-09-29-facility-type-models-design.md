@@ -100,7 +100,7 @@ UI: Admin (or demo settings strip) toggles these. Type packs supply defaults (e.
 
 ### 3. Zone kind and the ladder
 
-Care-plan zones gain `kind: private | common` (name TBD in YAML; store on zone config).
+Care-plan zones gain `kind: private | common` (YAML key `kind`; store on zone config).
 
 | Zone kind | Behavior |
 |-----------|----------|
