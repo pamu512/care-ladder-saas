@@ -70,6 +70,17 @@ def _facility_state(tenant_id: str, session_factory=None) -> "FacilityState":
     state = _FACILITY_STATES.get(tenant_id)
     if state is None:
         state = FacilityState()
+        # adopt tenant concurrency settings (Task 1: PG row + in-memory overrides)
+        try:
+            record = _billing_table().get(tenant_id) or {}
+            conc = ((record.get("facility_settings") or {}).get("concurrency")) or None
+            if conc:
+                state.concurrency = {**state.concurrency, **conc}
+        except Exception:
+            pass
+        over = _SETTINGS_OVERRIDES.get(tenant_id)
+        if over and over.get("concurrency"):
+            state.concurrency = {**state.concurrency, **over["concurrency"]}
         if session_factory is not None:
             state.session_factory = session_factory
             with session_factory() as session:

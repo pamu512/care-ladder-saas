@@ -37,6 +37,7 @@ class FacilityRepository:
                 status=r.status,  # type: ignore[arg-type]
                 break_until=r.break_until,
                 active_case_id=r.active_case_id,
+                parked_case_ids=list(getattr(r, "parked_case_ids", None) or []),
             )
             for r in rows
         ]
@@ -49,6 +50,7 @@ class FacilityRepository:
             id=row.id, tenant_id=row.tenant_id, display_name=row.display_name,
             role=row.role, initials=row.initials, status=row.status,  # type: ignore[arg-type]
             break_until=row.break_until, active_case_id=row.active_case_id,
+            parked_case_ids=list(getattr(row, "parked_case_ids", None) or []),
         )
 
     def set_break(self, staff_id: str, on_break: bool, minutes: int = 30) -> StaffMember | None:
@@ -74,6 +76,7 @@ class FacilityRepository:
         row.status = member.status
         row.break_until = member.break_until
         row.active_case_id = member.active_case_id
+        row.parked_case_ids = list(getattr(member, "parked_case_ids", []) or [])
         self.session.commit()
 
     def assign_case(self, staff_id: str, case_id: str) -> None:

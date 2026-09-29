@@ -90,6 +90,15 @@
   .filter-chip.on{color:var(--text);border-color:var(--accent)}
   .break-group{display:flex;gap:4px}
   @media (max-width:1020px){ .grid{grid-template-columns:1fr} .detail{position:static} .kpi{grid-template-columns:repeat(2,1fr)} .reg-body{grid-template-columns:1fr} }
+
+/* pin-peek (Task 5) */
+#pin-rail{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.pin-card{border:1px solid var(--border,#333);border-radius:8px;padding:6px 10px;font-size:12px;background:var(--card,#1b1b1b)}
+.pin-card .muted{opacity:.7}
+.pin-btn{font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--border,#333);background:transparent;color:inherit;cursor:pointer}
+.pin-btn[aria-pressed="true"]{background:var(--accent,#14b8a6);color:#04231f;border-color:transparent}
+#settings-row{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:8px;opacity:.9}
+#settings-row label{display:flex;gap:5px;align-items:center;cursor:pointer}
 </style>
 </head>
 <body>
@@ -120,6 +129,9 @@
       <button class="btn" data-fixture="facility_notify_silence">Demo · silence escalation</button>
     </div>
   </details>
+<div id="pin-rail" aria-label="Pinned alerts" hidden></div>
+<div id="settings-row" hidden></div>
+
   <div class="banner" id="reply-banner" hidden></div>
   <div class="banner" id="quiet-chip" hidden style="border-color:var(--border)"></div>
 
@@ -204,6 +216,38 @@ function escapeHtml(s){ return String(s||"").replace(/[&<>"']/g, m=>({"&":"&amp;
 
 // Task 4: card title = place · person (vocabulary-aware fallback); no raw staff ids
 let VOCAB = { subject: "resident", place: "room", lead: "Floor lead" };
+const PIN_KEY = "cl.pins";
+function getPins(){ try{ return JSON.parse(sessionStorage.getItem(PIN_KEY) || "[]"); }catch(e){ return []; } }
+function setPins(ids){ sessionStorage.setItem(PIN_KEY, JSON.stringify(ids.slice(0, (window.FACILITY_SETTINGS?.concurrency?.pin_limit) || 3))); renderPinRail(); }
+function togglePin(id){
+  let pins = getPins();
+  pins = pins.includes(id) ? pins.filter(p=>p!==id) : [...pins, id];
+  setPins(pins);
+  renderAlerts && renderAlerts();
+}
+function renderPinRail(){
+  const rail = document.getElementById("pin-rail");
+  if (!rail) return;
+  const S = window.FACILITY_SETTINGS || {};
+  const on = S.concurrency && S.concurrency.pin_peek;
+  rail.hidden = !on;
+  if (!on){ rail.innerHTML = ""; return; }
+  const pins = getPins();
+  const cards = pins.map(id=>{
+    const a = (state.alerts||[]).find(x=>x.incident_id===id || (x.case && x.case.id===id));
+    if (!a) return "";
+    return `<div class="pin-card" data-id="${id}"><strong>${escapeHtml(a.place_label || a.room_label || "-")}</strong> · ${escapeHtml(a.subject_display_name || ("Unknown " + VOCAB.subject))} · ${a.priority||"P?"} <span class="muted">${humanAge(a)}</span> <button class="pin-btn" data-unpin="${id}" aria-label="Unpin">✕</button></div>`;
+  }).join("");
+  rail.innerHTML = cards || `<span class="muted small">No pins. Pin an alert to watch it here.</span>`;
+  rail.querySelectorAll("[data-unpin]").forEach(b=> b.addEventListener("click", ()=> togglePin(b.dataset.unpin)));
+}
+function humanAge(a){
+  const opened = a.case && (a.case.opened_at || a.opened_at);
+  if (!opened) return "";
+  const mins = Math.max(0, Math.round((Date.now() - new Date(opened).getTime())/60000));
+  return mins < 60 ? `${mins}m` : `${Math.floor(mins/60)}h ${mins%60}m`;
+}
+
 function titleLine(a){
   const place = a.place_label || (a.case && a.case.place_label) || a.room_label || "-";
   const person = a.subject_display_name || (a.case && a.case.subject_display_name) || ("Unknown " + VOCAB.subject);
@@ -240,6 +284,8 @@ function tick(){
   $("#clock").textContent = n.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
   if (state.staff && state.staff.length) renderRoster();
   if (state.alerts && state.alerts.length && document.querySelector("#tab-alerts").getAttribute("aria-selected")==="true") renderAlerts();
+  renderPinRail();
+  renderSettingsRow();
 }
 setInterval(tick, 30000); tick();
 
@@ -247,6 +293,31 @@ document.querySelectorAll(".tab").forEach(t=> t.addEventListener("click", ()=>{
   document.querySelectorAll(".tab").forEach(x=> x.setAttribute("aria-selected", String(x===t)));
   document.querySelectorAll("main section").forEach(s=> s.hidden = s.id !== "sec-"+t.dataset.tab);
 }));
+
+function renderSettingsRow(){
+  const row = document.getElementById("settings-row");
+  if (!row) return;
+  const S = window.FACILITY_SETTINGS || {};
+  const c = S.concurrency || {};
+  if (!S.facility_type){ row.hidden = true; return; }
+  row.hidden = false;
+  row.innerHTML = `
+    <label><input type="checkbox" id="set-pinpeek" ${c.pin_peek?"checked":""}> Pin and peek</label>
+    <label><input type="checkbox" id="set-multiown" ${c.multi_own?"checked":""}> Multi-own (flagged)</label>
+    <span class="muted small">facility type: ${escapeHtml(S.facility_type)}</span>`;
+  const pp = document.getElementById("set-pinpeek");
+  const mo = document.getElementById("set-multiown");
+  if (pp) pp.addEventListener("change", async ()=>{
+    const r = await japi("/facility/settings", {method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({concurrency:{pin_peek: pp.checked}})});
+    if (r.status===200){ window.FACILITY_SETTINGS = r.body; renderSettingsRow(); renderAlerts && renderAlerts(); renderPinRail(); }
+    else showToast("Could not save pin setting", true);
+  });
+  if (mo) mo.addEventListener("change", async ()=>{
+    if (mo.checked){ showToast("Multi-own is not enabled for this facility yet", true); mo.checked = false; return; }
+    const r = await japi("/facility/settings", {method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify({concurrency:{multi_own: false}})});
+    if (r.status===200){ window.FACILITY_SETTINGS = r.body; renderSettingsRow(); }
+  });
+}
 
 async function refresh(){
   state.loading = true;
@@ -287,6 +358,7 @@ function renderAlerts(){
         <span class="pri ${a.priority}">${a.priority}</span>
         <strong>${a.title}</strong>
         <span class="chip">${escapeHtml(a.place_label || a.room_label || "-")}</span>
+        ${(window.FACILITY_SETTINGS?.concurrency?.pin_peek) ? `<button class="pin-btn" data-pin="${a.incident_id}" aria-pressed="${getPins().includes(a.incident_id)}" aria-label="Pin alert">${getPins().includes(a.incident_id) ? "Pinned" : "Pin"}</button>` : ""}
         <span class="chip">${a.case.human_id}</span>
         ${ageMin!==null?`<span class="chip">aging ${ageMin}m</span>`:""}
         ${leftMin!==null?`<span class="chip">${leftMin}m to ack target</span>`:""}
@@ -298,6 +370,7 @@ function renderAlerts(){
     const activate = ()=> loadDetail(x.dataset.incident);
     x.addEventListener("click", activate);
     x.addEventListener("keydown", (e)=>{ if (e.key==="Enter"||e.key===" "){ e.preventDefault(); activate(); } });
+    document.querySelectorAll("[data-pin]").forEach(b=> b.addEventListener("click", (ev)=>{ ev.stopPropagation(); togglePin(b.dataset.pin); }));
   });
 }
 

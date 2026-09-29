@@ -43,6 +43,7 @@ class StaffMember(BaseModel):
     status: StaffStatus = "available"
     break_until: datetime | None = None
     active_case_id: str | None = None
+    parked_case_ids: list[str] = Field(default_factory=list)  # multi_own secondaries
 
     def go_on_break(self, minutes: int, now: datetime | None = None) -> None:
         base = now or datetime.now(timezone.utc)

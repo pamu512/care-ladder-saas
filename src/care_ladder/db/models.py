@@ -74,6 +74,7 @@ class StaffRow(Base):
     status: Mapped[str] = mapped_column(String(16), default="available")  # available | on_case | on_break
     break_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     active_case_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    parked_case_ids: Mapped[list] = mapped_column(JSON, default=list)  # multi_own secondaries
 
 
 class CaseRow(Base):
