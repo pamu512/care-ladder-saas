@@ -1,0 +1,64 @@
+# Family chat-first household (P1). Channel telegram_family pages through BotThread.
+# Without TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID the adapter stays an honest stub.
+household_id: demo-family-1
+mode: home
+caregiver:
+  display_name: James
+  phone_e164: "+12125550101"   # reserved fiction in demos
+secondary:
+  display_name: Sarah
+  phone_e164: "+12125550102"   # reserved fiction in demos
+monitored:
+  display_name: Ellen
+notifications:
+  slack:
+    enabled: false
+  teams:
+    enabled: false
+  whatsapp:
+    enabled: false
+  telegram:
+    enabled: true
+    chat_id: null              # live chat id comes from TELEGRAM_CHAT_ID
+zones:
+  - id: living_room
+    polygon: [[0, 0], [640, 0], [640, 480], [0, 480]]
+triggers:
+  no_movement:
+    enabled: true
+    timeout_sec: 900
+  no_visibility:
+    enabled: true
+  distress_heuristic:
+    enabled: true
+rungs:
+  - id: reperceive
+    tool: reperceive
+    params: { roi: auto }
+  - id: ask_ok
+    tool: speaker_prompt
+    params:
+      text: "Are you okay? Do you want me to call James?"
+      channel: nest_or_alexa_then_phone
+  - id: wait_reply
+    tool: wait
+    params: { sec: 120 }
+  - id: page_family
+    tool: notify_and_await_ack
+    params:
+      channel: telegram_family
+      message: "Mom didn't answer. Paging you now."
+      ack_timeout_sec: 300
+  - id: dial_primary
+    tool: dial_contact
+    params: { contact: caregiver }
+  - id: dial_secondary
+    tool: dial_contact
+    params: { contact: secondary }
+  - id: emergency
+    tool: emergency
+    params: { enabled: false }   # fail-closed unless explicitly true
+quiet_hours:
+  start: "22:00"
+  end: "07:00"
+  policy: soft_suppress_non_distress

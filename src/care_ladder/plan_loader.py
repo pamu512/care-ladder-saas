@@ -59,26 +59,46 @@ def validate_demo_phones(plan: CarePlan) -> None:
 
 
 _FACILITY_TOOLS = frozenset({"notify_channel", "notify_supervisor", "notify_and_await_ack"})
+_FAMILY_PAGE_CHANNELS = frozenset({"telegram_family", "whatsapp_family"})
+
+
+def _is_family_page(rung) -> bool:
+    return rung.tool == "notify_and_await_ack" and rung.params.get("channel") in _FAMILY_PAGE_CHANNELS
 
 
 def validate_mode_coherence(plan: CarePlan) -> None:
     """Facility/home mode must be coherent with the plan's rungs and blocks.
 
-    - facility rungs (notify_channel / notify_supervisor / notify_and_await_ack)
-      require mode=facility and a supervisor + notifications block
-    - facility rungs require at least one enabled notifications channel
-      (a notify rung that can never deliver is a silent stub)
-    - home plans must not carry facility rungs
+    - facility rungs (notify_channel / notify_supervisor / slack-style
+      notify_and_await_ack) require mode=facility and a supervisor + notifications
+    - family chat pages (notify_and_await_ack + telegram_family/whatsapp_family)
+      are allowed on home plans; they need telegram or whatsapp enabled
+    - home plans must not carry facility (staff) notify rungs
     """
-    tools = {r.tool for r in plan.rungs}
-    has_facility_rungs = bool(tools & _FACILITY_TOOLS)
+    facility_tools = {
+        r.tool
+        for r in plan.rungs
+        if r.tool in _FACILITY_TOOLS and not _is_family_page(r)
+    }
+    family_pages = [r for r in plan.rungs if _is_family_page(r)]
 
-    if plan.mode == "home" and has_facility_rungs:
+    if plan.mode == "home" and facility_tools:
         raise ValueError(
-            "home mode plan must not contain notify rungs "
-            f"(found {sorted(tools & _FACILITY_TOOLS)}); use mode: facility"
+            "home mode plan must not contain facility notify rungs "
+            f"(found {sorted(facility_tools)}); use mode: facility"
         )
-    if plan.mode == "facility" and has_facility_rungs:
+    if family_pages:
+        notes = plan.notifications
+        family_on = bool(
+            notes is not None
+            and (notes.telegram.enabled or notes.whatsapp.enabled)
+        )
+        if not family_on:
+            raise ValueError(
+                "family notify rungs require telegram or whatsapp enabled "
+                "in notifications (without credentials the adapter stays stub)"
+            )
+    if plan.mode == "facility" and facility_tools:
         if plan.supervisor is None:
             raise ValueError("facility notify rungs require a supervisor contact")
         if plan.notifications is None or not plan.notifications.enabled_channels():

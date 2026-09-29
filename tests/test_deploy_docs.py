@@ -37,6 +37,9 @@ def test_env_example_covers_required_secrets():
         "STRIPE_PRICE_FACILITY_GROWTH",
         "STRIPE_WEBHOOK_SECRET",
         "SLACK_WEBHOOK_URL",
+        "TELEGRAM_BOT_TOKEN",
+        "TELEGRAM_CHAT_ID",
+        "TELEGRAM_MODE",
     ):
         assert key in env, f"missing {key} in .env.example"
 
@@ -52,6 +55,8 @@ def test_render_yaml_pins_demo_env_and_db():
     assert "CARE_LADDER_AUTH" in cfg and "on" in cfg
     assert "fromDatabase" in cfg
     assert "SESSION_SECRET" in cfg
+    assert "TELEGRAM_BOT_TOKEN" in cfg
+    assert "TELEGRAM_MODE" in cfg
 
 
 def test_pyproject_declares_psycopg_binary_driver():

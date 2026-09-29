@@ -81,6 +81,37 @@ Ack-link env:
 - `PUBLIC_BASE_URL` — base for ack links embedded in pages (defaults to empty;
   set to your deployed origin, e.g. `https://careladder.example`)
 
+## Family chat P1 (Telegram)
+
+The family runtime is the Telegram thread, not the web console. P1 ships the
+conversation FSM (`BotThread`) and Telegram adapter v2 (inline buttons +
+numbered replies + the existing `GET /ack/{token}` fallback). WhatsApp
+templates (P2), the console re-roll (P3), and `/status` commands (P4) are
+not in this phase.
+
+Env (Render dashboard → Environment, or `.env` locally):
+
+| Variable | Required for live send | Notes |
+| --- | --- | --- |
+| `TELEGRAM_BOT_TOKEN` | yes | BotFather token. Unset = honest stub, no outbound HTTP |
+| `TELEGRAM_CHAT_ID` | yes | Household chat/group id. Unset = stub |
+| `TELEGRAM_MODE` | no | `poll` (default, demo) or `hook` |
+| `TELEGRAM_HOOK_URL` | hook mode | e.g. `https://<service>.onrender.com/telegram/webhook` |
+| `FAMILY_PLAN_PATH` | no | defaults to `configs/demo_family.yaml` |
+| `PUBLIC_BASE_URL` | for ack-link | origin embedded in the fallback link |
+
+Smoke a live Telegram demo on Render:
+
+1. Create a bot with BotFather, add it to the family chat, copy the token and chat id.
+2. Set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_MODE=poll` (or `hook` + `TELEGRAM_HOOK_URL`).
+3. Set `PUBLIC_BASE_URL` to the public `https://` origin so ack-link fallbacks work.
+4. Redeploy / restart the web service.
+5. `POST /demo/run` with `{"fixture":"family_telegram_page"}` (home demo login if auth is on).
+6. In Telegram: tap **I'm on it. I'll call her myself** (or reply `1`). First tap wins; the ack-link in the card is the same window.
+7. `GET /incidents/{id}` should show `bot` events with `at` timestamps and `resolve.reason: caretaker_ack`. If nobody taps within ~20s the stub dial rung still runs.
+
+Without token/chat_id the fixture still runs: the audit trail records `adapter: stub` and never claims a Telegram delivery.
+
 ## Honesty notes
 
 - `DialerChannel` is a stub: numbers dialed are reserved fictional

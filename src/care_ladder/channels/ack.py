@@ -28,7 +28,13 @@ from typing import Any, Callable, Literal
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-AckChannel = Literal["slack", "teams", "whatsapp", "telegram", "web"]
+AckChannel = Literal["slack", "teams", "whatsapp", "telegram", "web", "call"]
+AckAction = Literal["ack", "call_now", "pass"]
+
+# Numbered-reply / button-word map used in the open family chat window.
+_REPLY_ACK = frozenset({"1", "ack", "on it", "im on it", "i'm on it"})
+_REPLY_CALL = frozenset({"2", "call", "call now", "call mom", "call mom now"})
+_REPLY_PASS = frozenset({"3", "pass", "cant", "can't", "go to"})
 
 # Extra slack after the ack deadline before a token is fully invalid, so a
 # caretaker opening the page right at the deadline can still record the ack.
@@ -73,9 +79,11 @@ class AckOutcome:
     acked_by: str | None
     note: str | None
     acked_at: datetime
+    msg_ref: str | None = None
+    origin: str | None = None
 
     def summary(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "token": self.token,
             "incident_id": self.incident_id,
             "rung_id": self.rung_id,
@@ -84,6 +92,33 @@ class AckOutcome:
             "note": self.note,
             "acked_at": self.acked_at.isoformat(),
         }
+        if self.msg_ref is not None:
+            out["msg_ref"] = self.msg_ref
+        if self.origin is not None:
+            out["origin"] = self.origin
+        return out
+
+
+def parse_chat_reply(text: str) -> AckAction | None:
+    """Map ``1|2|3`` or button words to ack / call_now / pass. None if free text."""
+    raw = (text or "").strip().casefold()
+    if not raw:
+        return None
+    # Leading numeral wins ("1 - on it, calling her now").
+    first = raw.split()[0].rstrip(".)-:;")
+    if first == "1":
+        return "ack"
+    if first == "2":
+        return "call_now"
+    if first == "3":
+        return "pass"
+    if raw in _REPLY_ACK or raw.startswith("i'm on it") or raw.startswith("im on it") or raw.startswith("on it"):
+        return "ack"
+    if raw in _REPLY_CALL or raw.startswith("call mom"):
+        return "call_now"
+    if raw in _REPLY_PASS or raw.startswith("can't take") or raw.startswith("cant take") or raw.startswith("go to"):
+        return "pass"
+    return None
 
 
 @dataclass
@@ -195,8 +230,14 @@ class AckRegistry:
         by: str | None = None,
         note: str | None = None,
         channel: str = "web",
+        msg_ref: str | None = None,
+        origin: str | None = None,
     ) -> tuple[AckOutcome | None, str]:
-        """Record an ack for a signed token. Returns (outcome, reason)."""
+        """Record an ack for a signed token. Returns (outcome, reason).
+
+        First writer wins: a later button / numbered reply / ack-link for the
+        same token returns ``already acknowledged``.
+        """
         now = self._now()
         try:
             payload = self._serializer.loads(token)
@@ -225,6 +266,8 @@ class AckRegistry:
                 acked_by=by,
                 note=note,
                 acked_at=now,
+                msg_ref=msg_ref,
+                origin=origin,
             )
             self._outcomes_by_token[token] = outcome
         return outcome, "ok"
@@ -344,7 +387,7 @@ def render_ack_page(pending: PendingAck | None, *, status_note: str = "") -> str
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Care Ladder — Acknowledge</title>
+<title>Care Ladder: Acknowledge</title>
 <style>
   :root {{ --fg:#0f172a; --muted:#64748b; --accent:#0e7490; --border:#e2e8f0; --ok:#15803d; --bad:#b91c1c; }}
   * {{ box-sizing:border-box; margin:0; }}
@@ -384,7 +427,7 @@ if (btn) btn.addEventListener("click", async () => {{
     }});
     const b = await r.json().catch(() => ({{}}));
     if (r.ok) {{
-      st.textContent = "\\u2713 Recorded \\u2014 thank you. The escalation ladder has stopped for this incident.";
+      st.textContent = "\\u2713 Recorded. Thank you. The escalation ladder has stopped for this incident.";
       st.classList.remove("err");
     }} else {{
       st.textContent = "\\u26a0 " + (b.detail || "could not record acknowledgment");

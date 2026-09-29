@@ -32,6 +32,16 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: TELEGRAM_MODE
+        value: poll
+      - key: TELEGRAM_HOOK_URL
+        sync: false
+      - key: FAMILY_PLAN_PATH
+        sync: false
 
 databases:
   - name: care-ladder-db
