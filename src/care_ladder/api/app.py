@@ -41,9 +41,13 @@ SUPPORTED_FIXTURES = frozenset(
         "facility_ack_timeout",
         "facility_negative_reply",
         "facility_positive_reply",
+        "daycare_common_no_visibility",
+        "rehab_gym_no_visibility",
     }
 )
 _FACILITY_PLAN_PATH = _REPO_ROOT / "configs" / "demo_facility.yaml"
+_DAYCARE_PLAN_PATH = _REPO_ROOT / "configs" / "demo_daycare.yaml"
+_REHAB_PLAN_PATH = _REPO_ROOT / "configs" / "demo_rehab.yaml"
 _POSE_MODEL_PATH = _REPO_ROOT / "models" / "pose_estimation_mediapipe_2023mar.onnx"
 _MODEL_PATH = _REPO_ROOT / "models" / "person_detection_mediapipe_2023mar.onnx"
 # Midday UTC so quiet_hours soft-suppress does not hide the judge demo ladder.
@@ -144,6 +148,11 @@ def _facility_after_incident(tenant_id: str, incident, fixture: str, session_fac
             }
         )
         return
+    subject = {"display_name": "Margaret Hale", "kind": "resident", "id": "res-204", "room": "204", "place": "204"}
+    if fixture == "daycare_common_no_visibility":
+        subject = {"display_name": "Nora Kim", "kind": "child", "id": "child-nk-1", "room": "classroom_1", "place": "Classroom 1"}
+    elif fixture == "rehab_gym_no_visibility":
+        subject = {"display_name": "Dana Patel", "kind": "patient", "id": "pt-dp-4", "room": "gym", "place": "Gym"}
     if fixture == "facility_negative_reply":
         origin, priority = "from_negative_reply", Priority.default_for(incident.cue.kind, "negative")
     else:  # silence path fixtures
@@ -151,14 +160,15 @@ def _facility_after_incident(tenant_id: str, incident, fixture: str, session_fac
     case = Case.open_from_incident(
         incident_id=incident.id,
         tenant_id=tenant_id,
-        room_label="204",
+        room_label=subject["room"],
         origin=origin,
         priority=priority,
         human_id=state.next_human_id(),
-        subject_display_name="Margaret Hale",
-        subject_kind="resident",
-        subject_id="res-204",
+        subject_display_name=subject["display_name"],
+        subject_kind=subject["kind"],
+        subject_id=subject["id"],
     )
+    case.place_label = subject["place"]
     state.open_case(case)
 
 
@@ -305,6 +315,66 @@ async def _run_facility_reply(store: AuditStore, *, negative: bool):
         if e.tool == "speaker_prompt":
             e.detail = {**e.detail, "reply_class": cls.reply_class, "classify_source": cls.source}
     store.save(incident)
+    return incident
+
+
+async def _run_type_demo_scenario(store: AuditStore, *, facility_type: str):
+    """Facility-type demos (Task 6/7): cue in a COMMON zone of the type's demo plan.
+
+    The spoken check-in is skipped by design (common zone, Zone.kind common):
+    the person on camera may not be the monitored subject. The ladder
+    escalates: notify_and_await_ack (short demo window, nobody acks) ->
+    notify_supervisor -> dial. A case opens with the type's subject/place
+    vocabulary so the console shows place · person.
+    """
+    import copy
+
+    from care_ladder.channels.notify import NotifyChannelAdapter
+    from care_ladder.channels.router import PageRouter
+    from care_ladder.channels.speaker import SpeakerSimulator
+    from care_ladder.channels.dial import StubDialer
+    from care_ladder.facility.models import Case, Priority
+
+    if facility_type == "daycare_kids":
+        plan = copy.deepcopy(load_care_plan(_DAYCARE_PLAN_PATH))
+        zone_id, subject_name, subject_kind, subject_id, place = (
+            "classroom_1", "Nora Kim", "child", "child-nk-1", "Classroom 1",
+        )
+        cue_kind = "no_visibility"
+    else:
+        plan = copy.deepcopy(load_care_plan(_REHAB_PLAN_PATH))
+        zone_id, subject_name, subject_kind, subject_id, place = (
+            "gym", "Dana Patel", "patient", "pt-dp-4", "Gym",
+        )
+        cue_kind = "no_visibility"
+    for rung in plan.rungs:
+        if rung.tool == "notify_and_await_ack":
+            rung.params["ack_timeout_sec"] = 2
+
+    cue = CueEvent(
+        kind=cue_kind,
+        confidence=0.9,
+        detail={"fixture": f"{facility_type}_demo", "zone_id": zone_id},
+    )
+    incident = await run_incident(
+        cue=cue,
+        plan=plan,
+        speaker=SpeakerSimulator(scripted=[]),
+        dialer=StubDialer(behavior={"caregiver": "no_answer", "secondary": "answered"}),
+        pre_event_frames=[],
+        store=store,
+        notifier=NotifyChannelAdapter(),
+        now=DEMO_NOW,
+    )
+    # Switch the tenant's facility_type + pack vocabulary BEFORE opening the case
+    from care_ladder.api.app import _SETTINGS_OVERRIDES
+
+    tid = getattr(store, "tenant_id", None) or "demo-facility"
+    _SETTINGS_OVERRIDES[tid] = {**(_SETTINGS_OVERRIDES.get(tid) or {}), "facility_type": facility_type}
+    if tid in _FACILITY_STATES:
+        from care_ladder.facility.packs import load_pack
+
+        _FACILITY_STATES[tid].concurrency = {**_FACILITY_STATES[tid].concurrency, **load_pack(facility_type).concurrency}
     return incident
 
 
@@ -1163,6 +1233,21 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         elif body.fixture == "opencv_pose_person":
             incident = await _run_opencv_pose_person(store)
         elif body.fixture in (
+            "daycare_common_no_visibility",
+            "rehab_gym_no_visibility",
+        ):
+            from care_ladder.billing.plans import tenant_can_use_notify
+
+            record = _tenant_record(request)
+            if record is not None and not tenant_can_use_notify(record):
+                raise HTTPException(
+                    status_code=403,
+                    detail="facility notify requires an active facility plan "
+                    "(Facility Starter or Growth); upgrade from the landing page",
+                )
+            ftype = "daycare_kids" if body.fixture == "daycare_common_no_visibility" else "rehab"
+            incident = await _run_type_demo_scenario(store, facility_type=ftype)
+        elif body.fixture in (
             "facility_notify_silence",
             "facility_ack_resolved",
             "facility_ack_timeout",
@@ -1187,7 +1272,10 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         else:  # pragma: no cover - guarded by SUPPORTED_FIXTURES
             raise HTTPException(status_code=400, detail="unsupported fixture")
         await _publish_cloud(incident)
-        if body.fixture.startswith("facility_"):
+        if body.fixture.startswith("facility_") or body.fixture in (
+            "daycare_common_no_visibility",
+            "rehab_gym_no_visibility",
+        ):
             record = _tenant_record(request)
             if record is not None and record.get("mode") == "facility":
                 record_tenant = record.get("tenant_id")
@@ -1206,15 +1294,23 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         return {"one_focus": True, "pin_peek": False, "pin_limit": 3, "multi_own": False}
 
     def _facility_settings(request: Request):
-        """Merged settings: defaults <- tenant PG row <- in-memory PATCH overrides."""
+        """Merged settings: defaults <- pack for the type <- tenant PG row <- overrides."""
         record = _tenant_record(request)
         base_type = (record or {}).get("facility_type") or "assisted_living"
         stored = dict((record or {}).get("facility_settings") or {})
         overrides = _SETTINGS_OVERRIDES.get(_session_tenant_id(request, record))
-        merged = {**_default_concurrency(), **(stored.get("concurrency") or {})}
         if overrides:
             if overrides.get("facility_type"):
                 base_type = overrides["facility_type"]
+        merged = {**_default_concurrency()}
+        try:
+            from care_ladder.facility.packs import load_pack
+
+            merged = {**merged, **(load_pack(base_type).concurrency or {})}
+        except Exception:
+            pass
+        merged = {**merged, **(stored.get("concurrency") or {})}
+        if overrides:
             merged = {**merged, **(overrides.get("concurrency") or {})}
         return {"facility_type": base_type, "concurrency": merged}
 
