@@ -240,14 +240,14 @@
       <div class="tcard ok">
         <span class="tag">Positive reply</span>
         <h3>Closes in place</h3>
-        <p>"I'm fine" by voice or an OK button press resolves the incident at rung two. Staff and family are never paged; the transcript is kept for review.</p>
+        <p>"I'm fine" by voice resolves the incident at rung two. Staff and family are never paged; the transcript is kept for review.</p>
         <div class="ex">illustrative demo script · 38s</div>
       </div>
       <div class="tcard bad">
         <span class="tag">Negative reply</span>
         <h3>Raises priority, jumps the queue</h3>
-        <p>"No... I can't get up" skips every wait rung: priority auto-raises to P1 and caretakers are paged immediately.</p>
-        <div class="ex">wait rungs skipped · negative auto-raises P1</div>
+        <p>"No... I can't get up" is classified as a negative reply: priority is raised and caretakers are paged immediately, with the wait rungs skipped.</p>
+        <div class="ex">negative class raises priority · lead can correct</div>
       </div>
       <div class="tcard warn">
         <span class="tag">Silence</span>
@@ -271,7 +271,7 @@
           <p>Nobody opens a console when Mom might need help. Care Ladder is being rolled out as a bot thread in WhatsApp or Telegram - today's live demo runs the same ladder with one-tap acknowledgment links:</p>
           <ul>
             <li><b>Inform with a countdown</b> - blurred frame, plain words, "we'll call you, then Sarah"</li>
-            <li><b>One-tap acknowledgment</b> - "I'm on it" stops the escalation, from chat or the link</li>
+            <li><b>One-tap acknowledgment</b> - "I'm on it" stops the escalation, from the acknowledgment link (chat buttons rolling out with the Telegram runtime)</li>
             <li><b>Update by replying</b> - roadmap: "she's fine, balcony again" becomes the case note</li>
             <li><b>Evening recap</b> - roadmap: check-ins answered, calls placed, response times</li>
           </ul>
@@ -287,7 +287,7 @@
             <li><b>Alert center</b> - priority queue, aging timers, assign, override, de-escalate</li>
             <li><b>Cases</b> - acknowledged, handled, closed with required documentation</li>
             <li><b>Audit</b> - time-to-ack, handling times, response transcripts, CSV export</li>
-            <li><b>Shift aware</b> - breaks respected, coverage warnings, group timeout routing</li>
+            <li><b>Shift aware</b> - breaks respected, coverage warnings when the shift thins</li>
           </ul>
         </div>
         <a class="audlink" href="#facilities">See the facility console →</a>
@@ -320,7 +320,7 @@
           <span class="bt">21:26</span></div>
         <div class="bubble bot good">
           <b>Closed · all fine.</b> Cue 21:12 → page 21:17 → you acked in 52s → closed 21:26.
-          Clip: 3 frames, faces blurred, kept 30 days.
+          Clip: 3 frames, faces blurred (design preview).
           <span class="bt">21:26</span>
         </div>
       </div>
