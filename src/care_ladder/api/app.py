@@ -893,6 +893,13 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
     def billing_cancel():
         return {"ok": False, "note": "checkout canceled; no charge"}
 
+    @application.get("/billing/return")
+    def billing_return(request: Request):
+        from care_ladder.billing.stripe_checkout import render_billing_return_html
+
+        kind = (request.query_params.get("from") or "").strip().lower()
+        return HTMLResponse(render_billing_return_html(kind))
+
     @application.post("/billing/portal")
     def billing_portal(request: Request):
         """Stripe Customer Portal session for the logged-in tenant.
@@ -920,7 +927,7 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         origin = resolve_checkout_base_url(request)
         try:
             session = stripe.billing_portal.Session.create(
-                customer=customer, return_url=f"{origin}/billing/success"
+                customer=customer, return_url=f"{origin}/billing/return?from=portal"
             )
         except stripe.StripeError as exc:
             raise HTTPException(status_code=503, detail="portal unavailable") from exc

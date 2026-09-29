@@ -8,6 +8,7 @@ Fail-closed rules (plan Global Constraints):
 """
 from __future__ import annotations
 
+import html
 import os
 from typing import Any
 
@@ -78,8 +79,11 @@ def create_checkout_url(plan: str, tenant_id: str, base_url: str = "") -> str:
         session = stripe.checkout.Session.create(
             mode="subscription",
             line_items=[{"price": price_id, "quantity": 1}],
-            success_url=f"{origin}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{origin}/billing/cancel",
+            success_url=(
+                f"{origin}/billing/return?from=checkout"
+                "&session_id={CHECKOUT_SESSION_ID}"
+            ),
+            cancel_url=f"{origin}/billing/return?from=cancel",
             metadata={"tenant_id": tenant_id, "plan": plan},
         )
     except stripe.StripeError as exc:
@@ -120,3 +124,75 @@ def apply_subscription_event(event: dict[str, Any], tenants: dict[str, dict[str,
     elif etype == "customer.subscription.deleted":
         t["status"] = "canceled"
     return {"applied": True, "tenant_id": tenant_id, "plan": t["plan"], "status": t["status"]}
+
+
+_RETURN_COPY = {
+    "portal": (
+        "Billing portal closed",
+        "You left the Stripe customer portal. Closing the portal does not create a new charge.",
+    ),
+    "checkout": (
+        "Checkout completed",
+        "Checkout finished. Plan activation is awaiting webhook verification. "
+        "This page does not confirm a live subscription by itself.",
+    ),
+    "cancel": (
+        "Checkout canceled",
+        "Checkout was canceled. No charge was made.",
+    ),
+}
+
+
+def render_billing_return_html(from_kind: str) -> str:
+    """Human landing page after Stripe Portal or Checkout.
+
+    JSON /billing/success and /billing/cancel stay for API clients; humans
+    need HTML with a way back to the consoles.
+    """
+    kind = (from_kind or "").strip().lower()
+    title, body = _RETURN_COPY.get(
+        kind,
+        (
+            "Back from Stripe",
+            "You returned from Stripe billing. Use a console link below to continue.",
+        ),
+    )
+    title_esc = html.escape(title)
+    body_esc = html.escape(body)
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Care Ladder · {title_esc}</title>
+<style>
+  :root {{ --fg:#0f172a; --muted:#64748b; --accent:#0e7490; --border:#e2e8f0; }}
+  * {{ box-sizing:border-box; margin:0; }}
+  body {{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+         background:#f8fafc; color:var(--fg); font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }}
+  .card {{ background:#fff; border:1px solid var(--border); border-radius:16px; padding:28px 24px; max-width:460px; width:100%;
+          box-shadow:0 1px 3px rgba(15,23,42,.06); }}
+  .brand {{ font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:14px; }}
+  h1 {{ font-size:20px; margin-bottom:10px; }}
+  p {{ font-size:15px; color:var(--muted); margin-bottom:18px; }}
+  .links {{ display:flex; flex-direction:column; gap:8px; }}
+  a {{ display:block; text-align:center; text-decoration:none; border-radius:10px; padding:10px 14px; font-size:14px; font-weight:600; }}
+  a.primary {{ background:var(--accent); color:#fff; }}
+  a.secondary {{ border:1px solid var(--border); color:var(--fg); }}
+  .note {{ font-size:12px; color:var(--muted); margin-top:16px; margin-bottom:0; }}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">Care Ladder</div>
+    <h1>{title_esc}</h1>
+    <p>{body_esc}</p>
+    <div class="links">
+      <a class="primary" href="/ui/">Caregiver console</a>
+      <a class="secondary" href="/ui/facility/">Facility floor console</a>
+    </div>
+    <p class="note">Not a medical device. Billing changes apply only after Stripe confirms them.</p>
+  </div>
+</body>
+</html>
+"""

@@ -115,10 +115,13 @@ def test_checkout_passes_absolute_https_urls_to_stripe(monkeypatch):
     )
     assert r.status_code == 200
     assert captured["success_url"].startswith(
-        "https://care-ladder-saas.onrender.com/billing/success"
+        "https://care-ladder-saas.onrender.com/billing/return"
     )
+    assert "from=checkout" in captured["success_url"]
     assert "{CHECKOUT_SESSION_ID}" in captured["success_url"]
-    assert captured["cancel_url"] == "https://care-ladder-saas.onrender.com/billing/cancel"
+    assert captured["cancel_url"] == (
+        "https://care-ladder-saas.onrender.com/billing/return?from=cancel"
+    )
 
 
 def test_checkout_facility_growth_uses_stripe_price_facility_growth(monkeypatch):
@@ -182,6 +185,37 @@ def test_billing_success_and_cancel_do_not_404():
     cancel = client.get("/billing/cancel")
     assert cancel.status_code == 200
     assert cancel.json()["ok"] is False
+
+
+def _assert_billing_return_html(resp, *, phrase: str):
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers.get("content-type", "")
+    html = resp.text
+    assert "<!doctype html" in html.lower()
+    assert phrase.lower() in html.lower()
+    assert "/ui/" in html
+    assert "/ui/facility/" in html
+    assert "\u2014" not in html
+    # JSON-only landing is the bug this page replaces
+    assert not html.strip().startswith("{")
+
+
+def test_billing_return_html_portal():
+    client = TestClient(create_app(store=AuditStore()))
+    r = client.get("/billing/return", params={"from": "portal"})
+    _assert_billing_return_html(r, phrase="portal closed")
+
+
+def test_billing_return_html_checkout():
+    client = TestClient(create_app(store=AuditStore()))
+    r = client.get("/billing/return", params={"from": "checkout"})
+    _assert_billing_return_html(r, phrase="awaiting webhook")
+
+
+def test_billing_return_html_cancel():
+    client = TestClient(create_app(store=AuditStore()))
+    r = client.get("/billing/return", params={"from": "cancel"})
+    _assert_billing_return_html(r, phrase="no charge")
 
 
 # ---------- webhook (fail-closed: C2) ----------

@@ -99,6 +99,9 @@
 .pin-btn[aria-pressed="true"]{background:var(--accent,#14b8a6);color:#04231f;border-color:transparent}
 #settings-row{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin-top:8px;opacity:.9}
 #settings-row label{display:flex;gap:5px;align-items:center;cursor:pointer}
+.gov-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:18px 0 6px}
+.gov-card{border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}
+.gov-card strong{font-size:13px;color:var(--text)}
 </style>
 </head>
 <body>
@@ -138,6 +141,11 @@
   <button class="btn" id="portal-btn">Customer portal</button>
   <span id="billing-note" class="muted small"></span>
 </div>
+  <section class="gov-strip" id="governance" aria-label="Governance guarantees">
+    <div class="gov-card"><strong>Tenant isolation</strong><span>Every request is session-scoped to one tenant; incidents, cases, and audit trails never cross tenants.</span></div>
+    <div class="gov-card"><strong>Fail-closed webhook</strong><span>Unsigned or invalid Stripe events are rejected before any plan change; billing truth only moves on verified signatures.</span></div>
+    <div class="gov-card"><strong>Privacy by default</strong><span>Camera frames are blurred or silhouetted before persist; raw pixels never leave the device pipeline.</span></div>
+  </section>
 
   <div class="banner" id="reply-banner" hidden></div>
   <div class="banner" id="quiet-chip" hidden style="border-color:var(--border)"></div>
