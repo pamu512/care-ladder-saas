@@ -47,7 +47,7 @@ rungs:
     tool: notify_and_await_ack
     params:
       channel: slack
-      message: "check-in silence in common_room — acknowledge if you're helping"
+      message: "check-in silence in common_room; acknowledge if you're helping"
       ack_timeout_sec: 300
   - id: notify_lead
     tool: notify_supervisor
