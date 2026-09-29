@@ -223,6 +223,13 @@ async def run_incident(
     idx = 0
     n = len(plan.rungs)
     skip_next_wait = False
+    # Common zones (shared spaces) never get a spoken check-in: the person on
+    # camera may not be the monitored subject, and speaker-asking a shared
+    # room is a privacy intrusion. Cue detail carries zone_id; kind comes
+    # from the plan. Cues without zone info keep the check-in (back-compat).
+    zone_id = cue.detail.get("zone_id")
+    zone = next((z for z in plan.zones if z.id == zone_id), None)
+    common_zone = bool(zone is not None and getattr(zone, "kind", "private") == "common")
     while idx < n:
         rung = plan.rungs[idx]
         tool = rung.tool
@@ -234,6 +241,21 @@ async def run_incident(
                 cue_kind=cue.kind,
                 rung_id=rung.id,
                 detail={"params": dict(rung.params), "result": "stub_ok"},
+            )
+            idx += 1
+            continue
+
+        if tool == "speaker_prompt" and common_zone:
+            _append(
+                events,
+                tool="speaker_prompt",
+                cue_kind=cue.kind,
+                rung_id=rung.id,
+                detail={
+                    "skipped": True,
+                    "reason": "common_zone_no_spoken_checkin",
+                    "zone_id": zone_id,
+                },
             )
             idx += 1
             continue

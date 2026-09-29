@@ -31,6 +31,7 @@ class FacilityState:
     overrides: list[dict[str, Any]] = field(default_factory=list)
     resident_resolved: list[dict[str, Any]] = field(default_factory=list)
     session_factory: Any = None
+    concurrency: dict[str, Any] = field(default_factory=lambda: {"one_focus": True, "pin_peek": False, "pin_limit": 3, "multi_own": False})
     _opened_times: dict[str, str] = field(default_factory=dict)
 
     def _repo(self, session):
@@ -79,13 +80,26 @@ class FacilityState:
         member = self.staff.get(staff_id)
         if case is None or member is None:
             return None
-        if not member.assignable():
+        multi_own = bool((self.concurrency or {}).get("multi_own"))
+        if member.status == "on_break" and not member.assignable():
             if not pull_off_break:
                 return None
             member.come_off_break()
             self.log_override("pull_off_break", case_id, staff_id)
+        elif member.status == "on_case" and member.active_case_id != case_id:
+            # one-focus default: a busy staff cannot take a second case.
+            # multi_own: allow it, park the new case, keep the primary focus.
+            if not multi_own:
+                return None
+            if case_id not in member.parked_case_ids:
+                member.parked_case_ids.append(case_id)
+            case.owner_staff_id = staff_id
+            self._persist()
+            return case, member
         if member.status == "available":
             member.status = "on_case"
+        if case_id in member.parked_case_ids:
+            member.parked_case_ids.remove(case_id)
         member.active_case_id = case_id
         case.owner_staff_id = staff_id
         self._persist()
@@ -205,8 +219,15 @@ class FacilityState:
             return None
         owner = self.staff.get(c.owner_staff_id or "")
         if owner is not None:
-            owner.status = "available"
-            owner.active_case_id = None
+            if c.id in owner.parked_case_ids:
+                owner.parked_case_ids.remove(c.id)
+            if owner.active_case_id == c.id or owner.active_case_id is None:
+                owner.status = "available"
+                owner.active_case_id = None
+                if not owner.parked_case_ids:
+                    owner.status = "available"
+                else:
+                    owner.active_case_id = owner.parked_case_ids.pop(0)
         self._persist()
         return c
 

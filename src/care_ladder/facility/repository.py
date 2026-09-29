@@ -37,6 +37,7 @@ class FacilityRepository:
                 status=r.status,  # type: ignore[arg-type]
                 break_until=r.break_until,
                 active_case_id=r.active_case_id,
+                parked_case_ids=list(getattr(r, "parked_case_ids", None) or []),
             )
             for r in rows
         ]
@@ -49,6 +50,7 @@ class FacilityRepository:
             id=row.id, tenant_id=row.tenant_id, display_name=row.display_name,
             role=row.role, initials=row.initials, status=row.status,  # type: ignore[arg-type]
             break_until=row.break_until, active_case_id=row.active_case_id,
+            parked_case_ids=list(getattr(row, "parked_case_ids", None) or []),
         )
 
     def set_break(self, staff_id: str, on_break: bool, minutes: int = 30) -> StaffMember | None:
@@ -74,6 +76,7 @@ class FacilityRepository:
         row.status = member.status
         row.break_until = member.break_until
         row.active_case_id = member.active_case_id
+        row.parked_case_ids = list(getattr(member, "parked_case_ids", []) or [])
         self.session.commit()
 
     def assign_case(self, staff_id: str, case_id: str) -> None:
@@ -90,6 +93,10 @@ class FacilityRepository:
         row = CaseRow(
             id=case.id, human_id=case.human_id, tenant_id=case.tenant_id,
             incident_id=case.incident_id, room_label=case.room_label,
+            place_label=case.place_label or case.room_label,
+            subject_display_name=case.subject_display_name,
+            subject_kind=case.subject_kind,
+            subject_id=case.subject_id,
             title=case.title, origin=case.origin, priority=case.priority,
             state=case.state, owner_staff_id=case.owner_staff_id,
             slack_thread_url=case.slack_thread_url, ack_at=case.ack_at,
@@ -129,6 +136,10 @@ class FacilityRepository:
         return Case(
             id=r.id, human_id=r.human_id, tenant_id=r.tenant_id,
             incident_id=r.incident_id, room_label=r.room_label, title=r.title,
+            place_label=getattr(r, "place_label", "") or "",
+            subject_display_name=getattr(r, "subject_display_name", None),
+            subject_kind=getattr(r, "subject_kind", None),
+            subject_id=getattr(r, "subject_id", None),
             origin=r.origin,  # type: ignore[arg-type]
             priority=r.priority,  # type: ignore[arg-type]
             state=r.state,  # type: ignore[arg-type]

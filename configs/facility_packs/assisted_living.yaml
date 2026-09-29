@@ -1,0 +1,18 @@
+facility_type: assisted_living
+vocabulary:
+  subject: resident
+  place: room
+  lead: Floor lead
+sla_ack_sec: 120
+sla_handling_sec: 900
+cue_allowlist: [no_visibility, distress_heuristic, no_movement]
+concurrency:
+  one_focus: true
+  pin_peek: false
+  pin_limit: 3
+  multi_own: false
+roles:
+  - { id: demo-facility-maria, display_name: Maria G., role: RN, initials: MG }
+  - { id: demo-facility-alex, display_name: Alex R., role: CNA, initials: AR }
+  - { id: demo-facility-jamie, display_name: Jamie D., role: CNA, initials: JD }
+  - { id: demo-facility-lead, display_name: Floor Lead, role: Lead, initials: FL }

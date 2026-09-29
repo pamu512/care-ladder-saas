@@ -41,9 +41,13 @@ SUPPORTED_FIXTURES = frozenset(
         "facility_ack_timeout",
         "facility_negative_reply",
         "facility_positive_reply",
+        "daycare_common_no_visibility",
+        "rehab_gym_no_visibility",
     }
 )
 _FACILITY_PLAN_PATH = _REPO_ROOT / "configs" / "demo_facility.yaml"
+_DAYCARE_PLAN_PATH = _REPO_ROOT / "configs" / "demo_daycare.yaml"
+_REHAB_PLAN_PATH = _REPO_ROOT / "configs" / "demo_rehab.yaml"
 _POSE_MODEL_PATH = _REPO_ROOT / "models" / "pose_estimation_mediapipe_2023mar.onnx"
 _MODEL_PATH = _REPO_ROOT / "models" / "person_detection_mediapipe_2023mar.onnx"
 # Midday UTC so quiet_hours soft-suppress does not hide the judge demo ladder.
@@ -53,6 +57,7 @@ DEMO_NOW = datetime(2026, 9, 11, 12, 0, tzinfo=timezone.utc)
 # --- Mockup H facility console state (process-local demo; Postgres rows via
 # --- FacilityRepository when DATABASE_URL is configured - Slice 4)
 _FACILITY_STATES: dict[str, "FacilityState"] = {}
+_SETTINGS_OVERRIDES: dict[str, dict[str, Any]] = {}
 
 
 def _facility_state(tenant_id: str, session_factory=None) -> "FacilityState":
@@ -69,6 +74,17 @@ def _facility_state(tenant_id: str, session_factory=None) -> "FacilityState":
     state = _FACILITY_STATES.get(tenant_id)
     if state is None:
         state = FacilityState()
+        # adopt tenant concurrency settings (Task 1: PG row + in-memory overrides)
+        try:
+            record = _billing_table().get(tenant_id) or {}
+            conc = ((record.get("facility_settings") or {}).get("concurrency")) or None
+            if conc:
+                state.concurrency = {**state.concurrency, **conc}
+        except Exception:
+            pass
+        over = _SETTINGS_OVERRIDES.get(tenant_id)
+        if over and over.get("concurrency"):
+            state.concurrency = {**state.concurrency, **over["concurrency"]}
         if session_factory is not None:
             state.session_factory = session_factory
             with session_factory() as session:
@@ -124,11 +140,19 @@ def _facility_after_incident(tenant_id: str, incident, fixture: str, session_fac
             {
                 "incident_id": incident.id,
                 "room_label": "204",
+                "place_label": "Room 204",
+                "subject_display_name": "Margaret Hale",
+                "subject_kind": "resident",
                 "at": None,
                 "reply_class": "positive",
             }
         )
         return
+    subject = {"display_name": "Margaret Hale", "kind": "resident", "id": "res-204", "room": "204", "place": "204"}
+    if fixture == "daycare_common_no_visibility":
+        subject = {"display_name": "Nora Kim", "kind": "child", "id": "child-nk-1", "room": "classroom_1", "place": "Classroom 1"}
+    elif fixture == "rehab_gym_no_visibility":
+        subject = {"display_name": "Dana Patel", "kind": "patient", "id": "pt-dp-4", "room": "gym", "place": "Gym"}
     if fixture == "facility_negative_reply":
         origin, priority = "from_negative_reply", Priority.default_for(incident.cue.kind, "negative")
     else:  # silence path fixtures
@@ -136,11 +160,15 @@ def _facility_after_incident(tenant_id: str, incident, fixture: str, session_fac
     case = Case.open_from_incident(
         incident_id=incident.id,
         tenant_id=tenant_id,
-        room_label="204",
+        room_label=subject["room"],
         origin=origin,
         priority=priority,
         human_id=state.next_human_id(),
+        subject_display_name=subject["display_name"],
+        subject_kind=subject["kind"],
+        subject_id=subject["id"],
     )
+    case.place_label = subject["place"]
     state.open_case(case)
 
 
@@ -287,6 +315,66 @@ async def _run_facility_reply(store: AuditStore, *, negative: bool):
         if e.tool == "speaker_prompt":
             e.detail = {**e.detail, "reply_class": cls.reply_class, "classify_source": cls.source}
     store.save(incident)
+    return incident
+
+
+async def _run_type_demo_scenario(store: AuditStore, *, facility_type: str):
+    """Facility-type demos (Task 6/7): cue in a COMMON zone of the type's demo plan.
+
+    The spoken check-in is skipped by design (common zone, Zone.kind common):
+    the person on camera may not be the monitored subject. The ladder
+    escalates: notify_and_await_ack (short demo window, nobody acks) ->
+    notify_supervisor -> dial. A case opens with the type's subject/place
+    vocabulary so the console shows place · person.
+    """
+    import copy
+
+    from care_ladder.channels.notify import NotifyChannelAdapter
+    from care_ladder.channels.router import PageRouter
+    from care_ladder.channels.speaker import SpeakerSimulator
+    from care_ladder.channels.dial import StubDialer
+    from care_ladder.facility.models import Case, Priority
+
+    if facility_type == "daycare_kids":
+        plan = copy.deepcopy(load_care_plan(_DAYCARE_PLAN_PATH))
+        zone_id, subject_name, subject_kind, subject_id, place = (
+            "classroom_1", "Nora Kim", "child", "child-nk-1", "Classroom 1",
+        )
+        cue_kind = "no_visibility"
+    else:
+        plan = copy.deepcopy(load_care_plan(_REHAB_PLAN_PATH))
+        zone_id, subject_name, subject_kind, subject_id, place = (
+            "gym", "Dana Patel", "patient", "pt-dp-4", "Gym",
+        )
+        cue_kind = "no_visibility"
+    for rung in plan.rungs:
+        if rung.tool == "notify_and_await_ack":
+            rung.params["ack_timeout_sec"] = 2
+
+    cue = CueEvent(
+        kind=cue_kind,
+        confidence=0.9,
+        detail={"fixture": f"{facility_type}_demo", "zone_id": zone_id},
+    )
+    incident = await run_incident(
+        cue=cue,
+        plan=plan,
+        speaker=SpeakerSimulator(scripted=[]),
+        dialer=StubDialer(behavior={"caregiver": "no_answer", "secondary": "answered"}),
+        pre_event_frames=[],
+        store=store,
+        notifier=NotifyChannelAdapter(),
+        now=DEMO_NOW,
+    )
+    # Switch the tenant's facility_type + pack vocabulary BEFORE opening the case
+    from care_ladder.api.app import _SETTINGS_OVERRIDES
+
+    tid = getattr(store, "tenant_id", None) or "demo-facility"
+    _SETTINGS_OVERRIDES[tid] = {**(_SETTINGS_OVERRIDES.get(tid) or {}), "facility_type": facility_type}
+    if tid in _FACILITY_STATES:
+        from care_ladder.facility.packs import load_pack
+
+        _FACILITY_STATES[tid].concurrency = {**_FACILITY_STATES[tid].concurrency, **load_pack(facility_type).concurrency}
     return incident
 
 
@@ -721,7 +809,11 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
     # ---- billing (Task 8) ---------------------------------------------------
     _BILLING_TENANTS: dict[str, dict[str, Any]] = {
         "demo-home": {"mode": "home", "plan": "home", "status": "active"},
-        "demo-facility": {"mode": "facility", "plan": "demo", "status": "demo"},
+        "demo-facility": {
+            "mode": "facility", "plan": "demo", "status": "demo",
+            "facility_type": "assisted_living",
+            "facility_settings": {},
+        },
     }
     application.state.billing_tenants = _BILLING_TENANTS
 
@@ -747,6 +839,8 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
                             "plan": row.plan,
                             "status": row.subscription_status,
                             "stripe_customer_id": getattr(row, "stripe_customer_id", None),
+                            "facility_type": getattr(row, "facility_type", "assisted_living"),
+                            "facility_settings": getattr(row, "facility_settings", None) or {},
                         }
             except Exception:
                 pass  # fall through to the in-memory table
@@ -1139,6 +1233,21 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         elif body.fixture == "opencv_pose_person":
             incident = await _run_opencv_pose_person(store)
         elif body.fixture in (
+            "daycare_common_no_visibility",
+            "rehab_gym_no_visibility",
+        ):
+            from care_ladder.billing.plans import tenant_can_use_notify
+
+            record = _tenant_record(request)
+            if record is not None and not tenant_can_use_notify(record):
+                raise HTTPException(
+                    status_code=403,
+                    detail="facility notify requires an active facility plan "
+                    "(Facility Starter or Growth); upgrade from the landing page",
+                )
+            ftype = "daycare_kids" if body.fixture == "daycare_common_no_visibility" else "rehab"
+            incident = await _run_type_demo_scenario(store, facility_type=ftype)
+        elif body.fixture in (
             "facility_notify_silence",
             "facility_ack_resolved",
             "facility_ack_timeout",
@@ -1163,7 +1272,10 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         else:  # pragma: no cover - guarded by SUPPORTED_FIXTURES
             raise HTTPException(status_code=400, detail="unsupported fixture")
         await _publish_cloud(incident)
-        if body.fixture.startswith("facility_"):
+        if body.fixture.startswith("facility_") or body.fixture in (
+            "daycare_common_no_visibility",
+            "rehab_gym_no_visibility",
+        ):
             record = _tenant_record(request)
             if record is not None and record.get("mode") == "facility":
                 record_tenant = record.get("tenant_id")
@@ -1173,6 +1285,117 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
                     session_factory=getattr(request.app.state, "pg_session_factory", None),
                 )
         return DemoRunResponse(incident_id=incident.id)
+
+    # ---- facility type settings (type-models Task 1) ------------------------
+
+    _FACILITY_TYPE_VALUES = ("daycare_kids", "assisted_living", "rehab", "old_age_home")
+
+    def _default_concurrency() -> dict[str, Any]:
+        return {"one_focus": True, "pin_peek": False, "pin_limit": 3, "multi_own": False}
+
+    def _facility_settings(request: Request):
+        """Merged settings: defaults <- pack for the type <- tenant PG row <- overrides."""
+        record = _tenant_record(request)
+        base_type = (record or {}).get("facility_type") or "assisted_living"
+        stored = dict((record or {}).get("facility_settings") or {})
+        overrides = _SETTINGS_OVERRIDES.get(_session_tenant_id(request, record))
+        if overrides:
+            if overrides.get("facility_type"):
+                base_type = overrides["facility_type"]
+        merged = {**_default_concurrency()}
+        try:
+            from care_ladder.facility.packs import load_pack
+
+            merged = {**merged, **(load_pack(base_type).concurrency or {})}
+        except Exception:
+            pass
+        merged = {**merged, **(stored.get("concurrency") or {})}
+        if overrides:
+            merged = {**merged, **(overrides.get("concurrency") or {})}
+        return {"facility_type": base_type, "concurrency": merged}
+
+    def _session_tenant_id(request: Request, record) -> str:
+        session = _require_session(request)
+        if session is not None:
+            return session.tenant_id
+        return (record or {}).get("tenant_id") or "demo-facility"
+
+    @application.get("/facility/settings")
+    def facility_settings_get(request: Request):
+        session = _require_session(request)
+        if session is None and _auth_on():
+            raise HTTPException(status_code=401, detail="authentication required")
+        record = _tenant_record(request)
+        if record is not None and record.get("mode") != "facility":
+            raise HTTPException(status_code=403, detail="facility settings require a facility tenant")
+        out = _facility_settings(request)
+        try:
+            from care_ladder.facility.packs import load_pack
+
+            pack = load_pack(out["facility_type"])
+            out["vocabulary"] = pack.vocabulary
+            out["sla_ack_sec"] = pack.sla_ack_sec
+            out["sla_handling_sec"] = pack.sla_handling_sec
+        except Exception:
+            out["vocabulary"] = {}
+        return out
+
+    @application.patch("/facility/settings")
+    async def facility_settings_patch(request: Request, body: dict):
+        session = _require_session(request)
+        if session is None and _auth_on():
+            raise HTTPException(status_code=401, detail="authentication required")
+        record = _tenant_record(request)
+        if record is not None and record.get("mode") != "facility":
+            raise HTTPException(status_code=403, detail="facility settings require a facility tenant")
+        ftype = body.get("facility_type")
+        if ftype is not None and ftype not in _FACILITY_TYPE_VALUES:
+            raise HTTPException(status_code=422, detail="unsupported facility_type")
+        conc = body.get("concurrency")
+        if conc is not None:
+            for key in conc:
+                if key not in ("one_focus", "pin_peek", "pin_limit", "multi_own"):
+                    raise HTTPException(status_code=422, detail=f"unknown concurrency key {key}")
+        tenant_id = _session_tenant_id(request, record)
+        current = _SETTINGS_OVERRIDES.get(tenant_id) or {}
+        new_over = dict(current)
+        if ftype is not None:
+            new_over["facility_type"] = ftype
+        if conc is not None:
+            merged_conc = {**_default_concurrency(), **(current.get("concurrency") or {}), **conc}
+            new_over["concurrency"] = merged_conc
+        _SETTINGS_OVERRIDES[tenant_id] = new_over
+        # PG persistence when available
+        factory = getattr(application.state, "pg_session_factory", None)
+        if factory is not None:
+            try:
+                from care_ladder.db.models import Tenant as TenantRow
+
+                with factory() as dbs:
+                    row = dbs.get(TenantRow, tenant_id)
+                    if row is not None:
+                        if ftype is not None:
+                            row.facility_type = ftype
+                        stored = dict(row.facility_settings or {})
+                        stored_conc = {**_default_concurrency(), **(stored.get("concurrency") or {})}
+                        if conc is not None:
+                            stored_conc = {**stored_conc, **conc}
+                        stored["concurrency"] = stored_conc
+                        row.facility_settings = stored
+                        dbs.commit()
+            except Exception:
+                pass
+        out = _facility_settings(request)
+        try:
+            from care_ladder.facility.packs import load_pack
+
+            pack = load_pack(out["facility_type"])
+            out["vocabulary"] = pack.vocabulary
+            out["sla_ack_sec"] = pack.sla_ack_sec
+            out["sla_handling_sec"] = pack.sla_handling_sec
+        except Exception:
+            out["vocabulary"] = {}
+        return out
 
     # ---- facility console API (Mockup H) ------------------------------------
 
@@ -1197,6 +1420,10 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         return {
             "id": c.id, "human_id": c.human_id, "incident_id": c.incident_id,
             "room_label": c.room_label, "title": c.title, "origin": c.origin,
+            "place_label": (getattr(c, "place_label", "") or "") or c.room_label,
+            "subject_display_name": getattr(c, "subject_display_name", None),
+            "subject_kind": getattr(c, "subject_kind", None),
+            "subject_id": getattr(c, "subject_id", None),
             "priority": c.priority, "state": c.state, "owner_staff_id": c.owner_staff_id,
             "owner_display_name": owner.display_name if owner else None,
             "owner_initials": owner.initials if owner else None,
@@ -1238,6 +1465,8 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
                 {
                     "incident_id": i.id,
                     "room_label": "204",
+                    "place_label": "204",
+                    "subject_display_name": None,
                     "reply_class": "positive",
                 }
                 for i in resolved_incidents
@@ -1256,6 +1485,9 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
                     "case": _case_out(c, state),
                     "priority": c.priority,
                     "room_label": c.room_label,
+                    "place_label": (getattr(c, "place_label", "") or "") or c.room_label,
+                    "subject_display_name": getattr(c, "subject_display_name", None),
+                    "subject_kind": getattr(c, "subject_kind", None),
                     "origin": c.origin,
                     "title": c.title,
                     "chips": [

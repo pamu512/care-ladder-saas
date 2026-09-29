@@ -43,6 +43,7 @@ class StaffMember(BaseModel):
     status: StaffStatus = "available"
     break_until: datetime | None = None
     active_case_id: str | None = None
+    parked_case_ids: list[str] = Field(default_factory=list)  # multi_own secondaries
 
     def go_on_break(self, minutes: int, now: datetime | None = None) -> None:
         base = now or datetime.now(timezone.utc)
@@ -71,6 +72,10 @@ class Case(BaseModel):
     tenant_id: str
     incident_id: str
     room_label: str
+    place_label: str = ""  # display place; aliases room_label when empty
+    subject_display_name: str | None = None
+    subject_kind: str | None = None  # child | resident | patient
+    subject_id: str | None = None
     title: str
     origin: CaseOrigin
     priority: Priority
@@ -94,6 +99,9 @@ class Case(BaseModel):
         priority: Priority,
         title: str = "",
         human_id: str = "",
+        subject_display_name: str | None = None,
+        subject_kind: str | None = None,
+        subject_id: str | None = None,
     ) -> "Case":
         # Callers that persist cases MUST pass human_id (state.next_human_id()
         # guarantees cross-restart uniqueness). The fallback keeps a simple
@@ -108,6 +116,10 @@ class Case(BaseModel):
             tenant_id=tenant_id,
             incident_id=incident_id,
             room_label=room_label,
+            place_label=room_label,
+            subject_display_name=subject_display_name,
+            subject_kind=subject_kind,
+            subject_id=subject_id,
             origin=origin,
             priority=priority,
             title=title or f"{origin.replace('from_', '').replace('_', ' ').title()} - room {room_label}",

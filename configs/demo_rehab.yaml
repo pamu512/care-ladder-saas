@@ -1,18 +1,18 @@
-household_id: demo-facility-1
+household_id: demo-rehab-1
 mode: facility
 caregiver:
-  display_name: Alex
+  display_name: Guardian
   phone_e164: "+12125550101"   # reserved fiction in demos
 monitored:
-  display_name: Pat
+  display_name: Patient
 supervisor:
-  display_name: Floor Lead
+  display_name: Charge Nurse
   slack_user_id: "U0DEMO"
   phone_e164: "+12125550103"   # reserved fiction in demos
 notifications:
   slack:
     enabled: true
-    channel: "#floor-ops"
+    channel: "#rehab-floor"
   teams:
     enabled: false
   whatsapp:
@@ -20,7 +20,10 @@ notifications:
   telegram:
     enabled: false
 zones:
-  - id: common_room
+  - id: bay_1
+    polygon: [[0, 0], [640, 0], [640, 480], [0, 480]]
+    kind: private
+  - id: gym
     polygon: [[0, 0], [640, 0], [640, 480], [0, 480]]
     kind: common
 triggers:
@@ -38,7 +41,7 @@ rungs:
   - id: ask_ok
     tool: speaker_prompt
     params:
-      text: "Are you okay? Press or say OK, or your floor lead will be notified."
+      text: "Are you okay? Press or say OK, or your charge nurse will be notified."
       channel: nest_or_alexa_then_phone
   - id: wait_reply
     tool: wait
@@ -47,19 +50,16 @@ rungs:
     tool: notify_and_await_ack
     params:
       channel: slack
-      message: "check-in silence in common_room; acknowledge if you're helping"
+      message: "patient not visible in gym; acknowledge if you're helping"
       ack_timeout_sec: 300
   - id: notify_lead
     tool: notify_supervisor
     params:
-      message: "resident unresponsive in common_room; calling primary caregiver"
+      message: "patient not visible in gym; calling guardian"
   - id: dial_primary
     tool: dial_contact
     params: { contact: caregiver }
   - id: emergency
     tool: emergency
-    params: { enabled: false }   # fail-closed unless explicitly true
-quiet_hours:
-  start: "22:00"
-  end: "07:00"
-  policy: soft_suppress_non_distress
+    params: { enabled: false }
+next_rung_after_no_answer: emergency
