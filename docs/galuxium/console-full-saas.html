@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Care Ladder SaaS · full console mockup</title>
+<style>
+  :root{
+    --bg:#0b0f14;--side:#0d1319;--card:#121820;--card2:#0e141b;--raise:#161f2a;
+    --border:#1f2a36;--border2:#2b3a49;
+    --text:#e8eef4;--muted:#8b9bab;--faint:#5f7189;
+    --accent:#18a4c2;--accent-deep:#0e7490;--accent-ink:#04141a;--accent-soft:rgba(24,164,194,.12);
+    --ok:#34c98e;--ok-soft:rgba(52,201,142,.11);
+    --warn:#f5b544;--warn-soft:rgba(245,181,68,.11);
+    --bad:#f4574d;--bad-soft:rgba(244,87,77,.11);
+    --p1:#f4574d;--p2:#f5a044;--p3:#5b8def;
+    --vio:#b9a6ff;--vio-soft:rgba(185,166,255,.11);
+    --radius:12px;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  button{font-family:inherit}
+  .shell{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+
+  /* ---------- sidebar ---------- */
+  .side{background:var(--side);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .brand{display:flex;gap:10px;align-items:center;padding:4px 8px 14px}
+  .mark{width:32px;height:32px;border-radius:9px;background:linear-gradient(160deg,var(--accent),var(--accent-deep));display:grid;place-items:center;color:var(--accent-ink);flex-shrink:0}
+  .mark svg{width:16px;height:16px}
+  .brand h1{font-size:14.5px;line-height:1.2}
+  .brand .sub{font-size:10.5px;color:var(--faint)}
+  .tenant{display:flex;gap:8px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-bottom:12px}
+  .tenant .tn{font-size:12.5px;font-weight:650}
+  .tenant .tm{font-size:10.5px;color:var(--faint)}
+  .tenant svg{width:13px;height:13px;color:var(--faint);margin-left:auto}
+  .ngroup{font-size:9.5px;font-weight:750;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);padding:12px 10px 6px}
+  .nav{display:flex;gap:9px;align-items:center;padding:7px 10px;border-radius:9px;color:var(--muted);cursor:pointer;font-size:13px;border:0;background:none;width:100%;text-align:left}
+  .nav:hover{background:var(--raise);color:var(--text)}
+  .nav.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .nav svg{width:15px;height:15px;flex-shrink:0}
+  .nav .cnt{margin-left:auto;font-family:var(--mono);font-size:10px;background:var(--raise);border-radius:999px;padding:1px 7px;color:var(--muted)}
+  .nav .cnt.hot{background:var(--bad-soft);color:var(--bad)}
+  .side .foot{margin-top:auto;padding:12px 10px;font-size:10.5px;color:var(--faint);line-height:1.6}
+
+  /* ---------- topbar ---------- */
+  .main{display:flex;flex-direction:column;min-width:0}
+  .top{position:sticky;top:0;z-index:10;background:rgba(11,15,20,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--border);padding:12px 22px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .top h2{font-size:16px;font-weight:700}
+  .top .crumb{color:var(--faint);font-size:12px}
+  .plan{font-size:10.5px;font-weight:700;letter-spacing:.04em;border-radius:999px;padding:3px 10px;background:var(--accent-soft);color:var(--accent);border:1px solid rgba(24,164,194,.35)}
+  .clock{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-left:auto}
+  .user{width:30px;height:30px;border-radius:50%;background:var(--raise);border:1px solid var(--border2);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--muted)}
+  content{display:block;padding:20px 22px 44px;max-width:1160px;width:100%;margin:0 auto}
+  section.view{display:none}
+  section.view.on{display:block}
+
+  /* ---------- shared ---------- */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px}
+  .card h3{font-size:11px;color:var(--faint);font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:11px}
+  .muted{color:var(--muted)} .small{font-size:12px} .mono{font-family:var(--mono)}
+  .grid2{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px;align-items:start}
+  .btn{background:var(--card);border:1px solid var(--border);color:var(--text);padding:7px 13px;border-radius:9px;cursor:pointer;font-size:12.5px;display:inline-flex;gap:7px;align-items:center}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:650}
+  .btn.subtle{font-size:11.5px;padding:5px 10px}
+  .btn.danger{background:var(--bad);border-color:var(--bad);color:#1c0606;font-weight:700}
+  .chip{font-size:10.5px;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:1px 9px;white-space:nowrap}
+  .chip.hot{border-color:rgba(244,87,77,.5);color:var(--bad)}
+  .chip.ok{border-color:rgba(52,201,142,.4);color:var(--ok)}
+  .badge{font-size:9.5px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;border-radius:5px;padding:2px 8px}
+  .b-ok{background:var(--ok-soft);color:var(--ok)} .b-warn{background:var(--warn-soft);color:var(--warn)}
+  .b-bad{background:var(--bad-soft);color:var(--bad)} .b-vio{background:var(--vio-soft);color:var(--vio)}
+  .b-info{background:var(--accent-soft);color:var(--accent)}
+  .banner{border-radius:12px;padding:11px 15px;font-size:13px;display:flex;gap:11px;align-items:center;margin-bottom:14px;border:1px solid}
+  .banner.good{background:rgba(52,201,142,.07);border-color:rgba(52,201,142,.3);color:var(--ok)}
+  .banner.info{background:var(--accent-soft);border-color:rgba(24,164,194,.3);color:var(--accent)}
+  .banner svg{width:16px;height:16px;flex-shrink:0}
+  .banner .sub{display:block;color:var(--muted);font-size:12px}
+
+  .kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:14px}
+  .kpi .box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+  .kpi .n{font-size:21px;font-weight:750;font-variant-numeric:tabular-nums}
+  .kpi .n small{font-size:10.5px;color:var(--faint);font-weight:500}
+  .kpi .l{font-size:10px;color:var(--faint);margin-top:2px;letter-spacing:.04em;text-transform:uppercase}
+  .kpi .good .n{color:var(--ok)} .kpi .bad .n{color:var(--bad)} .kpi .warn .n{color:var(--warn)} .kpi .vio .n{color:var(--vio)}
+
+  /* alerts */
+  .alert{background:var(--card);border:1px solid var(--border);border-left-width:4px;border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;cursor:pointer}
+  .alert:hover{border-color:var(--border2)}
+  .alert.sel{outline:2px solid var(--accent);outline-offset:2px}
+  .alert.P1{border-left-color:var(--p1)} .alert.P2{border-left-color:var(--p2)} .alert.P3{border-left-color:var(--p3)}
+  .alert .row1{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+  .pri{font-weight:750;font-size:11.5px;padding:2px 8px;border-radius:6px;background:var(--card2);border:1px solid var(--border)}
+  .pri.P1{color:var(--p1)} .pri.P2{color:var(--p2)} .pri.P3{color:var(--p3)}
+  .atitle{font-weight:650;font-size:13.5px}
+  .reply{margin-top:8px;background:var(--card2);border-left:3px solid var(--bad);border-radius:0 8px 8px 0;padding:6px 11px;font-size:12.5px}
+  .reply .q{font-style:italic}
+  .reply .m{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:2px}
+
+  .detail{position:sticky;top:74px}
+  .dsec{border-top:1px solid var(--border);padding:11px 0 6px}
+  .dsec h4{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:9px}
+  .mr{display:grid;grid-template-columns:18px 1fr auto;gap:9px;align-items:center;padding:3.5px 0;font-size:12px}
+  .mr .dot{width:9px;height:9px;border-radius:50%;border:2.5px solid var(--border2);justify-self:center}
+  .mr.done .dot{background:var(--accent);border-color:var(--accent)}
+  .mr.cur .dot{border-color:var(--warn);box-shadow:0 0 0 3px rgba(245,181,68,.15)}
+  .mr.stop .dot{background:var(--ok);border-color:var(--ok)}
+  .mr.jump .dot{background:var(--bad);border-color:var(--bad)}
+  .mr .nm{font-weight:600;font-size:12px}
+  .mr.done .nm{color:var(--muted);font-weight:500}
+  .mr .ts{font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .pri-seg{display:flex;border:1px solid var(--border2);border-radius:9px;overflow:hidden;margin-bottom:8px}
+  .pri-seg button{flex:1;border:0;background:transparent;color:var(--faint);font-size:11.5px;font-weight:650;padding:7px 0;cursor:pointer}
+  .pri-seg button.on.p1{background:var(--bad-soft);color:var(--bad)}
+  .pri-seg button.on.p2{background:var(--warn-soft);color:var(--warn)}
+  .pri-seg button.on.p3{background:rgba(91,141,239,.14);color:var(--p3)}
+  .sp-row{display:flex;gap:9px;align-items:center;padding:6px 8px;border-radius:8px;font-size:12.5px;border:1px solid transparent}
+  .sp-row:hover{background:var(--raise)}
+  .sp-row.sel{border-color:rgba(24,164,194,.5);background:var(--accent-soft)}
+  .sp-row.dim{opacity:.55}
+  .ava{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:750;flex-shrink:0;background:var(--raise);border:1px solid var(--border2);color:var(--muted)}
+  .ava.mg{background:#3b2f63;color:#cbb8ff}.ava.al{background:#1e3a2f;color:#8fe3b0}.ava.jd{background:#233242;color:#9cc4e4}.ava.fl{background:#4a2c1e;color:#ffb895}
+  .sp-row .who{flex:1;min-width:0}
+  .sp-row .who b{font-weight:650;display:block}
+  .sp-row .who span{font-size:10px;color:var(--faint)}
+  .st{font-size:9.5px;font-weight:750;border-radius:5px;padding:2px 7px;text-transform:uppercase}
+  .st.free{background:var(--ok-soft);color:var(--ok)} .st.on{background:var(--warn-soft);color:var(--warn)}
+  .st.brk{background:var(--vio-soft);color:var(--vio)} .st.na{background:var(--raise);color:var(--faint)}
+
+  /* audit register */
+  .reg{border:1px solid var(--border);border-radius:10px;margin-bottom:9px;background:var(--card);overflow:hidden}
+  .reg-head{display:grid;grid-template-columns:14px 84px 1fr 132px 86px 108px;gap:9px;align-items:center;padding:10px 14px;cursor:pointer;font-size:12.5px}
+  .reg-head:hover{background:var(--card2)}
+  .caret{color:var(--faint);font-size:10px}
+  .reg.open .caret{transform:rotate(90deg)}
+  .cid{font-family:var(--mono);font-size:11px;color:var(--accent)}
+  .rroom{font-weight:650;font-size:12.5px}
+  .rroom span{display:block;font-size:10px;color:var(--faint);font-weight:400}
+  .rowner{color:var(--muted);font-size:12px}
+  .rowner b{color:var(--text);font-weight:600}
+  .rtt{font-family:var(--mono);font-size:10.5px;text-align:center}
+  .rtt.ok{color:var(--ok)} .rtt.bad{color:var(--bad)} .rtt.vio{color:var(--vio)}
+  .rhd{font-family:var(--mono);font-size:10.5px;color:var(--muted);text-align:right}
+  .reg-body{border-top:1px solid var(--border);background:var(--card2);padding:14px 16px;display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px}
+  .r-line{display:grid;grid-template-columns:132px 1fr 66px;gap:9px;padding:5px 0;border-bottom:1px dashed var(--border);font-size:12px;align-items:baseline}
+  .r-line:last-child{border-bottom:0}
+  .r-line .nm{font-weight:600;font-size:11.5px}
+  .r-line .ds{color:var(--muted)} .r-line .ds b{color:var(--text);font-weight:600}
+  .r-line .ts{font-family:var(--mono);font-size:10px;color:var(--faint);text-align:right}
+  .r-line.key .nm{color:var(--accent)} .r-line.stop .nm{color:var(--ok)} .r-line.jump .nm{color:var(--warn)}
+  .r-line .quote{font-style:italic}
+  .r-line .delta{font-family:var(--mono);font-size:9.5px;color:var(--accent);margin-left:6px}
+  .rail{display:flex;flex-direction:column;gap:9px}
+  .rail .box{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:10px 12px}
+  .rail h6{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:7px}
+  .metric{display:flex;justify-content:space-between;font-size:11.5px;padding:2.5px 0}
+  .metric .k{color:var(--muted)} .metric .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:11px}
+  .metric .v.ok{color:var(--ok)} .metric .v.warn{color:var(--warn)} .metric .v.bad{color:var(--bad)}
+  .doc-block{margin-top:12px;background:var(--card);border:1px solid var(--border);border-radius:9px;padding:11px 13px}
+  .doc-block h6{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:5px}
+  .doc-block p{font-size:12px;color:var(--muted);line-height:1.6}
+  .doc-block .sig{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:6px}
+
+  /* tables (people, cameras, deliveries) */
+  .tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  .tbl th{text-align:left;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700;padding:7px 10px;border-bottom:1px solid var(--border)}
+  .tbl td{padding:9px 10px;border-bottom:1px solid var(--border)}
+  .tbl tr:last-child td{border-bottom:0}
+  .tbl tr:hover td{background:var(--card2)}
+
+  /* channels */
+  .chan{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:11px}
+  .chan .cbox{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px}
+  .chan .chead{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+  .chan .cico{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:13px;font-weight:800}
+  .chan h4{font-size:13.5px}
+  .chan .cstate{font-size:10px;margin-bottom:8px}
+  .chan .crow{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);padding:2px 0}
+  .chan .crow .v{font-family:var(--mono);font-size:10.5px;color:var(--text)}
+
+  /* settings/billing */
+  .seg{display:flex;border:1px solid var(--border2);border-radius:10px;overflow:hidden}
+  .seg button{flex:1;border:0;background:transparent;color:var(--faint);font-size:12px;font-weight:600;padding:9px 0;cursor:pointer}
+  .seg button.on{background:var(--accent-soft);color:var(--accent)}
+  .setrow{display:flex;gap:14px;align-items:center;padding:11px 0;border-bottom:1px dashed var(--border);font-size:13px}
+  .setrow:last-child{border-bottom:0}
+  .setrow .k{width:210px;color:var(--muted);font-size:12.5px}
+  .setrow .v{flex:1}
+  .usage{display:flex;flex-direction:column;gap:9px;margin-top:4px}
+  .umeter{display:grid;grid-template-columns:120px 1fr 60px;gap:10px;align-items:center;font-size:12px}
+  .umeter .track{height:7px;background:var(--card2);border-radius:4px;overflow:hidden}
+  .umeter .fill{height:100%;background:var(--accent);border-radius:4px}
+  .umeter .fill.warn{background:var(--warn)}
+  .umeter .n{font-family:var(--mono);font-size:10.5px;color:var(--muted);text-align:right}
+
+  .fchip{border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:999px;font-size:11.5px;font-weight:600;padding:4px 12px;cursor:pointer}
+  .fchip.on{background:var(--accent-soft);border-color:rgba(24,164,194,.5);color:var(--accent)}
+
+  footer{padding:8px 22px 30px;color:var(--faint);font-size:11px}
+  .mock{font-family:var(--mono);opacity:.7}
+
+  @media (max-width:980px){
+    .shell{grid-template-columns:1fr}
+    .side{position:static;height:auto;flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--border)}
+    .side .foot,.ngroup{display:none}
+    .nav{width:auto}
+    .grid2{grid-template-columns:1fr}
+    .detail{position:static}
+    .kpi{grid-template-columns:1fr 1fr}
+    .reg-head{grid-template-columns:14px 84px 1fr 86px}
+    .rowner,.rhd{display:none}
+    .reg-body{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="side">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 3v18M20 3v18M4 7h16M4 12h16M4 17h16"/></svg></div>
+      <div><h1>Care Ladder</h1><div class="sub">Facility operations</div></div>
+    </div>
+
+    <div class="tenant">
+      <div class="ava fl">GM</div>
+      <div><div class="tn">Galuxium Manor</div><div class="tm">assisted living · West wing</div></div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 21-5-5-5 5M12 16V3"/></svg>
+    </div>
+
+    <div class="ngroup">Operations</div>
+    <button class="nav" data-view="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Overview</button>
+    <button class="nav on" data-view="alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Alert center <span class="cnt hot">3</span></button>
+    <button class="nav" data-view="cases"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v4a2 2 0 0 0 0 0"/><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 12h8M8 16h5"/></svg>Cases <span class="cnt">2</span></button>
+    <button class="nav" data-view="audit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 3 22l1.5-4.5Z"/></svg>Audit</button>
+
+    <div class="ngroup">Configuration</div>
+    <button class="nav" data-view="people"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M21.5 20a6.5 6.5 0 0 0-4.5-6.2"/></svg>People</button>
+    <button class="nav" data-view="places"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="12" height="13" rx="1"/><path d="M15 11h4a1 1 0 0 1 1 1v8h-5"/><path d="M7 11h1M7 15h1"/></svg>Places · cameras</button>
+    <button class="nav" data-view="staff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Staff · shifts</button>
+    <button class="nav" data-view="channels"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>Channels</button>
+
+    <div class="ngroup">Account</div>
+    <button class="nav" data-view="billing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Plan · billing</button>
+    <button class="nav" data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></svg>Settings</button>
+
+    <div class="foot">Not a medical device · emergency fail-closed<br>privacy: blur before persist<br><span class="mock">static mockup · demo data</span></div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <header class="top">
+      <div>
+        <h2 id="view-title">Alert center</h2>
+        <div class="crumb" id="view-crumb">Galuxium Manor · operations</div>
+      </div>
+      <span class="plan">Facility Starter</span>
+      <span class="clock">14:52</span>
+      <div class="user" title="Signed in as floor lead">FL</div>
+    </header>
+
+    <content>
+
+    <!-- ========== OVERVIEW ========== -->
+    <section class="view" id="view-overview">
+      <div class="banner good">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        <div><b>Floor is self-managing</b><span class="sub">Pages route to the shift channel first. You only see exceptions and audit.</span></div>
+      </div>
+
+      <div class="kpi">
+        <div class="box bad"><div class="n">3</div><div class="l">Open alerts</div></div>
+        <div class="box warn"><div class="n">1</div><div class="l">Awaiting ack</div></div>
+        <div class="box"><div class="n">1 <small>of 4</small></div><div class="l">Staff available</div></div>
+        <div class="box good"><div class="n">9 <small>of 12</small></div><div class="l">Resolved today</div></div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="card">
+            <h3>Live queue · needs a decision</h3>
+            <div class="alert P1">
+              <div class="row1"><span class="pri P1">P1</span><span class="atitle">Room 9 · Robin S.</span><span class="chip hot">negative reply</span><span class="chip">ack window missed</span><span style="margin-left:auto" class="mono small" style="color:var(--faint)">36m</span></div>
+              <div class="reply"><span class="q">"No... I can't get up."</span><div class="m">auto-raised P2 to P1 · wait rungs skipped</div></div>
+            </div>
+            <div class="alert P2">
+              <div class="row1"><span class="pri P2">P2</span><span class="atitle">Room 12 · Pat M.</span><span class="chip">awaiting ack</span><span class="chip">02:41 left</span><span class="chip">aging 14m</span></div>
+            </div>
+            <div class="alert P3">
+              <div class="row1"><span class="pri P3">P3</span><span class="atitle">Room 2 · Lee K.</span><span class="chip">quiet hours</span><span class="chip ok">can de-escalate</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Recent activity</h3>
+            <table class="tbl">
+              <tr><td class="mono" style="color:var(--faint)">14:43</td><td><b>CL-1042</b> case opened · ack by Maria G. in 0m 52s</td><td style="text-align:right"><span class="badge b-ok">ack</span></td></tr>
+              <tr><td class="mono" style="color:var(--faint)">14:36</td><td>Room 9 negative reply · priority raised to P1</td><td style="text-align:right"><span class="badge b-bad">raised</span></td></tr>
+              <tr><td class="mono" style="color:var(--faint)">14:29</td><td>Room 5 · "I'm fine, thanks" · resolved by response</td><td style="text-align:right"><span class="badge b-vio">response</span></td></tr>
+              <tr><td class="mono" style="color:var(--faint)">14:12</td><td><b>CL-1040</b> group timeout · escalated to you</td><td style="text-align:right"><span class="badge b-bad">timeout</span></td></tr>
+              <tr><td class="mono" style="color:var(--faint)">13:58</td><td><b>CL-1038</b> closed with documentation</td><td style="text-align:right"><span class="badge b-ok">closed</span></td></tr>
+            </table>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <h3>Shift capacity</h3>
+            <div class="sp-row"><div class="ava mg">MG</div><div class="who"><b>Maria G.</b><span>RN · just freed</span></div><span class="st free">available</span></div>
+            <div class="sp-row dim"><div class="ava al">AL</div><div class="who"><b>Alex R.</b><span>CNA · on break · 18m left</span></div><span class="st brk">break</span></div>
+            <div class="sp-row"><div class="ava jd">JD</div><div class="who"><b>Jamie D.</b><span>CNA · CL-1039 wrapping</span></div><span class="st on">on case</span></div>
+            <div class="sp-row"><div class="ava fl">FL</div><div class="who"><b>You</b><span>floor lead · owns CL-1040 exception</span></div><span class="st on">on case</span></div>
+            <p class="muted small" style="margin-top:8px">Next page routes to the channel; spills to you only at 0 available or on group timeout.</p>
+          </div>
+          <div class="card">
+            <h3>Today so far</h3>
+            <div class="metric"><span class="k">Resolved by response</span><span class="v vio">6 · 38s median</span></div>
+            <div class="metric"><span class="k">Staff-handled</span><span class="v">4 · ack 1m 12s median</span></div>
+            <div class="metric"><span class="k">Handling time</span><span class="v">13m 55s median</span></div>
+            <div class="metric"><span class="k">Group timeouts</span><span class="v bad">1</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== ALERT CENTER ========== -->
+    <section class="view on" id="view-alerts">
+      <div class="banner info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <div><b>Resident answers first</b><span class="sub">Positive reply closes the incident · negative reply raises priority and jumps the ladder · silence pages staff.</span></div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <div class="alert P1 sel">
+            <div class="row1">
+              <span class="pri P1">P1</span><span class="atitle">Room 9 · Robin S.</span>
+              <span class="chip hot">negative reply</span><span class="chip hot">ack window missed</span>
+              <span class="mono small" style="margin-left:auto;color:var(--faint)">CL-1043 · 36m</span>
+            </div>
+            <div class="reply"><span class="q">"No... I can't get up."</span><div class="m">voice check-in 14:36:20 · classified negative · P2 to P1 auto</div></div>
+          </div>
+          <div class="alert P2">
+            <div class="row1">
+              <span class="pri P2">P2</span><span class="atitle">Room 12 · Pat M.</span>
+              <span class="chip">awaiting ack</span><span class="chip">02:41 to target</span><span class="chip">aging 14m</span>
+              <span class="mono small" style="margin-left:auto;color:var(--faint)">CL-1042 · assigned</span>
+            </div>
+          </div>
+          <div class="alert P3">
+            <div class="row1">
+              <span class="pri P3">P3</span><span class="atitle">Room 2 · Lee K.</span>
+              <span class="chip">quiet hours</span><span class="chip ok">can de-escalate</span><span class="chip">resumes 07:00</span>
+              <span class="mono small" style="margin-left:auto;color:var(--faint)">inc c118</span>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:16px">
+            <h3>Resolved by resident response · today</h3>
+            <div class="sp-row"><span class="badge b-vio">positive</span><div class="who"><b>Room 5 · Dana W.</div><span class="mono small" style="color:var(--faint)">"I'm fine, thanks" · 41s</span></div>
+            <div class="sp-row"><span class="badge b-vio">button</span><div class="who"><b>Room 1 · Sam T.</b><span>pendant OK · 12s</span></div><span class="mono small" style="color:var(--faint)">13:15</span></div>
+            <div class="sp-row"><span class="badge b-vio">positive</span><div class="who"><b>Room 8 · Jo P.</b><span>"All good." · 1m 05s</span></div><span class="mono small" style="color:var(--faint)">13:22</span></div>
+            <p class="muted small" style="margin-top:8px">Never paged staff, never opened cases · full transcripts in Audit.</p>
+          </div>
+        </div>
+
+        <div class="card detail">
+          <h3>Room 9 · Robin S.</h3>
+          <div class="mono small" style="color:var(--faint);margin-bottom:8px">CL-1043 · no_movement · confidence 0.9 · P1 auto-raised</div>
+
+          <div class="dsec">
+            <h4>Resident response</h4>
+            <div class="reply" style="margin-top:0"><span class="q">"No... I can't get up."</span><div class="m">classified negative · 14:36:20</div></div>
+            <p class="small" style="color:var(--muted);margin-top:7px">Priority <b style="color:var(--bad)">P2 to P1</b> · wait rungs skipped · group paged immediately · dial queued</p>
+          </div>
+
+          <div class="dsec">
+            <h4>Ladder</h4>
+            <div class="mr done"><span class="dot"></span><span class="nm">Cue</span><span class="ts">14:36:02</span></div>
+            <div class="mr done"><span class="dot"></span><span class="nm">Voice check-in</span><span class="ts">14:36:20</span></div>
+            <div class="mr jump"><span class="dot"></span><span class="nm">Wait rungs skipped</span><span class="ts">14:36:21</span></div>
+            <div class="mr cur"><span class="dot"></span><span class="nm">Ack window · missed</span><span class="ts">14:41:22</span></div>
+            <div class="mr done"><span class="dot"></span><span class="nm">Escalate lead</span><span class="ts">14:41:23</span></div>
+            <div class="mr"><span class="dot"></span><span class="nm">Dial caregiver</span><span class="ts">queued</span></div>
+          </div>
+
+          <div class="dsec">
+            <h4>Reprioritize</h4>
+            <div class="pri-seg" role="group" aria-label="priority">
+              <button class="p1 on">P1</button><button class="p2">P2</button><button class="p3">P3</button>
+            </div>
+          </div>
+
+          <div class="dsec">
+            <h4>Assign to</h4>
+            <div class="sp-row sel"><div class="ava mg">MG</div><div class="who"><b>Maria G.</b><span>RN · available</span></div><span class="st free">available</span></div>
+            <div class="sp-row dim"><div class="ava al">AL</div><div class="who"><b>Alex R.</b><span>CNA · break until 15:10 · not paged</span></div><span class="st brk">break</span></div>
+            <div class="sp-row"><div class="ava jd">JD</div><div class="who"><b>Jamie D.</b><span>CNA · CL-1039 · 2m to target</span></div><span class="st on">on case</span></div>
+            <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px">
+              <button class="btn primary subtle">Assign to Maria G.</button>
+              <button class="btn subtle">Pull Alex off break</button>
+            </div>
+          </div>
+
+          <div class="dsec">
+            <h4>Override</h4>
+            <div style="display:flex;gap:7px;flex-wrap:wrap">
+              <button class="btn danger subtle">Escalate now</button>
+              <button class="btn subtle">De-escalate</button>
+              <button class="btn subtle">Suppress</button>
+              <button class="btn subtle">Re-page group</button>
+            </div>
+            <p class="muted small" style="margin-top:7px">Every override is logged with your name in Audit.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== CASES ========== -->
+    <section class="view" id="view-cases">
+      <div class="grid2">
+        <div>
+          <div class="card"><h3>Open cases · handled in the shift channel, tracked here</h3>
+            <div style="border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:9px">
+              <div class="row1" style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+                <span class="pri P1">P1</span><b>CL-1043 · Room 9 · negative reply</b>
+                <span class="badge b-bad">needs owner</span>
+                <span class="mono small" style="margin-left:auto;color:var(--faint)">paged 14:36</span>
+              </div>
+              <div class="muted small" style="margin-top:6px">from resident reply · "No... I can't get up." · ack window missed · escalated to you</div>
+            </div>
+            <div style="border:1px solid var(--border);border-radius:10px;padding:11px 13px">
+              <div class="row1" style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+                <span class="pri P2">P2</span><b>CL-1041 · Room 7 · wander cue</b>
+                <span class="badge b-warn">handling</span>
+                <span class="mono small" style="margin-left:auto;color:var(--warn)">11m to target</span>
+              </div>
+              <div class="muted small" style="margin-top:6px">owner <b style="color:var(--text)">Maria G.</b> · ack 1m 38s · open 4m 56s · nudges 0 · thread in #care-floor-ops</div>
+            </div>
+          </div>
+          <div class="card"><h3>Closed today</h3>
+            <div style="border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:9px">
+              <div class="row1" style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+                <span class="pri P2">P2</span><b>CL-1042 · Room 12 · check-in silence</b>
+                <span class="badge b-ok">closed</span>
+                <span class="mono small" style="margin-left:auto;color:var(--ok)">ack 0m 52s · handling 24m 39s</span>
+              </div>
+              <div class="doc-block" style="margin-top:9px">
+                <h6>Documentation · Maria G., RN</h6>
+                <p>"Resident had dozed off in the armchair after lunch. Vitals normal. Repositioned, offered water, stayed 20 min to observe. No further concerns, will re-check on the 16:00 round."</p>
+                <div class="sig">via /close-case · 15:07:44 · 1 SLA nudge answered</div>
+              </div>
+            </div>
+            <div style="border:1px solid var(--border);border-radius:10px;padding:11px 13px">
+              <div class="row1" style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+                <span class="pri P3">P3</span><b>CL-1038 · Room 6 · check-in</b>
+                <span class="badge b-ok">closed</span>
+                <span class="mono small" style="margin-left:auto;color:var(--ok)">ack 0m 41s · handling 3m 02s</span>
+              </div>
+              <div class="muted small" style="margin-top:6px">"Verbal OK on speaker; resident awake and reading. No action needed."</div>
+            </div>
+          </div>
+        </div>
+        <div class="card detail">
+          <h3>Shift capacity</h3>
+          <div class="sp-row"><div class="ava mg">MG</div><div class="who"><b>Maria G.</b><span>RN</span></div><span class="st free">available</span></div>
+          <div class="sp-row dim"><div class="ava al">AL</div><div class="who"><b>Alex R.</b><span>CNA · 18m left</span></div><span class="st brk">break</span></div>
+          <div class="sp-row"><div class="ava jd">JD</div><div class="who"><b>Jamie D.</b><span>CNA · CL-1039</span></div><span class="st on">on case</span></div>
+          <div class="sp-row"><div class="ava fl">FL</div><div class="who"><b>You</b><span>floor lead</span></div><span class="st on">exception</span></div>
+          <div class="dsec">
+            <h4>Upcoming shift</h4>
+            <div class="metric"><span class="k">Evening 14:00 to 22:00</span><span class="v">3 staff</span></div>
+            <div class="metric"><span class="k">Night 22:00 to 06:00</span><span class="v">2 staff · quiet hours</span></div>
+            <p class="muted small" style="margin-top:7px">Break coverage warns when under 2 available.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== AUDIT ========== -->
+    <section class="view" id="view-audit">
+      <div class="kpi" style="grid-template-columns:repeat(6,1fr)">
+        <div class="box vio"><div class="n">6 <small>of 11</small></div><div class="l">Resolved by response</div></div>
+        <div class="box vio"><div class="n">38s</div><div class="l">Median response</div></div>
+        <div class="box good"><div class="n">1m 12s</div><div class="l">Median time-to-ack</div></div>
+        <div class="box good"><div class="n">88%</div><div class="l">Acked in window</div></div>
+        <div class="box good"><div class="n">13m 55s</div><div class="l">Median handling</div></div>
+        <div class="box bad"><div class="n">1</div><div class="l">Group timeouts</div></div>
+      </div>
+
+      <div class="card">
+        <h3>Closed-case register · click a row for the incident report</h3>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px">
+          <button class="fchip on">All · 11</button><button class="fchip">Staff-handled · 4</button>
+          <button class="fchip">Resolved by response · 6</button><button class="fchip">Negative · 1</button>
+        </div>
+
+        <div class="reg open" style="margin-bottom:9px">
+          <div class="reg-head" aria-expanded="true">
+            <span class="caret">▶</span><span class="cid">CL-1042</span>
+            <span class="rroom">Room 12 · Pat M.<span>check-in silence · documented</span></span>
+            <span class="rowner">owner <b>Maria G.</b></span>
+            <span class="rtt ok">ack 0m 52s</span>
+            <span class="rhd">handling 24m 39s</span>
+          </div>
+          <div class="reg-body">
+            <div>
+              <div class="mono small" style="color:var(--faint);margin-bottom:9px">inc 8f3a91c2 · no_movement · confidence 0.9 · 2026-09-29</div>
+              <div class="r-line"><span class="nm">Cue</span><span class="ds"><b>no_movement</b> · common area zone · confidence 0.9</span><span class="ts">14:27:03</span></div>
+              <div class="r-line"><span class="nm">Re-perceive</span><span class="ds">ROI auto re-check · stillness persists</span><span class="ts">14:27:05</span></div>
+              <div class="r-line"><span class="nm">Voice check-in</span><span class="ds"><b>silence</b> · 15:00 listen window</span><span class="ts">14:42:28</span></div>
+              <div class="r-line key"><span class="nm">Page group</span><span class="ds">delivered <b>#care-floor-ops</b> · Slack · 2 of 4 available</span><span class="ts">14:42:31</span></div>
+              <div class="r-line stop"><span class="nm">Case opened</span><span class="ds">ack by <b>Maria G.</b> · escalation stopped at rung 4 of 6<span class="delta">Δ 0m 52s</span></span><span class="ts">14:43:23</span></div>
+              <div class="r-line jump"><span class="nm">SLA nudge</span><span class="ds">over 15:00 target · answered "still on it"<span class="delta">Δ 0m 47s</span></span><span class="ts">15:01:23</span></div>
+              <div class="r-line stop"><span class="nm">Case closed</span><span class="ds">documentation submitted in chat<span class="delta">Δ handling 24m 39s</span></span><span class="ts">15:08:02</span></div>
+              <div class="doc-block">
+                <h6>Submitted documentation</h6>
+                <p>"Resident had dozed off in the armchair after lunch. <b>Vitals normal.</b> Repositioned, offered water, stayed 20 min to observe. No further concerns, will re-check on the 16:00 round."</p>
+                <div class="sig">M. Grant, RN · via /close-case · 15:07:44</div>
+              </div>
+            </div>
+            <aside class="rail">
+              <div class="box"><h6>Timing</h6>
+                <div class="metric"><span class="k">Time-to-ack</span><span class="v ok">0m 52s / 5m 00s</span></div>
+                <div class="metric"><span class="k">Handling</span><span class="v warn">24m 39s / 15m 00s</span></div>
+                <div class="metric"><span class="k">Cue to first page</span><span class="v">15m 28s</span></div>
+                <div class="metric"><span class="k">Nudges</span><span class="v">1 · answered 0m 47s</span></div>
+              </div>
+              <div class="box"><h6>Evidence</h6>
+                <div class="metric"><span class="k">Pre-event frames</span><span class="v">3 · silhouette</span></div>
+                <div class="metric"><span class="k">Chat thread</span><span class="v">9 messages</span></div>
+              </div>
+              <div class="box"><h6>Overrides</h6><div class="metric"><span class="k">None</span><span class="v">auto-routed</span></div></div>
+              <div class="box" style="display:flex;gap:7px"><button class="btn subtle">Export PDF</button><button class="btn subtle">Chat thread</button></div>
+            </aside>
+          </div>
+        </div>
+
+        <div class="reg" style="margin-bottom:9px">
+          <div class="reg-head"><span class="caret">▶</span><span class="cid">CL-1043</span>
+            <span class="rroom">Room 9 · Robin S.<span>negative reply · live</span></span>
+            <span class="rowner">pending <b>owner</b></span><span class="rtt bad">window missed</span><span class="rhd">in progress</span></div>
+        </div>
+        <div class="reg" style="margin-bottom:9px">
+          <div class="reg-head"><span class="caret">▶</span><span class="cid">CL-1040</span>
+            <span class="rroom">Common room<span>fall signature · group timeout</span></span>
+            <span class="rowner">owner <b>shift lead</b></span><span class="rtt bad">missed</span><span class="rhd">handling 51m 12s</span></div>
+        </div>
+        <div class="reg">
+          <div class="reg-head"><span class="caret">▶</span><span class="cid">CL-1039</span>
+            <span class="rroom">Room 5 · Dana W.<span>resolved by response</span></span>
+            <span class="rowner">no staff action</span><span class="rtt vio">response 41s</span><span class="rhd">rung 2 of 6</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Lead actions · today</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr 200px;gap:14px">
+          <div class="small" style="color:var(--muted)">
+            <div style="padding:3px 0">Priority · Common room raised to <b style="color:var(--text)">P1</b> · <span class="mono" style="font-size:10px">14:13</span></div>
+            <div style="padding:3px 0">Confirm · Room 9 auto-raise kept at P1 · <span class="mono" style="font-size:10px">14:37</span></div>
+            <div style="padding:3px 0">Break · Alex R. pulled off break · <span class="mono" style="font-size:10px">14:40</span></div>
+          </div>
+          <div class="small" style="color:var(--muted)">
+            <div style="padding:3px 0">Assign · Room 9 to Maria G. · <span class="mono" style="font-size:10px">14:38</span></div>
+            <div style="padding:3px 0">Suppress · Room 2 quiet hours · <span class="mono" style="font-size:10px">05:12</span></div>
+            <div style="padding:3px 0">Re-classify · Room 7 reply negative to silence · <span class="mono" style="font-size:10px">13:05</span></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-start">
+            <button class="btn subtle">Export audit CSV</button>
+            <button class="btn subtle">Per-shift report</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== PEOPLE ========== -->
+    <section class="view" id="view-people">
+      <div class="card">
+        <h3>People monitored · 8 residents</h3>
+        <table class="tbl">
+          <tr><th>Resident</th><th>Room</th><th>Status</th><th>Last response</th><th>Check-ins today</th><th>Pendant</th><th>Notes</th></tr>
+          <tr><td><b>Robin S.</b></td><td>Room 9</td><td><span class="badge b-bad">incident open</span></td><td class="mono small">negative · 14:36</td><td class="mono">4</td><td><span class="badge b-ok">paired</span></td><td class="muted small">mobility assist</td></tr>
+          <tr><td><b>Pat M.</b></td><td>Room 12</td><td><span class="badge b-warn">case open</span></td><td class="mono small">silence · 14:27</td><td class="mono">5</td><td><span class="badge b-ok">paired</span></td><td class="muted small">post-op hip</td></tr>
+          <tr><td><b>Dana W.</b></td><td>Room 4</td><td><span class="badge b-ok">ok</span></td><td class="mono small">positive · 13:58</td><td class="mono">6</td><td><span class="badge b-ok">paired</span></td><td class="muted small">-</td></tr>
+          <tr><td><b>Sam T.</b></td><td>Room 6</td><td><span class="badge b-ok">ok</span></td><td class="mono small">positive · 13:40</td><td class="mono">5</td><td>-</td><td class="muted small">hearing aid</td></tr>
+          <tr><td><b>Lee K.</b></td><td>Room 2</td><td><span class="badge b-warn">quiet hours</span></td><td class="mono small">positive · 09:12</td><td class="mono">3</td><td><span class="badge b-ok">paired</span></td><td class="muted small">early riser</td></tr>
+          <tr><td><b>Jo P.</b></td><td>Room 8</td><td><span class="badge b-ok">ok</span></td><td class="mono small">positive · 13:22</td><td class="mono">4</td><td>-</td><td class="muted small">-</td></tr>
+          <tr><td><b>Nora K.</b></td><td>Room 5</td><td><span class="badge b-ok">ok</span></td><td class="mono small">positive · 14:29</td><td class="mono">5</td><td><span class="badge b-ok">paired</span></td><td class="muted small">-</td></tr>
+          <tr><td><b>Margaret H.</b></td><td>Room 3</td><td><span class="badge b-ok">ok</span></td><td class="mono small">positive · 12:04</td><td class="mono">3</td><td>-</td><td class="muted small">family visits PM</td></tr>
+        </table>
+        <p class="muted small" style="margin-top:9px">Response stats and transcripts per person are in Audit · names shown with consent-level privacy blur in clips.</p>
+      </div>
+    </section>
+
+    <!-- ========== PLACES & CAMERAS ========== -->
+    <section class="view" id="view-places">
+      <div class="card">
+        <h3>Places · cameras · zones</h3>
+        <table class="tbl">
+          <tr><th>Place</th><th>Camera</th><th>Zone</th><th>Privacy</th><th>Status</th><th>Last cue</th><th></th></tr>
+          <tr><td><b>Common room</b></td><td class="mono small">cam-01 · front</td><td>full frame</td><td><span class="badge b-info">silhouette</span></td><td><span class="badge b-bad">incident live</span></td><td class="mono small">fall signature 14:05</td><td><button class="btn subtle">View zone</button></td></tr>
+          <tr><td><b>Room 12</b></td><td class="mono small">cam-04</td><td>bed + chair</td><td><span class="badge b-info">blur</span></td><td><span class="badge b-warn">case open</span></td><td class="mono small">stillness 14:27</td><td><button class="btn subtle">View zone</button></td></tr>
+          <tr><td><b>Room 9</b></td><td class="mono small">cam-05</td><td>full room</td><td><span class="badge b-info">blur</span></td><td><span class="badge b-ok">watching</span></td><td class="mono small">negative reply 14:36</td><td><button class="btn subtle">View zone</button></td></tr>
+          <tr><td><b>Room 2</b></td><td class="mono small">cam-07</td><td>bed zone</td><td><span class="badge b-info">blur</span></td><td><span class="badge b-warn">lens covered 05:12</span></td><td class="mono small">no_visibility</td><td><button class="btn subtle">View zone</button></td></tr>
+          <tr><td><b>West corridor</b></td><td class="mono small">cam-09</td><td>transit</td><td><span class="badge b-info">silhouette</span></td><td><span class="badge b-ok">watching</span></td><td class="mono small">-</td><td><button class="btn subtle">View zone</button></td></tr>
+        </table>
+        <p class="muted small" style="margin-top:9px">8 of 10 Starter rooms instrumented · frames are privacy-transformed before anything persists · person tracking uses shape geometry only.</p>
+      </div>
+    </section>
+
+    <!-- ========== STAFF & SHIFTS ========== -->
+    <section class="view" id="view-staff">
+      <div class="grid2">
+        <div class="card">
+          <h3>Staff · afternoon shift 14:00 to 22:00</h3>
+          <div class="sp-row"><div class="ava mg">MG</div><div class="who"><b>Maria G.</b><span>RN · fastest ack today 0m 41s</span></div><span class="st free">available</span><button class="btn subtle">Break 15m</button><button class="btn subtle">30m</button></div>
+          <div class="sp-row dim"><div class="ava al">AL</div><div class="who"><b>Alex R.</b><span>CNA · auto-returns 15:10</span></div><span class="st brk">on break · 18m left</span><button class="btn subtle">End break</button></div>
+          <div class="sp-row"><div class="ava jd">JD</div><div class="who"><b>Jamie D.</b><span>CNA · CL-1039 · 2m to target</span></div><span class="st on">on case</span></div>
+          <div class="sp-row"><div class="ava fl">FL</div><div class="who"><b>You · floor lead</b><span>owns CL-1040 exception</span></div><span class="st on">on case</span></div>
+          <div class="dsec">
+            <h4>Channels each responder receives</h4>
+            <div class="metric"><span class="k">Maria G.</span><span class="v">Slack · WhatsApp</span></div>
+            <div class="metric"><span class="k">Alex R.</span><span class="v">Slack · Teams</span></div>
+            <div class="metric"><span class="k">Jamie D.</span><span class="v">Slack</span></div>
+            <div class="metric"><span class="k">Floor lead</span><span class="v">Slack · Telegram</span></div>
+          </div>
+          <p class="muted small" style="margin-top:8px">Responders can also set break from chat with /break 15 · P1 pages break through unless do-not-disturb is set.</p>
+        </div>
+        <div class="card">
+          <h3>Shift schedule</h3>
+          <div class="metric"><span class="k">Morning 06:00 to 14:00</span><span class="v">3 staff</span></div>
+          <div class="metric"><span class="k">Afternoon 14:00 to 22:00</span><span class="v ok">4 staff · now</span></div>
+          <div class="metric"><span class="k">Night 22:00 to 06:00</span><span class="v">2 staff · quiet hours</span></div>
+          <div class="dsec">
+            <h4>Coverage warnings</h4>
+            <div class="metric"><span class="k">Under 2 available</span><span class="v warn">pages to lead</span></div>
+            <div class="metric"><span class="k">All on cases</span><span class="v bad">group timeout risk</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== CHANNELS ========== -->
+    <section class="view" id="view-channels">
+      <div class="chan">
+        <div class="cbox">
+          <div class="chead"><div class="cico" style="background:#4a154b;color:#fff">S</div><div><h4>Slack</h4><div class="cstate" style="color:var(--ok)">connected · primary</div></div></div>
+          <div class="crow"><span>Channel</span><span class="v">#care-floor-ops</span></div>
+          <div class="crow"><span>Delivery today</span><span class="v" style="color:var(--ok)">22 ok · 0 failed</span></div>
+          <div class="crow"><span>Median delivery</span><span class="v">310ms</span></div>
+          <div style="display:flex;gap:6px;margin-top:9px"><button class="btn subtle">Send test page</button><button class="btn subtle">Configure</button></div>
+        </div>
+        <div class="cbox">
+          <div class="chead"><div class="cico" style="background:#5072c4;color:#fff">T</div><div><h4>Microsoft Teams</h4><div class="cstate" style="color:var(--ok)">connected</div></div></div>
+          <div class="crow"><span>Team channel</span><span class="v">Floor Ops · General</span></div>
+          <div class="crow"><span>Delivery today</span><span class="v" style="color:var(--ok)">6 ok · 0 failed</span></div>
+          <div class="crow"><span>Median delivery</span><span class="v">480ms</span></div>
+          <div style="display:flex;gap:6px;margin-top:9px"><button class="btn subtle">Send test page</button><button class="btn subtle">Configure</button></div>
+        </div>
+        <div class="cbox">
+          <div class="chead"><div class="cico" style="background:#1e3a2f;color:#8fe3b0">W</div><div><h4>WhatsApp</h4><div class="cstate" style="color:var(--warn)">needs template</div></div></div>
+          <div class="crow"><span>Business account</span><span class="v">verified</span></div>
+          <div class="crow"><span>Approved template</span><span class="v" style="color:var(--warn)">pending</span></div>
+          <div class="crow"><span>Recipients</span><span class="v">2 responders</span></div>
+          <div style="display:flex;gap:6px;margin-top:9px"><button class="btn subtle">Start template approval</button></div>
+        </div>
+        <div class="cbox">
+          <div class="chead"><div class="cico" style="background:#233242;color:#9cc4e4">TG</div><div><h4>Telegram</h4><div class="cstate" style="color:var(--faint)">not configured</div></div></div>
+          <div class="crow"><span>Bot</span><span class="v">-</span></div>
+          <div class="crow"><span>Chat</span><span class="v">-</span></div>
+          <div style="display:flex;gap:6px;margin-top:9px"><button class="btn subtle">Connect bot</button></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>Recent page deliveries</h3>
+        <table class="tbl">
+          <tr><th>Time</th><th>Page</th><th>Channel</th><th>Result</th><th>Ack</th></tr>
+          <tr><td class="mono small">14:42:31</td><td>CL-1042 · Room 12</td><td>Slack</td><td><span class="badge b-ok">delivered</span></td><td class="mono small">0m 52s · Maria G.</td></tr>
+          <tr><td class="mono small">14:36:22</td><td>CL-1043 · Room 9 negative</td><td>Slack · Teams</td><td><span class="badge b-ok">delivered</span></td><td class="mono small" style="color:var(--bad)">window missed</td></tr>
+          <tr><td class="mono small">14:11:57</td><td>CL-1040 · Common room fall</td><td>Slack · Teams · WhatsApp</td><td><span class="badge b-warn">WA template rejected</span></td><td class="mono small" style="color:var(--bad)">timeout · escalated</td></tr>
+          <tr><td class="mono small">13:15:02</td><td>CL-1038 · Room 6</td><td>Slack</td><td><span class="badge b-ok">delivered</span></td><td class="mono small">0m 41s · Maria G.</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ========== BILLING ========== -->
+    <section class="view" id="view-billing">
+      <div class="grid2">
+        <div class="card">
+          <h3>Current plan</h3>
+          <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">
+            <span style="font-size:20px;font-weight:750">Facility Starter</span>
+            <span class="plan">$199 / mo</span>
+            <span class="muted small">renews Oct 14</span>
+          </div>
+          <div class="usage">
+            <div class="umeter"><span>Rooms</span><div class="track"><div class="fill" style="width:80%"></div></div><span class="n">8 / 10</span></div>
+            <div class="umeter"><span>Staff seats</span><div class="track"><div class="fill" style="width:40%"></div></div><span class="n">4 / 10</span></div>
+            <div class="umeter"><span>Channel pages</span><div class="track"><div class="fill warn" style="width:68%"></div></div><span class="n">6.8k / 10k</span></div>
+            <div class="umeter"><span>Audit retention</span><div class="track"><div class="fill" style="width:25%"></div></div><span class="n">90 days</span></div>
+          </div>
+          <p class="muted small" style="margin-top:10px">Approaching room cap. Facility Growth adds unlimited rooms, multi-unit admin and learning schedules.</p>
+        </div>
+        <div class="card">
+          <h3>Compare</h3>
+          <div class="setrow"><span class="k">Home</span><span class="v muted small">$29 · 1 household, 1 camera</span></div>
+          <div class="setrow"><span class="k"><b>Facility Starter</b> · current</span><span class="v muted small">$199 · 10 rooms, Slack queue, audit export</span></div>
+          <div class="setrow"><span class="k">Facility Growth</span><span class="v muted small">$499 · unlimited rooms, multi-tenant admin</span></div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn primary">Upgrade to Growth</button>
+            <button class="btn">Billing portal</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== SETTINGS ========== -->
+    <section class="view" id="view-settings">
+      <div class="card">
+        <h3>Facility</h3>
+        <div class="setrow"><span class="k">Facility type</span><span class="v"><div class="seg" style="max-width:420px"><button class="on">Assisted living</button><button>Rehab</button><button>Daycare</button></div></span></div>
+        <div class="setrow"><span class="k">Vocabulary</span><span class="v muted small">resident · room · Floor lead &nbsp;(changes with facility type)</span></div>
+        <div class="setrow"><span class="k">Quiet hours</span><span class="v"><span class="mono small">22:00 to 07:00</span> <span class="muted small">· soft suppress non-distress cues</span></span></div>
+        <div class="setrow"><span class="k">Timezone</span><span class="v mono small">America/New_York</span></div>
+      </div>
+      <div class="card">
+        <h3>Escalation policy</h3>
+        <div class="setrow"><span class="k">Ack window</span><span class="v"><span class="mono small">5m 00s</span> <span class="muted small">· then supervisor + dial</span></span></div>
+        <div class="setrow"><span class="k">Handling target</span><span class="v"><span class="mono small">15m 00s</span> <span class="muted small">· SLA nudge to owner, then lead</span></span></div>
+        <div class="setrow"><span class="k">Negative reply</span><span class="v"><span class="badge b-bad">raise to P1</span> <span class="muted small">· skip wait rungs · page immediately</span></span></div>
+        <div class="setrow"><span class="k">P1 during breaks</span><span class="v"><span class="badge b-warn">breaks through</span> <span class="muted small">· unless do-not-disturb</span></span></div>
+        <div class="setrow"><span class="k">Emergency dialing</span><span class="v"><span class="badge b-bad">fail-closed</span> <span class="muted small">· always behind a human gate</span></span></div>
+      </div>
+    </section>
+
+    </content>
+    <footer>
+      Care Ladder is not a medical device · telephony stubbed in demo · frames privacy-transformed before persist · tracking uses shape geometry, never identity.
+      <span class="mock">static mockup · full SaaS console vision · demo data only</span>
+    </footer>
+  </div>
+</div>
+
+<script>
+(function(){
+  var titles = {
+    overview:["Overview","Galuxium Manor · at a glance"],
+    alerts:["Alert center","Galuxium Manor · triage and overrides"],
+    cases:["Cases","Galuxium Manor · acknowledged through closed"],
+    audit:["Audit","Galuxium Manor · response and handling review"],
+    people:["People","Galuxium Manor · residents monitored"],
+    places:["Places · cameras","Galuxium Manor · rooms, zones, privacy"],
+    staff:["Staff · shifts","Galuxium Manor · roster and breaks"],
+    channels:["Channels","Galuxium Manor · paging integrations"],
+    billing:["Plan · billing","Galuxium Manor · subscription"],
+    settings:["Settings","Galuxium Manor · facility and policy"],
+  };
+  var navs = document.querySelectorAll(".nav");
+  function activate(name){
+    navs.forEach(function(n){ n.classList.toggle("on", n.dataset.view===name); });
+    document.querySelectorAll("section.view").forEach(function(s){ s.classList.toggle("on", s.id==="view-"+name); });
+    if (titles[name]){
+      document.getElementById("view-title").textContent = titles[name][0];
+      document.getElementById("view-crumb").textContent = titles[name][1];
+    }
+  }
+  navs.forEach(function(n){ n.addEventListener("click", function(){ activate(n.dataset.view); }); });
+  var h = (location.hash||"").replace("#","");
+  if (h && titles[h]) activate(h);
+  document.querySelectorAll(".reg-head").forEach(function(hd){
+    hd.addEventListener("click", function(){
+      var reg = hd.parentElement;
+      var open = reg.classList.toggle("open");
+      hd.setAttribute("aria-expanded", String(open));
+    });
+  });
+  document.querySelectorAll(".pri-seg, .seg").forEach(function(seg){
+    seg.querySelectorAll("button").forEach(function(b){
+      b.addEventListener("click", function(){
+        seg.querySelectorAll("button").forEach(function(x){ x.classList.remove("on"); });
+        b.classList.add("on");
+      });
+    });
+  });
+  document.querySelectorAll(".fchip").forEach(function(f){
+    f.addEventListener("click", function(){
+      document.querySelectorAll(".fchip").forEach(function(x){ x.classList.remove("on"); });
+      f.classList.add("on");
+    });
+  });
+})();
+</script>
+</body>
+</html>
