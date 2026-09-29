@@ -134,11 +134,17 @@ def test_facility_shell_uses_guide_tokens_and_232px_sidebar(client):
     assert "Resident answers first" in html
 
 
-def test_facility_shell_omits_unwired_product_nav(client):
+def test_facility_shell_wires_directory_nav(client):
     html = client.get("/ui/facility/").text
-    assert 'data-view="people"' not in html
-    assert 'data-view="places"' not in html
-    assert 'data-view="channels"' not in html
+    people_i = html.index('data-view="people"')
+    places_i = html.index('data-view="places"')
+    staff_i = html.index('data-view="staff"')
+    channels_i = html.index('data-view="channels"')
+    assert people_i < places_i < staff_i < channels_i
+    assert "Places · cameras" in html
+    assert 'id="view-people"' in html
+    assert 'id="view-places"' in html
+    assert 'id="view-channels"' in html
     assert "coming soon" not in html.lower()
     assert "Coming soon" not in html
     # guide §12: hide stub toasts and n/a timing rails

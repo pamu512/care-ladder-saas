@@ -31,6 +31,10 @@
   --accent-line:rgba(24,164,194,.35);
   --chip-hot-border:rgba(244,87,77,.5);
   --chip-ok-border:rgba(52,201,142,.4);
+  --chan-slack:#4a154b; --chan-slack-ink:#fff;
+  --chan-teams:#5072c4; --chan-teams-ink:#fff;
+  --chan-wa:#1e3a2f; --chan-wa-ink:#8fe3b0;
+  --chan-tg:#233242; --chan-tg-ink:#9cc4e4;
 }
 *{box-sizing:border-box;margin:0}
 body{background:var(--bg);color:var(--text);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
@@ -180,6 +184,22 @@ section.view.on{display:block}
 .tbl tr:last-child td{border-bottom:0}
 .tbl tr:hover td{background:var(--card2)}
 
+.chan{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:11px}
+.chan .cbox{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px}
+.chan .chead{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.chan .cico{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:13px;font-weight:800}
+.chan .cico.slack{background:var(--chan-slack);color:var(--chan-slack-ink)}
+.chan .cico.teams{background:var(--chan-teams);color:var(--chan-teams-ink)}
+.chan .cico.whatsapp{background:var(--chan-wa);color:var(--chan-wa-ink)}
+.chan .cico.telegram{background:var(--chan-tg);color:var(--chan-tg-ink)}
+.chan h4{font-size:13.5px}
+.chan .cstate{font-size:10px;margin-bottom:8px}
+.chan .cstate.ok{color:var(--ok)}
+.chan .cstate.warn{color:var(--warn)}
+.chan .cstate.faint{color:var(--faint)}
+.chan .crow{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);padding:2px 0}
+.chan .crow .v{font-family:var(--mono);font-size:10.5px;color:var(--text)}
+
 .seg{display:flex;border:1px solid var(--border2);border-radius:10px;overflow:hidden}
 .seg button{flex:1;border:0;background:transparent;color:var(--faint);font-size:12px;font-weight:600;padding:9px 0;cursor:pointer}
 .seg button.on{background:var(--accent-soft);color:var(--accent)}
@@ -256,7 +276,10 @@ footer a{color:var(--faint)}
     </nav>
 
     <div class="ngroup">Configuration</div>
+    <button class="nav" role="tab" data-view="people" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M21.5 20a6.5 6.5 0 0 0-4.5-6.2"/></svg>People</button>
+    <button class="nav" role="tab" data-view="places" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="12" height="13" rx="1"/><path d="M15 11h4a1 1 0 0 1 1 1v8h-5"/><path d="M7 11h1M7 15h1"/></svg>Places · cameras</button>
     <button class="nav" role="tab" data-view="staff" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Staff · shifts</button>
+    <button class="nav" role="tab" data-view="channels" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>Channels</button>
 
     <div class="ngroup">Account</div>
     <button class="nav" role="tab" data-view="billing" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>Plan · billing</button>
@@ -390,6 +413,31 @@ footer a{color:var(--faint)}
         </div>
       </section>
 
+      <section class="view" id="view-people" role="tabpanel">
+        <div class="card">
+          <h3 id="people-heading">People monitored</h3>
+          <div id="people-table"></div>
+          <p class="muted small" style="margin-top:9px">Rows come from this floor's demo seed plus people on open alerts and cases. Check-in counts and pendant pairing are hidden until the backend records them.</p>
+        </div>
+      </section>
+
+      <section class="view" id="view-places" role="tabpanel">
+        <div class="card">
+          <h3>Places · cameras · zones</h3>
+          <div id="places-table"></div>
+          <p class="muted small" style="margin-top:9px">Zones come from the facility plan. Frames are privacy-transformed before persist. Camera inventory is listed only when a camera id exists.</p>
+        </div>
+      </section>
+
+      <section class="view" id="view-channels" role="tabpanel">
+        <div class="chan" id="channel-grid"></div>
+        <div class="card" style="margin-top:14px">
+          <h3>Recent page deliveries</h3>
+          <div id="channel-deliveries"></div>
+          <p class="muted small" style="margin-top:9px">Connection state is from live adapter credentials and the plan. Delivery counts stay hidden until we record them. Test-page and configure actions are not wired.</p>
+        </div>
+      </section>
+
       <section class="view" id="view-billing" role="tabpanel">
         <div class="grid2">
           <div class="card">
@@ -457,7 +505,10 @@ const TITLES = {
   alerts:["Alert center","triage and overrides"],
   cases:["Cases","acknowledged through closed"],
   audit:["Audit","response and handling review"],
+  people:["People","people monitored"],
+  places:["Places · cameras","rooms, zones, privacy"],
   staff:["Staff · shifts","roster and breaks"],
+  channels:["Channels","paging integrations"],
   billing:["Plan · billing","subscription"],
   settings:["Settings","facility and policy"],
 };
@@ -468,6 +519,7 @@ let VOCAB = { subject: "resident", place: "room", lead: "Floor lead" };
 const PIN_KEY = "cl.pins";
 const state = {
   alerts:[], resident:[], cases:{open:[],closed_today:[]}, staff:[],
+  people:[], places:[], channels:{channels:[], deliveries:[]},
   selected:null, detailDirty:false, detailDraft:null, loading:false,
   auditRows:[], auditFilter:"all", auditSummary:null, quiet:null,
   tenant:{id:"facility", plan:"demo"}, view:"alerts"
@@ -569,6 +621,9 @@ function showView(name){
   if (name === "billing") renderBilling();
   if (name === "settings") renderSettingsView();
   if (name === "staff" || name === "cases") { renderRoster(); renderCasesCapacity(); }
+  if (name === "people") renderPeople();
+  if (name === "places") renderPlaces();
+  if (name === "channels") renderChannels();
 }
 
 function tick(){
@@ -647,6 +702,81 @@ document.querySelectorAll("#type-seg [data-type]").forEach(b=> b.addEventListene
   refresh();
 }));
 
+function dirBadge(status){
+  const st = String(status||"");
+  if (st === "incident open" || st === "failed") return "b-bad";
+  if (st === "case open" || st.indexOf("stub") >= 0 || st === "window missed") return "b-warn";
+  if (st === "ok" || st === "delivered" || st.indexOf("connected") === 0) return "b-ok";
+  if (st === "configured" || st === "blur" || st === "silhouette") return "b-info";
+  return "";
+}
+function dirBadgeHtml(status){
+  const st = status || "-";
+  const cls = dirBadge(st);
+  return cls ? `<span class="badge ${cls}">${escapeHtml(st)}</span>` : `<span class="muted small">${escapeHtml(st)}</span>`;
+}
+function renderPeople(){
+  const el = $("#people-table");
+  if (!el) return;
+  const heading = $("#people-heading");
+  const noun = VOCAB.subject || "person";
+  const rows = state.people || [];
+  if (heading) heading.textContent = rows.length
+    ? ("People monitored · " + rows.length + " " + (rows.length===1 ? noun : noun + "s"))
+    : "People monitored";
+  if (!rows.length){
+    el.innerHTML = '<p class="muted small">No people on this floor yet.</p>';
+    return;
+  }
+  const personH = noun.charAt(0).toUpperCase() + noun.slice(1);
+  const placeH = (VOCAB.place || "place");
+  const placeLabel = placeH.charAt(0).toUpperCase() + placeH.slice(1);
+  el.innerHTML = `<table class="tbl"><tr><th>${escapeHtml(personH)}</th><th>${escapeHtml(placeLabel)}</th><th>Status</th><th>Last response</th></tr>${
+    rows.map(p=>`<tr><td><b>${escapeHtml(p.display_name||"")}</b></td><td>${escapeHtml(p.place_label||"-")}</td><td>${dirBadgeHtml(p.status)}</td><td class="mono small">${escapeHtml(p.last_response||"-")}</td></tr>`).join("")
+  }</table>`;
+}
+function renderPlaces(){
+  const el = $("#places-table");
+  if (!el) return;
+  const rows = state.places || [];
+  if (!rows.length){
+    el.innerHTML = '<p class="muted small">No places configured yet.</p>';
+    return;
+  }
+  el.innerHTML = `<table class="tbl"><tr><th>Place</th><th>Zone</th><th>Privacy</th><th>Status</th><th>Last cue</th></tr>${
+    rows.map(p=>`<tr><td><b>${escapeHtml(p.place_label||p.id||"")}</b></td><td>${escapeHtml(p.zone_kind||"-")}</td><td>${dirBadgeHtml(p.privacy)}</td><td>${dirBadgeHtml(p.status)}</td><td class="mono small">${escapeHtml(p.last_cue||"-")}</td></tr>`).join("")
+  }</table>`;
+}
+function renderChannels(){
+  const grid = $("#channel-grid");
+  const log = $("#channel-deliveries");
+  const body = state.channels || {};
+  const chans = body.channels || [];
+  const deliveries = body.deliveries || [];
+  if (grid){
+    if (!chans.length) grid.innerHTML = '<p class="muted small">No paging channels listed.</p>';
+    else grid.innerHTML = chans.map(c=>{
+      const st = c.state || "not configured";
+      const tone = st.indexOf("connected")===0 ? "ok" : (st.indexOf("stub")>=0 ? "warn" : "faint");
+      const rows = [];
+      if (c.target) rows.push(`<div class="crow"><span>Target</span><span class="v">${escapeHtml(c.target)}</span></div>`);
+      rows.push(`<div class="crow"><span>Adapter</span><span class="v">${c.live ? "live" : "stub"}</span></div>`);
+      return `<div class="cbox"><div class="chead"><div class="cico ${escapeHtml(c.id)}">${escapeHtml(c.tile||"")}</div><div><h4>${escapeHtml(c.label||c.id)}</h4><div class="cstate ${tone}">${escapeHtml(st)}</div></div></div>${rows.join("")}</div>`;
+    }).join("");
+  }
+  if (log){
+    if (!deliveries.length){
+      log.innerHTML = '<p class="muted small">No page deliveries recorded yet.</p>';
+    } else {
+      log.innerHTML = `<table class="tbl"><tr><th>Time</th><th>Page</th><th>Channel</th><th>Result</th><th>Ack</th></tr>${
+        deliveries.map(d=>{
+          const when = d.at ? escapeHtml(String(d.at).replace("T"," ").slice(0,19)) : "-";
+          return `<tr><td class="mono small">${when}</td><td>${escapeHtml(d.page||"-")}</td><td>${escapeHtml(d.channel||"-")}</td><td>${dirBadgeHtml(d.result)}</td><td class="mono small">${escapeHtml(d.ack||"-")}</td></tr>`;
+        }).join("")
+      }</table>`;
+    }
+  }
+}
 function renderBilling(){
   const plan = (state.tenant && state.tenant.plan) || "demo";
   const label = PLAN_LABELS[plan] || plan;
@@ -663,7 +793,10 @@ async function refresh(){
 }
 
 async function _refreshInner(){
-  const [al, cs, st] = await Promise.all([japi("/facility/alerts"), japi("/facility/cases"), japi("/facility/staff")]);
+  const [al, cs, st, pe, pl, ch] = await Promise.all([
+    japi("/facility/alerts"), japi("/facility/cases"), japi("/facility/staff"),
+    japi("/facility/people"), japi("/facility/places"), japi("/facility/channels")
+  ]);
   if (al.status===200){
     state.alerts = al.body.queue||[];
     state.resident = al.body.resident_resolved||[];
@@ -680,6 +813,9 @@ async function _refreshInner(){
   }
   if (cs.status===200){ state.cases = cs.body; $("#count-cases").textContent = String((cs.body.open||[]).length); renderCases(); }
   if (st.status===200){ state.staff = st.body.staff||[]; renderRoster(); renderCasesCapacity(); }
+  if (pe.status===200){ state.people = pe.body.people||[]; renderPeople(); }
+  if (pl.status===200){ state.places = pl.body.places||[]; renderPlaces(); }
+  if (ch.status===200){ state.channels = ch.body; renderChannels(); }
   if (state.selected) loadDetail(state.selected);
   if (state.view === "overview") renderOverview();
   if (state.view === "audit") renderAudit();
