@@ -167,16 +167,15 @@
         </div>
         <div class="bubble bot alert">
           <b>Check-in not answered.</b> No movement in the living room for 15 minutes.
-          If nobody responds in 5:00, I'll call you, then Sarah.
+          If nobody responds in the plan-defined window, I'll call you, then Sarah.
           <span class="bt">14:27</span>
-          <span class="bbtn">I'm on it - call her myself</span>
+          <span class="bbtn">I'm on it - stop the escalation</span>
           <span class="bbtn">Call Mom now (speakerphone)</span>
-          <span class="bbtn danger">Can't talk - go to Sarah</span>
         </div>
-        <div class="bubble me">1 - on it, calling her now
+        <div class="bubble me">tapped "I'm on it" and called her back
           <span class="bt">14:43</span></div>
         <div class="bubble bot good">
-          <b>Noted, James. Escalation stopped.</b> Sarah will not be contacted.
+          <b>Escalation stopped.</b> You acknowledged in 52s. Sarah will not be contacted.
           <span class="bt">14:43</span>
         </div>
         <div class="bubble me">she's fine - balcony again, phone inside
@@ -198,13 +197,13 @@
       <div class="step">
         <span class="k">Inform · 0:00</span>
         <b>Mom is asked first</b>
-        <span>The speaker or pendant check-in gets a 5:00 window. Most incidents end here - the family never hears about them.</span>
+        <span>The speaker check-in gets a plan-defined window. Most incidents end here - the family never hears about them.</span>
         <span class="ex">"I'm fine, thanks - just resting."</span>
       </div>
       <div class="step">
         <span class="k">Acknowledge · in chat</span>
         <b>One tap, three choices</b>
-        <span>Take it yourself, start a speakerphone call, or pass to the next contact. Buttons or a one-word reply both work.</span>
+        <span>Take it yourself, start a speakerphone call, or pass to the next contact. (In-chat buttons are part of the rolling-out runtime; today's demo uses one-tap acknowledgment links that work the same way.)</span>
         <span class="ex">"Noted, James. Sarah will not be contacted."</span>
       </div>
       <div class="step">
@@ -233,7 +232,7 @@
         <div class="qr" role="img" aria-label="QR code to pair the chat bot"></div>
         <div class="pair-steps">
           <span><b>1.</b> Scan with WhatsApp or Telegram (or tap the link on your phone)</span>
-          <span><b>2.</b> Send <span class="mono">start</span> - the thread becomes the runtime</span>
+          <span><b>2.</b> Send <span class="mono">start</span> - the thread becomes the runtime (ships with the rollout)</span>
           <span><b>3.</b> Each family member pairs their own chat and picks a role</span>
           <span><b>4.</b> Console stays for review: day timeline, clips, plan edits</span>
         </div>
@@ -258,8 +257,8 @@
       <div class="fact"><b>A human always decides</b><span>Emergency services are never dialed automatically. The ladder calls people, in the order you set.</span><span class="mono">emergency rung · fail-closed</span></div>
       <div class="fact"><b>Faces blurred before saving</b><span>Frames are privacy-transformed before anything persists; clips state how long they are kept.</span><span class="mono">retention · 30 days default</span></div>
       <div class="fact"><b>Quiet hours are real</b><span>Non-urgent check-ins pause overnight. Distress cues still alert instantly.</span><span class="mono">22:00 - 07:00 default</span></div>
-      <div class="fact"><b>Pause for visitors</b><span>Pause the ladder for an afternoon from chat; falls still break through.</span><span class="mono">/pause 2h · distress bypasses</span></div>
-      <div class="fact"><b>Recap, not surveillance</b><span>You get an evening summary: check-ins answered, calls placed, median response time.</span><span class="mono">20:00 · muted by default</span></div>
+      <div class="fact"><b>Pause for visitors</b><span>Pause the ladder for an afternoon; falls still break through. (Chat command ships with the rollout.)</span><span class="mono">/pause 2h · distress bypasses · roadmap</span></div>
+      <div class="fact"><b>Recap, not surveillance</b><span>An evening summary is on the roadmap: check-ins answered, calls placed, median response time. Today the console shows the same day timeline.</span><span class="mono">recap · roadmap</span></div>
       <div class="fact"><b>Not a medical device</b><span>Care Ladder checks in and escalates. It does not diagnose and does not score clinical risk.</span><span class="mono">wellness workflow only</span></div>
     </div>
   </section>

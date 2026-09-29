@@ -234,7 +234,7 @@
   <section class="block" id="how">
     <div class="shead"><h2>The person answers first. Everyone else is plan B.</h2></div>
     <p class="ssub">Before any alert leaves the building, Care Ladder asks the person directly -
-    through a speaker or a pendant button. The response decides what happens next, and the
+    through a speaker check-in. The response decides what happens next, and the
     response itself is the product's core signal.</p>
     <div class="trio">
       <div class="tcard ok">
@@ -246,14 +246,14 @@
       <div class="tcard bad">
         <span class="tag">Negative reply</span>
         <h3>Raises priority, jumps the queue</h3>
-        <p>"No... I can't get up" skips every wait rung: priority auto-raises to P1, caretakers are paged immediately, a call is queued.</p>
-        <div class="ex">wait rungs skipped · P2 to P1 automatic</div>
+        <p>"No... I can't get up" skips every wait rung: priority auto-raises to P1 and caretakers are paged immediately.</p>
+        <div class="ex">wait rungs skipped · negative auto-raises P1</div>
       </div>
       <div class="tcard warn">
         <span class="tag">Silence</span>
         <h3>Escalates on a timer</h3>
         <p>No answer inside the window pages caretakers with a countdown. No acknowledgment, and the ladder climbs to the next human - visibly, on the record.</p>
-        <div class="ex">ack window 5:00 · every hop audited</div>
+        <div class="ex">plan-defined ack window · every hop audited</div>
       </div>
     </div>
   </section>
@@ -267,16 +267,16 @@
       <div class="audcard fam">
         <div class="audbody">
           <div class="who">For families · Home plan · chat runtime rolling out</div>
-          <h3>The care conversation lives in your chat app</h3>
-          <p>Nobody opens a console when Mom might need help. Care Ladder runs as a bot thread in WhatsApp or Telegram:</p>
+          <h3>The care conversation belongs in your chat app</h3>
+          <p>Nobody opens a console when Mom might need help. Care Ladder is being rolled out as a bot thread in WhatsApp or Telegram - today's live demo runs the same ladder with one-tap acknowledgment links:</p>
           <ul>
             <li><b>Inform with a countdown</b> - blurred frame, plain words, "we'll call you, then Sarah"</li>
-            <li><b>Acknowledge in chat</b> - one tap on "I'm on it" stops the escalation</li>
-            <li><b>Update by replying</b> - "she's fine, balcony again" becomes the case note</li>
-            <li><b>Evening recap</b> - four check-ins answered, zero calls, 41s response in the demo script</li>
+            <li><b>One-tap acknowledgment</b> - "I'm on it" stops the escalation, from chat or the link</li>
+            <li><b>Update by replying</b> - roadmap: "she's fine, balcony again" becomes the case note</li>
+            <li><b>Evening recap</b> - roadmap: check-ins answered, calls placed, response times</li>
           </ul>
         </div>
-        <a class="audlink" href="/site/family/">See the family experience →</a>
+        <a class="audlink" href="#families">See the family experience →</a>
       </div>
       <div class="audcard fac">
         <div class="audbody">
@@ -285,12 +285,12 @@
           <p>Pages route to the shift channel first. The console is triage, cases and audit:</p>
           <ul>
             <li><b>Alert center</b> - priority queue, aging timers, assign, override, de-escalate</li>
-            <li><b>Cases</b> - acknowledged, handled, closed with documentation in chat</li>
+            <li><b>Cases</b> - acknowledged, handled, closed with required documentation</li>
             <li><b>Audit</b> - time-to-ack, handling times, response transcripts, CSV export</li>
             <li><b>Shift aware</b> - breaks respected, coverage warnings, group timeout routing</li>
           </ul>
         </div>
-        <a class="audlink" href="/site/facility/">See the facility console →</a>
+        <a class="audlink" href="#facilities">See the facility console →</a>
       </div>
     </div>
   </section>
@@ -309,17 +309,14 @@
       <div class="pbody">
         <div class="bubble bot alert">
           <b>Check-in not answered.</b> No movement in the living room for 15 minutes.
-          If nobody responds in 5:00, I'll call you, then Sarah.
+          If nobody responds in the plan-defined window, I'll call you, then Sarah.
           <span class="bt">21:17</span>
         </div>
-        <div class="bubble me">1 - on it, calling her now
-          <span class="bt">21:18</span></div>
         <div class="bubble bot good">
-          <b>Noted, James. Escalation stopped.</b> Sarah will not be contacted.
-          Tell me how it went when you can.
+          <b>Escalation stopped.</b> You acknowledged in 52s.
           <span class="bt">21:18</span>
         </div>
-        <div class="bubble me">she's fine - balcony again, phone inside
+        <div class="bubble me">called her back - she's fine, balcony again
           <span class="bt">21:26</span></div>
         <div class="bubble bot good">
           <b>Closed · all fine.</b> Cue 21:12 → page 21:17 → you acked in 52s → closed 21:26.
@@ -349,12 +346,12 @@
       </div>
       <div class="chan">
         <div class="ctile" style="background:#1e3a2f;color:#8fe3b0">W</div>
-        <h4>WhatsApp</h4><span>Cloud API · family bot threads</span>
+        <h4>WhatsApp</h4><span>Cloud API adapter · text pages</span>
         <div class="st">adapter present · not configured in demo</div>
       </div>
       <div class="chan">
         <div class="ctile" style="background:#233242;color:#9cc4e4">TG</div>
-        <h4>Telegram</h4><span>Bot API · buttons + commands</span>
+        <h4>Telegram</h4><span>Bot API adapter · text pages</span>
         <div class="st">adapter present · not configured in demo</div>
       </div>
     </div>
@@ -362,7 +359,7 @@
 
   <!-- ============ PRICING ============ -->
   <section class="block" id="pricing">
-    <div class="shead"><h2>Per-household pricing. No per-seat tax on family.</h2></div>
+    <div class="shead"><h2>Per-camera, per-household pricing. No per-seat tax on family.</h2></div>
     <p class="ssub">Checkout runs live via Stripe (test mode during the Galuxium build).</p>
     <table class="ptable">
       <thead>
@@ -372,7 +369,7 @@
         <tr>
           <td><div class="tier">Home</div><div class="tier-cap">Solo families</div></td>
           <td class="price">$9<small>/mo</small></td>
-          <td>1 household · 1 camera · voice check-in ladder · chat runtime for the family · full audit trail</td>
+          <td>1 household · 1 camera · voice check-in ladder · caregiver notify · full audit trail</td>
         </tr>
         <tr>
           <td><div class="tier">Facility Starter</div><div class="tier-cap">Small assisted-living</div></td>
@@ -423,7 +420,7 @@
       </details>
       <details class="fq">
         <summary>What happens if nobody acknowledges?</summary>
-        <p>The ladder climbs on timers: after the acknowledgment window expires, the next contact is paged, then called - each step visible in the console and recorded in the audit trail. Group timeouts route to the floor lead.</p>
+        <p>The ladder climbs on timers: after the acknowledgment window expires, the next contact is paged, then called - each step visible in the console and recorded in the audit trail.</p>
       </details>
       <details class="fq">
         <summary>What does the camera actually see?</summary>
@@ -431,7 +428,7 @@
       </details>
       <details class="fq">
         <summary>Can staff step away without breaking it?</summary>
-        <p>Responders set breaks from chat; auto-routing skips them until they return, with countdowns shown. P1 pages can still break through, and the floor lead can pull someone off break as a logged override.</p>
+        <p>Responders set breaks from the staff console; auto-routing shows their status and countdowns, and the floor lead can pull someone off break as a logged override. (Chat-side break commands are on the roadmap.)</p>
       </details>
     </div>
   </section>
@@ -475,8 +472,8 @@
     <div class="frow">
       <a href="/ui/">Family console</a>
       <a href="/ui/facility/">Facility console</a>
-      <a href="/site/family/">For families</a>
-      <a href="/site/facility/">For facilities</a>
+      <a href="#families">For families</a>
+      <a href="#facilities">For facilities</a>
       <a href="#pricing">Pricing</a>
       <a href="#faq">FAQ</a>
     </div>
