@@ -1811,6 +1811,51 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             raise HTTPException(status_code=404, detail="staff not found")
         return {"ok": True, "status": m.status}
 
+    def _directory_plan(request: Request):
+        from care_ladder.facility.directory import plan_for_type
+
+        ftype = _facility_settings(request)["facility_type"]
+        try:
+            return ftype, load_care_plan(plan_for_type(ftype))
+        except Exception:
+            return ftype, load_care_plan(_FACILITY_PLAN_PATH)
+
+    @application.get("/facility/people")
+    def facility_people(request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        from care_ladder.facility.directory import build_people
+
+        ftype = _facility_settings(request)["facility_type"]
+        return {"people": build_people(state, facility_type=ftype)}
+
+    @application.get("/facility/places")
+    def facility_places(request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        from care_ladder.facility.directory import build_places
+
+        _ftype, plan = _directory_plan(request)
+        return {"places": build_places(state, store, plan)}
+
+    @application.get("/facility/channels")
+    def facility_channels(request: Request):
+        tenant_id, state, store = _facility_ctx(request)
+        from care_ladder.channels.router import channel_active_envs
+        from care_ladder.facility.directory import build_channels
+
+        _ftype, plan = _directory_plan(request)
+        pending = []
+        try:
+            pending = _app_ack_registry().pending_list(tenant_id)
+        except Exception:
+            pending = []
+        return build_channels(
+            plan,
+            live_envs=channel_active_envs(),
+            store=store,
+            pending=pending,
+            state=state,
+        )
+
     @application.get("/facility/audit/summary")
     def facility_audit(request: Request):
         tenant_id, state, store = _facility_ctx(request)
