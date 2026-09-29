@@ -18,12 +18,12 @@ than memory.
 
 - **Home care:** family or private caregiver for an aging parent. Ladder:
   check-in by voice, wait window, call primary, optionally call secondary.
-  One household, one camera, $29/mo.
+  One household, one camera, $9/mo.
 - **Facility (the wedge, primary Galuxium story):** assisted-living lean ops,
   especially nights and weekends when floors are not staffed to watch monitors.
   Ladder: check-in, notify ops via Slack, escalate to the shift supervisor,
   then dial the resident's primary caregiver. The audit trail is the artifact
-  facility operators and auditors already want; the price ($199/mo starter) is
+  facility operators and auditors already want; the price ($49/mo starter) is
   one they can approve without a procurement cycle.
 
 ## Architecture (hosted SaaS)
@@ -41,9 +41,9 @@ idempotently on container start.
 
 | Plan | Price | Includes |
 | --- | --- | --- |
-| Home | $29/mo per household | 1 household, 2 seats, home ladder, full audit trail |
-| Facility Starter | $199/mo per site | 1 site, 10 seats, Slack notify, supervisor escalation, 7-day clip retention |
-| Facility Growth | $499/mo per site | 25 seats, 30-day retention, multi-tenant admin, learning schedules with freeze controls |
+| Home | $9/mo per household | 1 household, 2 seats, home ladder, full audit trail |
+| Facility Starter | $49/mo per site | 1 site, 10 seats, Slack notify, supervisor escalation, 7-day clip retention |
+| Facility Growth | $99/mo per site | 25 seats, 30-day retention, multi-tenant admin, learning schedules with freeze controls |
 
 Engine: Stripe Checkout for upgrade, Customer Portal for manage/cancel; the
 verified webhook updates `tenant.plan` / `subscription_status`. Free judge

@@ -30,5 +30,6 @@ def test_executive_briefing_exists_and_covers_required_sections():
 
 def test_briefing_has_fiscal_table_and_demo_accounts():
     text = Path("docs/galuxium/executive-briefing.md").read_text(encoding="utf-8")
-    assert "$29" in text and "$199" in text and "$499" in text
+    assert "$9/mo" in text and "$49/mo" in text and "$99/mo" in text
+    assert "$29" not in text and "$199" not in text and "$499" not in text
     assert "demo@careladder.local" in text

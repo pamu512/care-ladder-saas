@@ -147,6 +147,16 @@ def test_facility_shell_omits_unwired_product_nav(client):
     assert "n/a" not in html
 
 
+def test_facility_billing_compare_matches_live_stripe_prices(client):
+    html = client.get("/ui/facility/").text
+    assert "$9 · 1 household, 1 camera" in html
+    assert "$49 · 10 rooms, Slack queue, audit export" in html
+    assert "$99 · unlimited rooms, multi-tenant admin" in html
+    assert "$29" not in html
+    assert "$199" not in html
+    assert "$499" not in html
+
+
 def test_facility_existing_api_hooks_survive_shell(client):
     html = client.get("/ui/facility/").text
     assert 'data-fixture="facility_negative_reply"' in html
