@@ -28,6 +28,8 @@ services:
         sync: false
       - key: STRIPE_PRICE_FACILITY
         sync: false
+      - key: STRIPE_PRICE_FACILITY_GROWTH
+        sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
 

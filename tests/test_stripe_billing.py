@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from care_ladder.api.app import create_app
 from care_ladder.audit.store import AuditStore
-from care_ladder.billing.plans import PlanId, tenant_can_use_notify
+from care_ladder.billing.plans import PRICE_ENV, PlanId, tenant_can_use_notify
 
 
 # ---------- plans / gating ----------
@@ -21,6 +21,12 @@ def test_plan_gates():
         "home plan must never notify"
     assert not tenant_can_use_notify({"mode": "facility", "plan": "facility_starter", "status": "past_due"}), \
         "lapsed subscription loses notify"
+
+
+def test_price_env_maps_facility_growth():
+    assert PRICE_ENV["facility_growth"] == "STRIPE_PRICE_FACILITY_GROWTH"
+    assert PRICE_ENV["home"] == "STRIPE_PRICE_HOME"
+    assert PRICE_ENV["facility_starter"] == "STRIPE_PRICE_FACILITY"
 
 
 # ---------- checkout ----------
@@ -113,6 +119,37 @@ def test_checkout_passes_absolute_https_urls_to_stripe(monkeypatch):
     )
     assert "{CHECKOUT_SESSION_ID}" in captured["success_url"]
     assert captured["cancel_url"] == "https://care-ladder-saas.onrender.com/billing/cancel"
+
+
+def test_checkout_facility_growth_uses_stripe_price_facility_growth(monkeypatch):
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_abc123")
+    monkeypatch.setenv("STRIPE_PRICE_FACILITY_GROWTH", "price_growth_1")
+    import stripe
+    from care_ladder.billing.stripe_checkout import create_checkout_url
+
+    captured: dict = {}
+
+    class FakeSession:
+        url = "https://checkout.stripe.com/c/pay/cs_growth"
+
+    def fake_create(**kwargs):
+        captured.update(kwargs)
+        return FakeSession()
+
+    monkeypatch.setattr(stripe.checkout.Session, "create", fake_create)
+    url = create_checkout_url("facility_growth", "demo-facility", base_url="https://example.test")
+    assert url == FakeSession.url
+    assert captured["line_items"] == [{"price": "price_growth_1", "quantity": 1}]
+    assert captured["metadata"]["plan"] == "facility_growth"
+
+
+def test_checkout_503_when_facility_growth_price_unset(monkeypatch):
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_abc123")
+    monkeypatch.delenv("STRIPE_PRICE_FACILITY_GROWTH", raising=False)
+    client = TestClient(create_app(store=AuditStore()))
+    r = client.post("/billing/checkout", json={"plan": "facility_growth"})
+    assert r.status_code == 503
+    assert r.json()["detail"] == "no price configured for plan facility_growth"
 
 
 def test_create_checkout_url_uses_env_base_as_https(monkeypatch):
