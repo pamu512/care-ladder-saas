@@ -76,15 +76,54 @@ def test_family_runtime_auth_off_is_honest_demo_fixture():
     assert r.status_code == 200
     body = r.json()
     assert body["source"] == "demo_fixture"
-    assert body["state"] in {"idle", "family_paged", "pressure", "calling"}
+    assert body["state"] in {"idle", "family_paged"}
     assert "last_message" in body
-    assert body["last_message"]["kind"]
+    assert body["last_message"]["kind"] != "evening_recap"
     assert "whatsapp" in body["channels"]
     assert "telegram" in body["channels"]
     assert "deep_link" in body["channels"]["whatsapp"]
+    assert body["channels"]["whatsapp"]["live"] is False
+    assert body["channels"]["telegram"]["live"] is False
     assert "hero" in body
     assert "checkins_answered_today" in body["hero"]
     assert "calls_this_week" in body["hero"]
+    html = client.get("/ui/").text
+    assert "no live bot thread" in html or "demo fixture" in html.lower()
+
+
+def test_family_hero_week_rate_uses_week_sends():
+    from datetime import datetime, timedelta, timezone
+
+    from care_ladder.api.app import _family_hero
+    from care_ladder.models import AuditEvent, CueEvent, Incident
+
+    now = datetime(2026, 9, 29, 15, 0, tzinfo=timezone.utc)
+    older = Incident(
+        id="old",
+        household_id="h",
+        cue=CueEvent(kind="no_movement", confidence=0.9),
+        events=[
+            AuditEvent(tool="cue", at=now - timedelta(days=3), detail={}),
+            AuditEvent(
+                tool="speaker_prompt",
+                at=now - timedelta(days=3),
+                detail={"reply_kind": "ok"},
+            ),
+        ],
+        status="resolved",
+    )
+    today_open = Incident(
+        id="new",
+        household_id="h",
+        cue=CueEvent(kind="no_movement", confidence=0.9),
+        events=[AuditEvent(tool="cue", at=now - timedelta(hours=1), detail={})],
+        status="open",
+    )
+    hero = _family_hero([older, today_open], now)
+    assert hero["week"]["checkins_answered"] == 1
+    assert hero["week"]["response_rate_pct"] == 50
+    assert hero["checkins_answered_today"] == 0
+    assert hero["checkins_sent_today"] == 1
 
 
 def test_family_runtime_auth_on_requires_session(monkeypatch):

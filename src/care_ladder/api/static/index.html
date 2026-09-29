@@ -201,8 +201,8 @@
     <span class="dot"></span>
     <div class="msg">
       <b id="strip-title">All quiet - the bot is idle in your family chat</b>
-      <span id="strip-sub">Alerts, acknowledgments and updates happen in WhatsApp now. This console mirrors them for review.</span>
-      <span class="mono" id="strip-meta">last bot message: evening recap · 20:00 · notifications on for James + Sarah</span>
+      <span id="strip-sub">Alerts, acknowledgments and updates happen in chat when adapters are live. This console is a read-only mirror.</span>
+      <span class="mono" id="strip-meta">demo fixture · no live bot thread</span>
     </div>
     <a class="btn wa" id="wa-link" href="https://wa.me/">Open WhatsApp</a>
     <a class="btn tg2" id="tg-link" href="https://t.me/">Open Telegram</a>
@@ -267,8 +267,8 @@
       <div class="rc">
         <h3>Family chat <button class="edit" id="pair-edit" type="button">Pair a member</button></h3>
         <div id="channel-rows">
-          <div class="call-row"><div class="ava you">WA</div><div class="who"><b>WhatsApp · connected</b><span>James · Sarah · alerts + buttons</span></div><span class="ord">live</span></div>
-          <div class="call-row"><div class="ava nbr">TG</div><div class="who"><b>Telegram · available</b><span>daily rhythm + commands</span></div><span class="ord">pair</span></div>
+          <div class="call-row"><div class="ava you">WA</div><div class="who"><b>WhatsApp · demo</b><span>James · Sarah · alerts + buttons</span></div><span class="ord">demo</span></div>
+          <div class="call-row"><div class="ava nbr">TG</div><div class="who"><b>Telegram · demo</b><span>daily rhythm + commands</span></div><span class="ord">demo</span></div>
         </div>
         <p class="call-note">Each member pairs their own chat from Invite family. Acknowledging in chat stops the ladder - this console never needs to be open.</p>
       </div>
@@ -490,6 +490,14 @@ function paintHero(rt){
   const tg=ch.telegram||{};
   if(wa.deep_link) document.getElementById("wa-link").href = wa.deep_link;
   if(tg.deep_link) document.getElementById("tg-link").href = tg.deep_link;
+  const chRows=document.getElementById("channel-rows");
+  if(chRows){
+    const waLive=!!wa.live, tgLive=!!tg.live;
+    const waMembers=(wa.members||[]).join(" · ") || "alerts + buttons";
+    chRows.innerHTML = `
+      <div class="call-row"><div class="ava you">WA</div><div class="who"><b>WhatsApp · ${waLive?"connected":"demo"}</b><span>${esc(waMembers)}</span></div><span class="ord">${waLive?"live":"demo"}</span></div>
+      <div class="call-row"><div class="ava nbr">TG</div><div class="who"><b>Telegram · ${tgLive?"connected":"demo"}</b><span>daily rhythm + commands</span></div><span class="ord">${tgLive?"live":"demo"}</span></div>`;
+  }
   if(rt.contacts){
     document.getElementById("contact-rows").innerHTML = rt.contacts.map(c=>`
       <div class="call-row"><div class="ava ${esc(c.kind||"nbr")}">${esc(c.initials)}</div>
@@ -515,10 +523,10 @@ function paintStrip(rt, pending){
     meta.textContent = `channel ${p.channel||"chat"} · deadline ${p.deadline||"open"} · mirror only`;
   } else {
     title.textContent = "All quiet - the bot is idle in your family chat";
-    sub.textContent = "Alerts, acknowledgments and updates happen in WhatsApp now. This console mirrors them for review.";
+    sub.textContent = (rt && rt.note) || "Alerts, acknowledgments and updates happen in chat when adapters are live. This console is a read-only mirror.";
     meta.textContent = (rt && rt.last_message && rt.last_message.label)
-      ? ("last bot message: "+rt.last_message.label)
-      : "last bot message: evening recap · 20:00 · notifications on for James + Sarah";
+      ? rt.last_message.label
+      : "demo fixture · no live bot thread";
   }
 }
 async function refresh(){
