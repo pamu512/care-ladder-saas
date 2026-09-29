@@ -24,6 +24,7 @@ Bot-API notes (MVP, honest):
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from typing import Any
 
 DEFAULT_TIMEOUT = 10.0
@@ -33,6 +34,39 @@ ChannelId = str  # "slack" | "teams" | "whatsapp" | "telegram"
 
 def _env(name: str) -> str:
     return os.environ.get(name, "").strip()
+
+
+def telegram_mode() -> str:
+    """``TELEGRAM_MODE=poll|hook``. Default poll (demo). hook is the production path."""
+    mode = _env("TELEGRAM_MODE").lower()
+    if mode in {"hook", "webhook"}:
+        return "hook"
+    return "poll"
+
+
+def telegram_inline_keyboard(
+    buttons: list[tuple[str, str]],
+    callback_id: str,
+) -> dict[str, Any]:
+    """Telegram ``reply_markup`` for an alert card. ``callback_data`` stays under 64 bytes."""
+    cid = (callback_id or "x")[:24]
+    return {
+        "inline_keyboard": [
+            [{"text": label, "callback_data": f"cl:{action}:{cid}"}]
+            for action, label in buttons
+        ]
+    }
+
+
+@dataclass(frozen=True)
+class TelegramInbound:
+    action: str | None
+    callback_id: str | None
+    msg_ref: str
+    by: str | None
+    chat_ref: str
+    origin: str
+    text: str = ""
 
 
 def _post_sync(fn, message: str) -> dict[str, Any]:
@@ -133,7 +167,12 @@ class TeamsAdapter(_WebhookAdapter):
 
 
 class TelegramAdapter:
-    """Telegram Bot API ``sendMessage`` page (env: bot token + chat id)."""
+    """Telegram Bot API ``sendMessage`` page (env: bot token + chat id).
+
+    v2: optional inline keyboard on family alert cards. Without token+chat_id
+    every send stays an honest stub. Inbound updates (poll or webhook) parse
+    into ``TelegramInbound`` and first-wins the ack registry.
+    """
 
     id = "telegram"
 
@@ -141,46 +180,175 @@ class TelegramAdapter:
         self._token = bot_token or _env("TELEGRAM_BOT_TOKEN")
         self._chat_id = chat_id or _env("TELEGRAM_CHAT_ID")
 
-    async def _send(self, message: str) -> dict[str, Any]:
+    @property
+    def configured(self) -> bool:
+        return bool(self._token and self._chat_id)
+
+    def _stub(self, message: str) -> dict[str, Any]:
+        return {
+            "adapter": "stub",
+            "channel": "telegram",
+            "delivered": True,
+            "message": message,
+        }
+
+    async def _send(self, message: str, reply_markup: dict[str, Any] | None = None) -> dict[str, Any]:
         import httpx2 as httpx
 
         url = f"https://api.telegram.org/bot{self._token}/sendMessage"
+        payload: dict[str, Any] = {
+            "chat_id": self._chat_id,
+            "text": message,
+            "disable_web_page_preview": True,
+        }
+        if reply_markup is not None:
+            payload["reply_markup"] = reply_markup
         async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
-            resp = await client.post(
-                url,
-                json={
-                    "chat_id": self._chat_id,
-                    "text": message,
-                    "disable_web_page_preview": True,
-                },
-            )
+            resp = await client.post(url, json=payload)
         ok = resp.status_code == 200
         error = None
+        msg_id = None
         if not ok:
             try:
                 error = str(resp.json().get("description", ""))
             except Exception:
                 error = f"status {resp.status_code}"
+        else:
+            try:
+                msg_id = str((resp.json().get("result") or {}).get("message_id") or "") or None
+            except Exception:
+                msg_id = None
         return _result(
             "telegram",
             delivered=ok,
             message=message,
             status_code=resp.status_code,
             error=error,
+            msg_id=msg_id,
         )
 
-    def notify(self, message: str) -> dict[str, Any]:
-        if not self._token or not self._chat_id:
-            return {
-                "adapter": "stub",
-                "channel": "telegram",
-                "delivered": True,
-                "message": message,
-            }
+    def notify(self, message: str, reply_markup: dict[str, Any] | None = None) -> dict[str, Any]:
+        if not self.configured:
+            return self._stub(message)
         try:
-            return _post_sync(self._send, message)
+            if reply_markup is None:
+                return _post_sync(self._send, message)
+            return _post_sync(lambda m: self._send(m, reply_markup), message)
         except Exception as exc:  # network errors never break the ladder
             return _result("telegram", delivered=False, message=message, error=str(exc))
+
+    def notify_alert(
+        self,
+        message: str,
+        *,
+        callback_id: str,
+        next_contact: str = "Sarah",
+    ) -> dict[str, Any]:
+        from care_ladder.channels.bot import family_alert_buttons
+
+        markup = telegram_inline_keyboard(family_alert_buttons(next_contact), callback_id)
+        return self.notify(message, reply_markup=markup)
+
+    @staticmethod
+    def parse_update(update: dict[str, Any]) -> TelegramInbound | None:
+        """Turn a Bot API update into an inbound ack/reply, or None if irrelevant."""
+        from care_ladder.channels.ack import parse_chat_reply
+
+        if not isinstance(update, dict):
+            return None
+        cq = update.get("callback_query")
+        if isinstance(cq, dict):
+            data = str(cq.get("data") or "")
+            action = None
+            callback_id = None
+            if data.startswith("cl:"):
+                rest = data[3:]
+                action, _, callback_id = rest.partition(":")
+                action = action or None
+                callback_id = callback_id or None
+            msg = cq.get("message") if isinstance(cq.get("message"), dict) else {}
+            from_user = cq.get("from") if isinstance(cq.get("from"), dict) else {}
+            chat = msg.get("chat") if isinstance(msg.get("chat"), dict) else {}
+            return TelegramInbound(
+                action=action,
+                callback_id=callback_id,
+                msg_ref=str(msg.get("message_id") or cq.get("id") or ""),
+                by=str(from_user.get("first_name") or from_user.get("username") or "") or None,
+                chat_ref=str(chat.get("id") or ""),
+                origin="button",
+                text=data,
+            )
+        message = update.get("message")
+        if isinstance(message, dict):
+            text = str(message.get("text") or "")
+            if not text:
+                return None
+            from_user = message.get("from") if isinstance(message.get("from"), dict) else {}
+            chat = message.get("chat") if isinstance(message.get("chat"), dict) else {}
+            return TelegramInbound(
+                action=parse_chat_reply(text),
+                callback_id=None,
+                msg_ref=str(message.get("message_id") or ""),
+                by=str(from_user.get("first_name") or from_user.get("username") or "") or None,
+                chat_ref=str(chat.get("id") or ""),
+                origin="reply",
+                text=text,
+            )
+        return None
+
+    def ack_from_inbound(
+        self,
+        inbound: TelegramInbound,
+        registry: Any,
+        *,
+        token: str,
+    ) -> tuple[Any, str]:
+        return registry.acknowledge(
+            token,
+            by=inbound.by,
+            channel="telegram",
+            msg_ref=inbound.msg_ref,
+            origin=inbound.origin,
+        )
+
+    async def get_updates(self, offset: int = 0, timeout: int = 25) -> list[dict[str, Any]]:
+        """Long-poll ``getUpdates``. Caller must be configured; errors return []."""
+        if not self.configured:
+            return []
+        import httpx2 as httpx
+
+        url = f"https://api.telegram.org/bot{self._token}/getUpdates"
+        try:
+            async with httpx.AsyncClient(timeout=float(timeout) + 5.0) as client:
+                resp = await client.get(
+                    url,
+                    params={"offset": offset, "timeout": timeout},
+                )
+            body = resp.json()
+            if not body.get("ok"):
+                return []
+            result = body.get("result") or []
+            return list(result) if isinstance(result, list) else []
+        except Exception:
+            return []
+
+    def set_webhook(self, hook_url: str) -> dict[str, Any]:
+        if not self.configured or not hook_url:
+            return {"adapter": "stub", "delivered": False, "error": "missing token or hook url"}
+        import httpx2 as httpx
+
+        url = f"https://api.telegram.org/bot{self._token}/setWebhook"
+
+        async def _set(_message: str) -> dict[str, Any]:
+            async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+                resp = await client.post(url, json={"url": hook_url})
+            ok = resp.status_code == 200
+            return _result("telegram", delivered=ok, message=hook_url, status_code=resp.status_code)
+
+        try:
+            return _post_sync(_set, hook_url)
+        except Exception as exc:
+            return _result("telegram", delivered=False, message=hook_url, error=str(exc))
 
 
 class WhatsAppAdapter:

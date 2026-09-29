@@ -33,6 +33,7 @@ def _append(
     cue_kind: str | None = None,
     rung_id: str | None = None,
     detail: dict[str, Any] | None = None,
+    at: datetime | None = None,
 ) -> None:
     from datetime import datetime, timezone as _tz
 
@@ -42,9 +43,121 @@ def _append(
             cue_kind=cue_kind,
             rung_id=rung_id,
             detail=detail or {},
-            at=datetime.now(_tz.utc),
+            at=at or datetime.now(_tz.utc),
         )
     )
+
+
+def _flush_bot_audit(
+    events: list[AuditEvent],
+    thread,
+    *,
+    cue_kind: str | None = None,
+    rung_id: str | None = None,
+) -> None:
+    """Copy new BotThread audit rows onto the incident timeline (tool=bot)."""
+    if thread is None:
+        return
+    flushed = int(getattr(thread, "_flushed", 0))
+    rows = list(getattr(thread, "audit", []) or [])
+    for row in rows[flushed:]:
+        at = None
+        raw = row.get("at") if isinstance(row, dict) else None
+        if isinstance(raw, datetime):
+            at = raw
+        elif isinstance(raw, str):
+            try:
+                at = datetime.fromisoformat(raw)
+            except ValueError:
+                at = None
+        _append(
+            events,
+            tool="bot",
+            cue_kind=cue_kind,
+            rung_id=rung_id,
+            detail=dict(row),
+            at=at,
+        )
+    thread._flushed = len(rows)
+
+
+def _family_thread_for_plan(plan, bot_thread, *, page_router, ack_registry, clock: datetime):
+    """Reuse an injected thread, or build one when the plan pages a family channel."""
+    if bot_thread is not None:
+        return bot_thread
+    from care_ladder.channels.bot import BotThread, adapter_channel, is_family_channel
+
+    page = next(
+        (
+            r
+            for r in plan.rungs
+            if r.tool == "notify_and_await_ack"
+            and is_family_channel(str(r.params.get("channel", "")))
+        ),
+        None,
+    )
+    if page is None:
+        return None
+    channel = adapter_channel(str(page.params.get("channel")))
+    chat_ref = ""
+    if plan.notifications is not None and plan.notifications.telegram.chat_id:
+        chat_ref = str(plan.notifications.telegram.chat_id)
+    adapter = page_router.get(channel) if page_router is not None else None
+    next_name = plan.secondary.display_name if plan.secondary is not None else "Sarah"
+
+    def sender(text: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+        extra = extra or {}
+        if adapter is None:
+            return {"adapter": "stub", "channel": channel, "delivered": True, "message": text}
+        if extra.get("buttons") and hasattr(adapter, "notify_alert"):
+            return adapter.notify_alert(
+                text,
+                callback_id=str(extra.get("callback_id") or "x"),
+                next_contact=next_name,
+            )
+        return adapter.notify(text)
+
+    members = [
+        {"id": "caregiver", "display_name": plan.caregiver.display_name, "role": "you"},
+    ]
+    if plan.secondary is not None:
+        members.append(
+            {"id": "secondary", "display_name": plan.secondary.display_name, "role": "next"}
+        )
+    return BotThread(
+        household_id=plan.household_id,
+        channel=channel,
+        chat_ref=chat_ref or "family",
+        members=members,
+        now=lambda: clock,
+        sender=sender,
+        ack_registry=ack_registry,
+    )
+
+
+async def _wait_ack_ticking(
+    registry,
+    thread,
+    incident_id: str,
+    rung_id: str,
+    timeout_sec: float,
+    *,
+    poll_sec: float = 0.25,
+):
+    """Same wait loop as the registry, plus BotThread.tick for pressure / calling_N."""
+    import time
+
+    deadline = time.monotonic() + max(0.0, float(timeout_sec))
+    while True:
+        outcome = registry.outcome_for(incident_id, rung_id)
+        if outcome is not None:
+            return outcome
+        if thread is not None:
+            thread.tick()
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        await asyncio.sleep(min(poll_sec, remaining))
 
 
 def _log_jump(
@@ -139,6 +252,7 @@ async def run_incident(
     supervisor_notifier=None,
     page_router=None,
     ack_registry=None,
+    bot_thread=None,
     ack_base_url: str = "",
     max_wait_sec: float = 0.05,
     max_ack_wait_sec: float | None = None,
@@ -220,6 +334,30 @@ async def run_incident(
             store.save(incident)
         return incident
 
+    from care_ladder.channels.bot import is_family_channel
+    from care_ladder.channels.router import PageRouter as _PageRouter
+
+    family_page = any(
+        r.tool == "notify_and_await_ack"
+        and is_family_channel(str(r.params.get("channel", "")))
+        for r in plan.rungs
+    )
+    router = page_router
+    registry = ack_registry
+    thread = bot_thread
+    if family_page or bot_thread is not None:
+        if router is None:
+            router = _PageRouter()
+        if registry is None:
+            from care_ladder.channels.ack import AckRegistry
+
+            registry = AckRegistry()
+        thread = _family_thread_for_plan(
+            plan, bot_thread, page_router=router, ack_registry=registry, clock=clock
+        )
+        if thread is not None:
+            thread.on_cue(cue)
+
     idx = 0
     n = len(plan.rungs)
     skip_next_wait = False
@@ -285,6 +423,9 @@ async def run_incident(
                     "wait_sec": listen,
                 },
             )
+            if thread is not None:
+                thread.on_speaker(reply)
+                _flush_bot_audit(events, thread, cue_kind=cue.kind, rung_id=rung.id)
             if reply.kind == "ok":
                 incident.status = "resolved"
                 _append(
@@ -361,6 +502,7 @@ async def run_incident(
             continue
 
         if tool == "notify_and_await_ack":
+            from care_ladder.channels.bot import adapter_channel
             from care_ladder.channels.router import PageRouter
 
             channel_id = str(rung.params.get("channel", "slack"))
@@ -375,35 +517,63 @@ async def run_incident(
             cap = max_ack_wait_sec if max_ack_wait_sec is not None else max_wait_sec
             wait_budget = ack_timeout if cap < 0 else min(ack_timeout, float(cap))
 
-            router = page_router or PageRouter()
-            adapter = router.get(channel_id)
+            if router is None:
+                router = page_router or PageRouter()
+            adapter = router.get(adapter_channel(channel_id))
+            family = is_family_channel(channel_id)
 
-            registry = ack_registry
             if registry is None:
                 from care_ladder.channels.ack import AckRegistry
 
-                registry = AckRegistry()
+                registry = ack_registry or AckRegistry()
 
             base_url = ack_base_url or ""
             pending = registry.create_pending(
                 incident.id,
                 rung.id,
-                channel_id,
+                adapter_channel(channel_id) if family else channel_id,
                 message,
                 wait_budget,
                 base_url,
             )
-            paged = f"{message}\nAcknowledge (stops escalation): {pending.ack_url}"
-            try:
-                result = adapter.notify(paged)
-            except Exception as exc:
-                result = {
-                    "adapter": "stub",
-                    "channel": channel_id,
-                    "delivered": False,
-                    "error": str(exc),
-                    "message": message,
-                }
+            if family:
+                if thread is None:
+                    thread = _family_thread_for_plan(
+                        plan, None, page_router=router, ack_registry=registry, clock=clock
+                    )
+                    if thread is not None:
+                        thread.on_cue(cue)
+                try:
+                    result = thread.page(
+                        incident_id=incident.id,
+                        rung_id=rung.id,
+                        message=message,
+                        timeout_sec=wait_budget,
+                        ack_url=pending.ack_url,
+                        pending=pending,
+                        base_url=base_url,
+                    )
+                except Exception as exc:
+                    result = {
+                        "adapter": "stub",
+                        "channel": adapter_channel(channel_id),
+                        "delivered": False,
+                        "error": str(exc),
+                        "message": message,
+                    }
+                _flush_bot_audit(events, thread, cue_kind=cue.kind, rung_id=rung.id)
+            else:
+                paged = f"{message}\nAcknowledge (stops escalation): {pending.ack_url}"
+                try:
+                    result = adapter.notify(paged)
+                except Exception as exc:
+                    result = {
+                        "adapter": "stub",
+                        "channel": channel_id,
+                        "delivered": False,
+                        "error": str(exc),
+                        "message": message,
+                    }
             _append(
                 events,
                 tool="notify_and_await_ack",
@@ -417,14 +587,23 @@ async def run_incident(
                 },
             )
 
-            outcome = await registry.wait_for_ack(
-                incident.id, rung.id, wait_budget
-            )
+            if family:
+                outcome = await _wait_ack_ticking(
+                    registry, thread, incident.id, rung.id, wait_budget
+                )
+                _flush_bot_audit(events, thread, cue_kind=cue.kind, rung_id=rung.id)
+            else:
+                outcome = await registry.wait_for_ack(
+                    incident.id, rung.id, wait_budget
+                )
             if outcome is None:
                 # Close the race: an ack recorded in the last poll interval
                 # still wins over escalation.
                 outcome = registry.outcome_for(incident.id, rung.id)
             if outcome is not None:
+                if thread is not None and family:
+                    thread.record_ack(outcome)
+                    _flush_bot_audit(events, thread, cue_kind=cue.kind, rung_id=rung.id)
                 registry.close_pending(incident.id, rung.id, reason="acked")
                 incident.status = "resolved"
                 _append(
@@ -440,6 +619,9 @@ async def run_incident(
                     },
                 )
                 break
+            if thread is not None and family:
+                thread.tick()
+                _flush_bot_audit(events, thread, cue_kind=cue.kind, rung_id=rung.id)
             registry.close_pending(incident.id, rung.id, reason="ack_timeout")
             _append(
                 events,
@@ -474,6 +656,10 @@ async def run_incident(
                     "phone_e164": contact.phone_e164,
                 },
             )
+            if thread is not None:
+                nxt = plan.secondary.display_name if plan.secondary is not None else "the next contact"
+                thread.on_call_result(result.status, contact_id=result.contact_id, next_contact=nxt)
+                _flush_bot_audit(events, thread, cue_kind=cue.kind, rung_id=rung.id)
             if result.status == "answered":
                 incident.status = "resolved"
                 _append(

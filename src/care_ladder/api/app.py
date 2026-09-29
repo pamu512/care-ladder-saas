@@ -11,6 +11,8 @@ import cv2
 import numpy as np
 import asyncio
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Request, Response, UploadFile
 from uuid import uuid4
 from fastapi.staticfiles import StaticFiles
@@ -43,9 +45,11 @@ SUPPORTED_FIXTURES = frozenset(
         "facility_positive_reply",
         "daycare_common_no_visibility",
         "rehab_gym_no_visibility",
+        "family_telegram_page",
     }
 )
 _FACILITY_PLAN_PATH = _REPO_ROOT / "configs" / "demo_facility.yaml"
+_FAMILY_PLAN_PATH = _REPO_ROOT / "configs" / "demo_family.yaml"
 _DAYCARE_PLAN_PATH = _REPO_ROOT / "configs" / "demo_daycare.yaml"
 _REHAB_PLAN_PATH = _REPO_ROOT / "configs" / "demo_rehab.yaml"
 _POSE_MODEL_PATH = _REPO_ROOT / "models" / "pose_estimation_mediapipe_2023mar.onnx"
@@ -800,6 +804,7 @@ _UPLOAD_JOBS: dict[str, dict[str, Any]] = {}
 # that share the secret; otherwise a per-process secret (restart = links die,
 # fail-closed, same honesty note as the upload-job map).
 _ACK_REGISTRY = None
+_BOT_THREADS = None
 
 
 def _app_ack_registry() -> "AckRegistry":
@@ -809,6 +814,15 @@ def _app_ack_registry() -> "AckRegistry":
 
         _ACK_REGISTRY = AckRegistry(secret=os.environ.get("SESSION_SECRET") or None)
     return _ACK_REGISTRY
+
+
+def _app_bot_threads():
+    global _BOT_THREADS
+    if _BOT_THREADS is None:
+        from care_ladder.channels.bot import BotThreadRegistry
+
+        _BOT_THREADS = BotThreadRegistry()
+    return _BOT_THREADS
 
 
 def _public_base_url() -> str:
@@ -826,6 +840,96 @@ def _public_base_url() -> str:
 def app_module_registry():
     """Test/diagnostic handle onto the shared ack registry."""
     return _app_ack_registry()
+
+
+def app_module_threads():
+    """Test/diagnostic handle onto the shared family BotThread registry."""
+    return _app_bot_threads()
+
+
+async def _telegram_poll_loop(adapter) -> None:
+    """Long-poll getUpdates. Cancelled on shutdown. Never started without creds."""
+    from care_ladder.channels.bot import dispatch_inbound
+
+    offset = 0
+    while True:
+        try:
+            updates = await adapter.get_updates(offset, timeout=25)
+            for update in updates:
+                try:
+                    offset = max(offset, int(update.get("update_id", 0)) + 1)
+                except (TypeError, ValueError):
+                    offset += 1
+                inbound = adapter.parse_update(update)
+                if inbound is not None:
+                    dispatch_inbound(inbound, _app_ack_registry(), _app_bot_threads())
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # network errors never kill the process
+            print(f"WARNING: telegram poll failed ({exc})")
+            await asyncio.sleep(2)
+
+
+async def _run_family_telegram_page(store: AuditStore):
+    """P1 smoke fixture: speaker silence → Telegram family inform card → wait for ack."""
+    import copy
+
+    from care_ladder.channels.router import PageRouter, TelegramAdapter
+
+    path = Path(os.environ.get("FAMILY_PLAN_PATH") or _FAMILY_PLAN_PATH)
+    plan = copy.deepcopy(load_care_plan(path))
+    live = TelegramAdapter().configured
+    # Live smoke: leave a short real window so a tap can win. Stub: stay snappy.
+    wait = 20.0 if live else 0.3
+    for rung in plan.rungs:
+        if rung.tool == "notify_and_await_ack":
+            rung.params["ack_timeout_sec"] = wait
+    registry = _app_ack_registry()
+    adapter = TelegramAdapter()
+    chat_ref = str(adapter._chat_id or "family")
+    next_name = plan.secondary.display_name if plan.secondary is not None else "Sarah"
+
+    def sender(text: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+        extra = extra or {}
+        if extra.get("buttons"):
+            return adapter.notify_alert(
+                text,
+                callback_id=str(extra.get("callback_id") or "x"),
+                next_contact=next_name,
+            )
+        return adapter.notify(text)
+
+    threads = _app_bot_threads()
+    threads.drop(plan.household_id)
+    thread = threads.get_or_create(
+        plan.household_id,
+        channel="telegram",
+        chat_ref=chat_ref,
+        members=[
+            {"id": "caregiver", "display_name": plan.caregiver.display_name, "role": "you"},
+            *(
+                [{"id": "secondary", "display_name": plan.secondary.display_name, "role": "next"}]
+                if plan.secondary is not None
+                else []
+            ),
+        ],
+        sender=sender,
+        ack_registry=registry,
+    )
+    return await run_incident(
+        cue=CueEvent(kind="no_movement", confidence=0.9, detail={"fixture": "family_telegram_page"}),
+        plan=plan,
+        speaker=SpeakerSimulator(scripted=[]),
+        dialer=StubDialer(behavior={"caregiver": "answered"}),
+        pre_event_frames=[],
+        store=store,
+        page_router=PageRouter(),
+        ack_registry=registry,
+        bot_thread=thread,
+        ack_base_url=_public_base_url(),
+        max_ack_wait_sec=-1,
+        now=DEMO_NOW,
+    )
 
 # bcrypt hashes for the seeded demo users (computed once; passwords are in
 # tenancy.service and only ever live in demo mode)
@@ -850,10 +954,38 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
     is injected).
     """
     audit = store if store is not None else _default_store()
+
+    @asynccontextmanager
+    async def _lifespan(_app: FastAPI):
+        task = None
+        from care_ladder.channels.router import TelegramAdapter, telegram_mode
+
+        adapter = TelegramAdapter()
+        if adapter.configured:
+            if telegram_mode() == "poll":
+                task = asyncio.create_task(_telegram_poll_loop(adapter))
+            else:
+                hook = os.environ.get("TELEGRAM_HOOK_URL", "").strip()
+                if not hook and _public_base_url():
+                    hook = f"{_public_base_url()}/telegram/webhook"
+                if hook:
+                    try:
+                        adapter.set_webhook(hook)
+                    except Exception as exc:  # never block boot
+                        print(f"WARNING: telegram setWebhook failed ({exc})")
+        yield
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+
     application = FastAPI(
         title="Care Ladder",
         description="Incident timeline + demo trigger (reserved phones; emergency fail-closed).",
         version="0.1.0",
+        lifespan=_lifespan,
     )
     application.state.store = audit
     # Only when the caller did not inject a store: Render/prod uses DATABASE_URL
@@ -1279,6 +1411,24 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             note = "This link was already used, expired, or the window closed."
         return HTMLResponse(render_ack_page(pending, status_note=note))
 
+    @application.post("/telegram/webhook")
+    async def telegram_webhook(request: Request) -> dict[str, Any]:
+        """Telegram hook mode. Unauthenticated: Telegram posts here. No token → still 200."""
+        from care_ladder.channels.bot import dispatch_inbound
+        from care_ladder.channels.router import TelegramAdapter
+
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid json")
+        if not isinstance(body, dict):
+            raise HTTPException(status_code=400, detail="invalid update")
+        inbound = TelegramAdapter.parse_update(body)
+        if inbound is None:
+            return {"ok": True, "handled": False}
+        result = dispatch_inbound(inbound, _app_ack_registry(), _app_bot_threads())
+        return {"ok": True, "handled": True, **({} if not isinstance(result, dict) else {"reason": result.get("reason")})}
+
     @application.post("/demo/upload", response_model=DemoRunResponse)
     async def demo_upload(file: UploadFile, request: Request) -> DemoRunResponse:
         """Real video ingest: upload a clip → OpenCV decode → CueDetector → ladder.
@@ -1416,6 +1566,8 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             )
         if body.fixture == "no_movement_ok":
             incident = await _run_no_movement_ok(store)
+        elif body.fixture == "family_telegram_page":
+            incident = await _run_family_telegram_page(store)
         elif body.fixture == "no_movement_silence":
             incident = await _run_no_movement_silence(store)
         elif body.fixture == "opencv_stillness":

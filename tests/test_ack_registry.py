@@ -110,6 +110,7 @@ def test_render_ack_page_ok_and_gone():
     html = render_ack_page(p)
     assert "resident needs help" in html
     assert "/acks/" in html  # posts to the ack endpoint
+    assert "\u2014" not in html
     gone = render_ack_page(None)
     assert "unavailable" in gone or "invalid" in gone
 
