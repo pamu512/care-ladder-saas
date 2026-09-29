@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit drill-down mock · Care Ladder facility console</title>
+<style>
+  :root{
+    --bg:#0b0f14;--card:#121820;--card2:#0e141b;--border:#1f2a36;--border2:#2b3a49;
+    --text:#e8eef4;--muted:#8b9bab;--faint:#5f7189;
+    --accent:#4f9cf9;--accent-ink:#0b0f14;--accent-soft:rgba(79,156,249,.12);
+    --ok:#34c98e;--ok-soft:rgba(52,201,142,.11);
+    --warn:#f5b544;--warn-soft:rgba(245,181,68,.11);
+    --p1:#f4574d;--p1-soft:rgba(244,87,77,.11);
+    --p2:#f5a044;--p3:#5b8def;
+    --violet:#b9a6ff;--violet-soft:rgba(185,166,255,.11);
+    --radius:12px;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+
+  header{position:sticky;top:0;z-index:5;background:rgba(11,15,20,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+  .hwrap{max-width:1280px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .logo{display:flex;gap:10px;align-items:center;margin-right:auto}
+  .logo-mark{width:34px;height:34px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center}
+  .logo h1{font-size:16px} .logo .env{color:var(--muted);font-size:12px}
+  .btn{background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:9px;cursor:pointer;font-size:13px}
+  .btn:hover{border-color:var(--accent)}
+  .btn.subtle{font-size:12px;padding:5px 10px}
+  .btn.small{font-size:12px;padding:6px 11px}
+  nav.tabs{display:flex;gap:6px;padding:0 20px;max-width:1280px;margin:0 auto}
+  .tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:10px 14px;cursor:pointer;font-size:14px;display:flex;gap:8px;align-items:center}
+  .tab[aria-selected="true"]{color:var(--text);border-bottom-color:var(--accent)}
+  .tab .count{background:var(--card);border:1px solid var(--border);border-radius:999px;font-size:11px;padding:1px 8px;color:var(--text)}
+
+  main{max-width:1280px;margin:0 auto;padding:20px;display:grid;gap:16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+  .card h3{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em}
+  .muted{color:var(--muted)} .small{font-size:12px} .mono{font-family:var(--mono)}
+
+  /* KPIs */
+  .kpi{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+  .kpi .box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+  .kpi .n{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .kpi .n small{font-size:11px;color:var(--faint);font-weight:500}
+  .kpi .l{color:var(--muted);font-size:11px;margin-top:2px}
+  .kpi .good .n{color:var(--ok)} .kpi .warn .n{color:var(--warn)} .kpi .bad .n{color:var(--p1)} .kpi .vio .n{color:var(--violet)}
+
+  /* filters */
+  .filters{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .fchip{border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:999px;font:600 12px inherit;padding:5px 13px;cursor:pointer}
+  .fchip:hover{border-color:var(--border2);color:var(--text)}
+  .fchip.on{background:var(--accent-soft);border-color:rgba(79,156,249,.5);color:var(--accent)}
+  .range{margin-left:auto;display:flex;gap:6px}
+  .fchip.range-btn{font-size:11.5px}
+
+  /* register rows */
+  .reg{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--card)}
+  .reg-head{display:grid;grid-template-columns:16px 92px 1fr 150px 96px 120px 26px;gap:10px;align-items:center;padding:11px 16px;cursor:pointer}
+  .reg-head:hover{background:var(--card2)}
+  .caret{color:var(--faint);transition:transform .12s;font-size:11px}
+  .reg.open .caret{transform:rotate(90deg)}
+  .cid{font-family:var(--mono);font-size:11.5px;color:var(--accent)}
+  .room{font-size:13.5px;font-weight:650}
+  .room span{display:block;font-size:10.5px;color:var(--faint);font-weight:400}
+  .own{font-size:12.5px;color:var(--muted)}
+  .own b{color:var(--text);font-weight:600}
+  .tt{font-family:var(--mono);font-size:11px;text-align:center}
+  .tt.ok{color:var(--ok)} .tt.warn{color:var(--warn)} .tt.bad{color:var(--p1)} .tt.vio{color:var(--violet)}
+  .hd{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right}
+  .origin-chip{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:5px;padding:2px 7px;margin-left:8px;vertical-align:1px}
+  .origin-chip.resident{background:var(--violet-soft);color:var(--violet)}
+  .origin-chip.negative{background:var(--p1-soft);color:var(--p1)}
+  .origin-chip.timeout{background:var(--warn-soft);color:var(--warn)}
+
+  /* drill-down body */
+  .reg-body{border-top:1px solid var(--border);background:var(--card2);padding:16px 18px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px}
+  .report h5{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+  .report .inc-link{font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:12px;display:block}
+
+  .r-line{display:grid;grid-template-columns:150px 1fr 78px;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px;align-items:baseline}
+  .r-line:last-child{border-bottom:0}
+  .r-line .nm{font-weight:600;font-size:12px}
+  .r-line .ds{color:var(--muted)} .r-line .ds b{color:var(--text);font-weight:600}
+  .r-line .ts{font-family:var(--mono);font-size:10.5px;color:var(--faint);text-align:right}
+  .r-line.key .nm{color:var(--accent)}
+  .r-line.stop .nm{color:var(--ok)}
+  .r-line.jump .nm{color:var(--p1)}
+  .r-line .quote{color:var(--text);font-style:italic}
+  .r-line .delta{font-family:var(--mono);font-size:10px;color:var(--accent);margin-left:6px}
+
+  .doc-block{margin-top:14px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+  .doc-block h6{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+  .doc-block p{font-size:12.5px;color:var(--muted);line-height:1.6}
+  .doc-block p b{color:var(--text)}
+  .sig{margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+
+  /* side rail inside drill-down */
+  .rail{display:flex;flex-direction:column;gap:10px}
+  .rail .box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 13px}
+  .rail h6{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+  .metric{display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;font-size:12px}
+  .metric .k{color:var(--muted)} .metric .v{font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums}
+  .metric .v.ok{color:var(--ok)} .metric .v.warn{color:var(--warn)} .metric .v.bad{color:var(--p1)}
+  .ov-item{font-size:11.5px;color:var(--muted);padding:3px 0;border-bottom:1px dashed var(--border)}
+  .ov-item:last-child{border-bottom:0}
+  .ov-item b{color:var(--text);font-weight:600}
+  .ov-item .t{font-family:var(--mono);font-size:10px;color:var(--faint);float:right}
+  .clip-ref{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--muted)}
+  .clip-frame{width:44px;height:32px;border-radius:5px;background:#070b10;border:1px solid var(--border);display:grid;place-items:center;color:var(--faint)}
+  .rail .actions{display:flex;gap:6px;flex-wrap:wrap}
+
+  footer{max-width:1280px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);font-size:12px}
+  .mock{font-family:var(--mono);opacity:.7}
+
+  @media (max-width:1020px){
+    .kpi{grid-template-columns:repeat(3,1fr)}
+    .reg-head{grid-template-columns:16px 92px 1fr 96px 26px}
+    .reg-head .own,.reg-head .hd{display:none}
+    .reg-body{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="hwrap">
+    <div class="logo">
+      <div class="logo-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 4h12M4 9h7M4 14h12M4 19h7"/></svg>
+      </div>
+      <div><h1>Care Ladder</h1><div class="env">Floor console · demo-facility</div></div>
+    </div>
+    <div class="btn subtle">Caregiver console</div>
+    <div class="btn subtle">Sign out</div>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="false">Alert center <span class="count">0</span></button>
+    <button class="tab" role="tab" aria-selected="false">Cases <span class="count">1</span></button>
+    <button class="tab" role="tab" aria-selected="true">Audit</button>
+  </nav>
+</header>
+
+<main>
+  <!-- KPIs with time metrics -->
+  <div class="kpi">
+    <div class="box vio"><div class="n">6 <small>of 11</small></div><div class="l">Resolved by response</div></div>
+    <div class="box vio"><div class="n">38s</div><div class="l">Median response time</div></div>
+    <div class="box good"><div class="n">1m 12s</div><div class="l">Median time-to-ack</div></div>
+    <div class="box good"><div class="n">88<small>%</small></div><div class="l">Acked in window</div></div>
+    <div class="box good"><div class="n">13m 55s</div><div class="l">Median handling</div></div>
+    <div class="box bad"><div class="n">1</div><div class="l">Group timeouts</div></div>
+  </div>
+
+  <!-- filters + register -->
+  <div class="card">
+    <h3>Closed-case register · today · click a row to open the incident report</h3>
+    <div class="filters" style="margin-bottom:12px">
+      <button class="fchip on">All outcomes · 11</button>
+      <button class="fchip">Staff-handled · 4</button>
+      <button class="fchip">Resolved by response · 6</button>
+      <button class="fchip">Negative replies · 1</button>
+      <div class="range">
+        <button class="fchip range-btn on">Today</button>
+        <button class="fchip range-btn">7 days</button>
+        <button class="fchip range-btn">Shift…</button>
+      </div>
+    </div>
+
+    <!-- CL-1042 open by default -->
+    <div class="reg open" style="margin-bottom:10px">
+      <div class="reg-head" aria-expanded="true">
+        <span class="caret">▶</span>
+        <span class="cid">CL-1042</span>
+        <span class="room">Room 12 — check-in silence<span>staff-handled · documented</span></span>
+        <span class="own">owner <b>Maria G.</b></span>
+        <span class="tt ok">ack 0m 52s</span>
+        <span class="hd">handling 24m 39s</span>
+        <span class="hd" style="display:none"></span>
+      </div>
+      <div class="reg-body">
+        <div class="report">
+          <h5>Care Ladder incident report</h5>
+          <span class="inc-link">inc 8f3a91c2 · no_movement · confidence 0.9 · 2026-09-29</span>
+          <div class="r-line"><span class="nm">Cue</span><span class="ds"><b>no_movement</b> in common area zone · confidence 0.9</span><span class="ts">14:27:03</span></div>
+          <div class="r-line"><span class="nm">Re-perceive</span><span class="ds">ROI auto re-check · stillness persists</span><span class="ts">14:27:05</span></div>
+          <div class="r-line"><span class="nm">Voice check-in</span><span class="ds"><b>silence</b> · 15:00 listen window elapsed</span><span class="ts">14:42:28</span></div>
+          <div class="r-line key"><span class="nm">Page group</span><span class="ds">delivered <b>#care-floor-ops</b> · Slack · 4 staff, 2 available</span><span class="ts">14:42:31</span></div>
+          <div class="r-line stop"><span class="nm">Case opened</span><span class="ds">ack by <b>Maria G.</b> · escalation stopped at rung 4 of 6<span class="delta">Δ 0m 52s</span></span><span class="ts">14:43:23</span></div>
+          <div class="r-line jump"><span class="nm">SLA nudge</span><span class="ds">over 15:00 handling target · replied <b>“still on it”</b></span><span class="ts">15:01:23</span></div>
+          <div class="r-line stop"><span class="nm">Case closed</span><span class="ds">documentation submitted in chat<span class="delta">Δ handling 24m 39s</span></span><span class="ts">15:08:02</span></div>
+          <div class="doc-block">
+            <h6>Submitted documentation</h6>
+            <p>“Resident had dozed off in the armchair after lunch. <b>Vitals normal.</b> Repositioned, offered water, stayed 20 min to observe. No further concerns — will re-check on 16:00 round.”</p>
+            <div class="sig">M. Grant, RN · via /close-case in #care-floor-ops · 15:07:44</div>
+          </div>
+        </div>
+        <aside class="rail">
+          <div class="box">
+            <h6>Timing</h6>
+            <div class="metric"><span class="k">Time-to-ack</span><span class="v ok">0m 52s <small style="color:var(--faint)">/ 5:00</small></span></div>
+            <div class="metric"><span class="k">Handling time</span><span class="v warn">24m 39s / 15:00</span></div>
+            <div class="metric"><span class="k">Cue → first page</span><span class="v">15m 28s</span></div>
+            <div class="metric"><span class="k">Nudges</span><span class="v">1 · answered 0m 47s</span></div>
+          </div>
+          <div class="box">
+            <h6>Evidence</h6>
+            <div class="clip-ref">
+              <span class="clip-frame"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14"/></svg></span>
+              3 frames · silhouette
+            </div>
+            <div class="clip-ref" style="margin-top:6px">
+              <span class="clip-frame" style="width:auto;padding:0 6px;font-size:10px;font-family:var(--mono)">#</span>
+              chat thread · 9 msgs
+            </div>
+          </div>
+          <div class="box">
+            <h6>Overrides on this case</h6>
+            <div class="ov-item">Priority kept <b>P2</b> (auto) · <span class="t">—</span></div>
+            <div class="ov-item">None · fully auto-routed</div>
+          </div>
+          <div class="box actions">
+            <button class="btn small">Export PDF</button>
+            <button class="btn small">Open chat thread</button>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- resident-resolved row, collapsed -->
+    <div class="reg" style="margin-bottom:10px">
+      <div class="reg-head">
+        <span class="caret">▶</span>
+        <span class="cid">inc 5c88f1</span>
+        <span class="room">Room 5 — check-in<span class="origin-chip resident">resolved by response</span><span>positive reply · no case opened</span></span>
+        <span class="own">closed by <b>resident reply</b></span>
+        <span class="tt vio">41s</span>
+        <span class="hd">no staff action</span>
+      </div>
+    </div>
+
+    <!-- negative-reply escalated row, collapsed -->
+    <div class="reg" style="margin-bottom:10px">
+      <div class="reg-head">
+        <span class="caret">▶</span>
+        <span class="cid">CL-1043</span>
+        <span class="room">Room 9 — negative response<span class="origin-chip negative">negative reply</span><span>priority auto-raised P2 → P1</span></span>
+        <span class="own">owner <b>Maria G.</b></span>
+        <span class="tt bad">ack 0m 31s</span>
+        <span class="hd">handling 18m 02s</span>
+      </div>
+    </div>
+
+    <!-- group timeout row, collapsed -->
+    <div class="reg" style="margin-bottom:10px">
+      <div class="reg-head">
+        <span class="caret">▶</span>
+        <span class="cid">CL-1040</span>
+        <span class="room">Common room — fall signature<span class="origin-chip timeout">group timeout</span><span>all staff on cases · command-owned</span></span>
+        <span class="own">owner <b>shift lead</b></span>
+        <span class="tt bad">missed</span>
+        <span class="hd">handling 51m 12s</span>
+      </div>
+    </div>
+
+    <!-- one more resident-resolved -->
+    <div class="reg">
+      <div class="reg-head">
+        <span class="caret">▶</span>
+        <span class="cid">inc 71bd33</span>
+        <span class="room">Room 1 — check-in<span class="origin-chip resident">resolved by response</span><span>pendant OK button</span></span>
+        <span class="own">closed by <b>resident reply</b></span>
+        <span class="tt vio">12s</span>
+        <span class="hd">no staff action</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- overrides + exports rail (audit tab level) -->
+  <div class="card">
+    <h3>Lead actions · today</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+      <div>
+        <div class="ov-item">Priority · Common room raised to <b>P1</b> <span class="t">14:13</span></div>
+        <div class="ov-item">Confirm · Room 9 auto-raise <b>kept P1</b> <span class="t">14:37</span></div>
+        <div class="ov-item">Break · Alex R. <b>pulled off break</b> <span class="t">14:40</span></div>
+      </div>
+      <div>
+        <div class="ov-item">Assign · Room 9 → <b>Maria G.</b> <span class="t">14:38</span></div>
+        <div class="ov-item">Suppress · Room 2 quiet hours <span class="t">05:12</span></div>
+        <div class="ov-item">Re-classify · Room 7 reply <b>negative → silence</b> <span class="t">13:05</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+        <button class="btn small">Export audit CSV · today</button>
+        <button class="btn small">Per-shift report (PDF)</button>
+        <button class="btn small">All case files (zip)</button>
+      </div>
+    </div>
+    <p class="muted small" style="margin-top:10px">Every row in the register carries the full ladder transcript, reply classification, documentation and override history — what management reviews, in one place.</p>
+  </div>
+</main>
+
+<footer>
+  Care Ladder is not a medical device. Telephony is stubbed in this demo; video is blurred before persistence.
+  <span class="mock">static mockup — audit drill-down · demo data only</span>
+</footer>
+
+<script>
+document.querySelectorAll(".reg-head").forEach(h=>{
+  h.addEventListener("click", ()=>{
+    const reg = h.parentElement;
+    reg.classList.toggle("open");
+    h.setAttribute("aria-expanded", String(reg.classList.contains("open")));
+  });
+});
+document.querySelectorAll(".fchip:not(.range-btn)").forEach(f=>{
+  f.addEventListener("click", ()=>{
+    document.querySelectorAll(".fchip:not(.range-btn)").forEach(x=>x.classList.remove("on"));
+    f.classList.add("on");
+  });
+});
+document.querySelectorAll(".range-btn").forEach(f=>{
+  f.addEventListener("click", ()=>{
+    document.querySelectorAll(".range-btn").forEach(x=>x.classList.remove("on"));
+    f.classList.add("on");
+  });
+});
+</script>
+</body>
+</html>
