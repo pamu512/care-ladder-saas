@@ -34,6 +34,7 @@ def test_env_example_covers_required_secrets():
         "CARE_LADDER_AUTH",
         "STRIPE_PRICE_HOME",
         "STRIPE_PRICE_FACILITY",
+        "STRIPE_PRICE_FACILITY_GROWTH",
         "STRIPE_WEBHOOK_SECRET",
         "SLACK_WEBHOOK_URL",
     ):

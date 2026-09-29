@@ -8,6 +8,7 @@ PlanId = Literal["home", "demo", "facility_starter", "facility_growth"]
 PRICE_ENV = {
     "home": "STRIPE_PRICE_HOME",
     "facility_starter": "STRIPE_PRICE_FACILITY",
+    "facility_growth": "STRIPE_PRICE_FACILITY_GROWTH",
 }
 
 

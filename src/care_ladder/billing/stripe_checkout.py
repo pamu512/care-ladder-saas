@@ -11,6 +11,8 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from care_ladder.billing.plans import PRICE_ENV
+
 
 class BillingError(Exception):
     status = 400
@@ -68,7 +70,7 @@ def create_checkout_url(plan: str, tenant_id: str, base_url: str = "") -> str:
 
     stripe.api_key = key
     origin = resolve_checkout_base_url(base_url=base_url)
-    price_env = {"home": "STRIPE_PRICE_HOME", "facility_starter": "STRIPE_PRICE_FACILITY"}.get(plan)
+    price_env = PRICE_ENV.get(plan)
     price_id = os.environ.get(price_env, "") if price_env else ""
     if not price_id:
         raise BillingError(f"no price configured for plan {plan}")
