@@ -57,6 +57,7 @@ def test_n6_roster_parity():
 
     sys.modules["care_ladder.api.app"]._FACILITY_STATES.clear()
     os.environ.pop("CARE_LADDER_AUTH", None)  # memory mode = documented auth-off default
+    os.environ.pop("DATABASE_URL", None)
     c_mem = TestClient(create_app(store=AuditStore()))
     mem_staff = {s["id"]: s["status"] for s in c_mem.get("/facility/staff").json()["staff"]}
 

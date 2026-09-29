@@ -2,9 +2,11 @@
 
 Fail-closed rules (plan Global Constraints):
 - non-demo env without STRIPE_SECRET_KEY: checkout raises 503 (never a fake URL)
-- non-demo env without STRIPE_WEBHOOK_SECRET: webhook POSTs are rejected
+- unset STRIPE_WEBHOOK_SECRET: webhook POSTs are rejected unless
+  CARE_LADDER_ALLOW_UNSIGNED_WEBHOOKS is an explicit opt-in (1/true/on)
 - bad/missing signature on a configured secret: rejected
-- demo env: honest stub checkout URL (documented in UI copy)
+- demo env: honest stub checkout URL (documented in UI copy; separate from
+  webhook verification — CARE_LADDER_ENV=demo does not accept unsigned POSTs)
 """
 from __future__ import annotations
 
@@ -91,11 +93,20 @@ def create_checkout_url(plan: str, tenant_id: str, base_url: str = "") -> str:
     return session.url
 
 
+def _allow_unsigned_webhooks() -> bool:
+    return os.environ.get("CARE_LADDER_ALLOW_UNSIGNED_WEBHOOKS", "").strip().lower() in (
+        "1",
+        "true",
+        "on",
+        "yes",
+    )
+
+
 def verify_webhook(payload: bytes, signature: str) -> bool:
-    """True iff the event is authentic. Fail-closed in non-demo envs."""
+    """True iff the event is authentic. Fail-closed unless unsigned opt-in."""
     secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
     if not secret:
-        return _env() == "demo"  # demo accepts unsigned (documented); prod rejects
+        return _allow_unsigned_webhooks()
     if not signature:
         return False
     try:

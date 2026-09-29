@@ -42,8 +42,10 @@ OpenCV submission; this repo diverges here with tenancy, facility workflows, and
 | Facility Growth | $99/mo | Unlimited rooms, multi-tenant admin, learning schedules with freeze controls, priority support |
 
 Stripe Checkout (test mode for the hackathon) gates plan upgrades; the
-billing webhook is fail-closed - an unset signing secret in a non-demo
-environment makes every webhook reject rather than trust.
+billing webhook is fail-closed - an unset signing secret rejects every
+webhook unless `CARE_LADDER_ALLOW_UNSIGNED_WEBHOOKS=1` is set explicitly
+(local opt-in). `CARE_LADDER_ENV=demo` still enables stub checkout URLs;
+it does not accept unsigned webhooks. On Render, set `STRIPE_WEBHOOK_SECRET`.
 
 ## Deploy (Render)
 

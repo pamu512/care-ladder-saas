@@ -2,6 +2,10 @@
 # target per plan Task 10 - web service + managed Postgres, HTTPS included.
 # Deploy-day env (Stripe price IDs, webhook secret, Slack webhook) is set in
 # the Render dashboard; only non-secret env lives here.
+# STRIPE_WEBHOOK_SECRET is required on Render. Unsigned webhooks are rejected
+# unless CARE_LADDER_ALLOW_UNSIGNED_WEBHOOKS=1 (local-only opt-in; do not set).
+# CARE_LADDER_ENV=demo keeps stub checkout / reserved demo phones; it does not
+# accept unsigned Stripe webhooks.
 services:
   - type: web
     name: care-ladder-saas

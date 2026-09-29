@@ -243,8 +243,27 @@ def test_webhook_rejects_bad_signature(monkeypatch):
     assert r.status_code == 400
 
 
+def test_webhook_rejects_unsigned_in_demo_without_opt_in(monkeypatch):
+    """Hosted demo (CARE_LADDER_ENV=demo) must not accept unsigned webhooks."""
+    monkeypatch.setenv("CARE_LADDER_ENV", "demo")
+    monkeypatch.delenv("STRIPE_WEBHOOK_SECRET", raising=False)
+    monkeypatch.delenv("CARE_LADDER_ALLOW_UNSIGNED_WEBHOOKS", raising=False)
+    client = TestClient(create_app(store=AuditStore()))
+    r = client.post(
+        "/billing/webhook",
+        json={"type": "checkout.session.completed",
+              "data": {"object": {"metadata": {"tenant_id": "demo-facility", "plan": "facility_starter"}}}},
+    )
+    assert r.status_code == 400, "demo env alone must not accept unsigned webhooks"
+    ctx = client.get("/billing/tenant/demo-facility")
+    assert ctx.status_code == 200
+    assert ctx.json()["plan"] != "facility_starter"
+
+
 def test_webhook_demo_accepts_and_sets_plan(monkeypatch):
     monkeypatch.setenv("CARE_LADDER_ENV", "demo")
+    monkeypatch.setenv("CARE_LADDER_ALLOW_UNSIGNED_WEBHOOKS", "1")
+    monkeypatch.delenv("STRIPE_WEBHOOK_SECRET", raising=False)
     client = TestClient(create_app(store=AuditStore()))
     r = client.post(
         "/billing/webhook",
@@ -254,3 +273,36 @@ def test_webhook_demo_accepts_and_sets_plan(monkeypatch):
     assert r.status_code == 200
     ctx = client.get("/billing/tenant/demo-facility").json()
     assert ctx["plan"] == "facility_starter"
+
+
+def test_billing_tenant_requires_session_when_auth_on(monkeypatch):
+    monkeypatch.setenv("CARE_LADDER_AUTH", "on")
+    monkeypatch.setenv("SESSION_SECRET", "test-secret-not-for-prod")
+    client = TestClient(create_app(store=AuditStore()))
+    r = client.get("/billing/tenant/demo-facility")
+    assert r.status_code == 401
+
+
+def test_billing_tenant_own_ok_other_forbidden(monkeypatch):
+    monkeypatch.setenv("CARE_LADDER_AUTH", "on")
+    monkeypatch.setenv("SESSION_SECRET", "test-secret-not-for-prod")
+    client = TestClient(create_app(store=AuditStore()))
+    login = client.post(
+        "/auth/login",
+        json={"email": "demo@careladder.local", "password": "demo-pass-home"},
+    )
+    assert login.status_code == 200
+    own = client.get("/billing/tenant/demo-home")
+    assert own.status_code == 200
+    assert own.json()["plan"] == "home"
+    other = client.get("/billing/tenant/demo-facility")
+    assert other.status_code in (403, 404)
+
+
+def test_billing_tenant_auth_off_keeps_local_demo_path(monkeypatch):
+    monkeypatch.delenv("CARE_LADDER_AUTH", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    client = TestClient(create_app(store=AuditStore()))
+    r = client.get("/billing/tenant/demo-facility")
+    assert r.status_code == 200
+    assert "plan" in r.json()

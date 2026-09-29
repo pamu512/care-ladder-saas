@@ -36,6 +36,7 @@ def test_env_example_covers_required_secrets():
         "STRIPE_PRICE_FACILITY",
         "STRIPE_PRICE_FACILITY_GROWTH",
         "STRIPE_WEBHOOK_SECRET",
+        "CARE_LADDER_ALLOW_UNSIGNED_WEBHOOKS",
         "SLACK_WEBHOOK_URL",
         "TELEGRAM_BOT_TOKEN",
         "TELEGRAM_CHAT_ID",
@@ -57,6 +58,14 @@ def test_render_yaml_pins_demo_env_and_db():
     assert "SESSION_SECRET" in cfg
     assert "TELEGRAM_BOT_TOKEN" in cfg
     assert "TELEGRAM_MODE" in cfg
+    assert "STRIPE_WEBHOOK_SECRET" in cfg
+    assert "required" in cfg.lower()
+    # Hosted deploy must not opt into unsigned webhooks.
+    for line in cfg.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#") or "ALLOW_UNSIGNED_WEBHOOKS" not in stripped:
+            continue
+        assert "1" not in stripped and "true" not in stripped.lower()
 
 
 def test_pyproject_declares_psycopg_binary_driver():

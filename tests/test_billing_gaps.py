@@ -111,6 +111,7 @@ def test_portal_url_created_when_customer_exists(monkeypatch):
 def test_webhook_persists_customer_id(monkeypatch):
     """checkout.session.completed must persist customer for later portal use."""
     monkeypatch.setenv("CARE_LADDER_ENV", "demo")
+    monkeypatch.setenv("CARE_LADDER_ALLOW_UNSIGNED_WEBHOOKS", "1")
     client = _client(monkeypatch)
     import json
 
