@@ -64,8 +64,9 @@ def _ensure_schema_columns(engine) -> None:
             )
             print("bootstrap: added tenants.facility_type")
         if "facility_settings" not in existing:
+            default_json = "'{}'::json" if engine.dialect.name == "postgresql" else "'{}'"
             conn.execute(
-                text("ALTER TABLE tenants ADD COLUMN facility_settings JSON DEFAULT '{}'::json")
+                text(f"ALTER TABLE tenants ADD COLUMN facility_settings JSON DEFAULT {default_json}")
             )
             print("bootstrap: added tenants.facility_settings")
 
