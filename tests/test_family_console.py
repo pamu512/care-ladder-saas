@@ -156,13 +156,28 @@ def test_family_runtime_hero_from_path_a():
     assert hero["since_last_response"] is not None
 
 
-def test_family_runtime_mirrors_pending_ack_without_claiming_bot():
+def test_family_runtime_mirrors_pending_ack_without_claiming_bot(monkeypatch):
     from care_ladder.api.app import app_module_registry
 
+    monkeypatch.setenv("CARE_LADDER_AUTH", "on")
+    monkeypatch.setenv("SESSION_SECRET", "family-console-test")
     client = TestClient(create_app(store=AuditStore()))
+    assert (
+        client.post(
+            "/auth/login",
+            json={"email": "demo@careladder.local", "password": "demo-pass-home"},
+        ).status_code
+        == 200
+    )
     registry = app_module_registry()
     pending = registry.create_pending(
-        "inc-mirror", "rung-page", "whatsapp", "Mom did not answer the check-in", 300, "https://x"
+        "inc-mirror",
+        "rung-page",
+        "whatsapp",
+        "Mom did not answer the check-in",
+        300,
+        "https://x",
+        tenant_id="demo-home",
     )
     try:
         body = client.get("/family/runtime").json()

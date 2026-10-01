@@ -332,16 +332,20 @@ class TelegramAdapter:
         except Exception:
             return []
 
-    def set_webhook(self, hook_url: str) -> dict[str, Any]:
+    def set_webhook(self, hook_url: str, *, secret_token: str | None = None) -> dict[str, Any]:
         if not self.configured or not hook_url:
             return {"adapter": "stub", "delivered": False, "error": "missing token or hook url"}
         import httpx2 as httpx
 
         url = f"https://api.telegram.org/bot{self._token}/setWebhook"
+        secret = (secret_token if secret_token is not None else _env("TELEGRAM_WEBHOOK_SECRET")).strip()
+        payload: dict[str, Any] = {"url": hook_url}
+        if secret:
+            payload["secret_token"] = secret
 
         async def _set(_message: str) -> dict[str, Any]:
             async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
-                resp = await client.post(url, json={"url": hook_url})
+                resp = await client.post(url, json=payload)
             ok = resp.status_code == 200
             return _result("telegram", delivered=ok, message=hook_url, status_code=resp.status_code)
 

@@ -150,7 +150,11 @@ def test_telegram_webhook_first_wins_without_live_token(monkeypatch):
 
     client = TestClient(create_app(store=AuditStore()))
     registry = app_module_registry()
-    pending = registry.create_pending("inc-hook", "page_family", "telegram", "page", 300, "https://x")
+    for token in list(getattr(registry, "_pending_by_token", {})):
+        pnd = registry._pending_by_token.get(token)
+        if pnd is not None:
+            registry.close_pending(pnd.incident_id, pnd.rung_id, reason="test_reset")
+    pending = registry.create_pending("hook-zzz-1", "page_family", "telegram", "page", 300, "https://x")
     r = client.post(
         "/telegram/webhook",
         json={
@@ -164,7 +168,7 @@ def test_telegram_webhook_first_wins_without_live_token(monkeypatch):
     )
     assert r.status_code == 200
     assert r.json()["ok"] is True
-    kept = registry.outcome_for("inc-hook", "page_family")
+    kept = registry.outcome_for("hook-zzz-1", "page_family")
     assert kept is not None
     assert kept.acked_by == "James"
     assert kept.msg_ref == "9"
@@ -181,7 +185,7 @@ def test_telegram_webhook_first_wins_without_live_token(monkeypatch):
         },
     )
     assert again.status_code == 200
-    assert registry.outcome_for("inc-hook", "page_family").acked_by == "James"
+    assert registry.outcome_for("hook-zzz-1", "page_family").acked_by == "James"
 
 
 def test_family_telegram_page_fixture_stub_path():

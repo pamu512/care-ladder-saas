@@ -44,6 +44,8 @@ services:
         value: poll
       - key: TELEGRAM_HOOK_URL
         sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
       - key: FAMILY_PLAN_PATH
         sync: false
 
