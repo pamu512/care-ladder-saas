@@ -137,12 +137,9 @@ def test_ack_link_fallback_still_resolves_family_page():
     async def scenario():
         async def tap_link():
             await asyncio.sleep(0.05)
-            pending = next(
-                (p for p in registry.pending_list() if p["incident_id"] == incident_id),
-                None,
-            )
+            pending = registry.get_pending(incident_id, "page_family")
             assert pending is not None
-            registry.acknowledge(pending["token"], by="James (ack link)", channel="web", origin="link")
+            registry.acknowledge(pending.token, by="James (ack link)", channel="web", origin="link")
 
         incident, _ = await asyncio.gather(
             run_incident(

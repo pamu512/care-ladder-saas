@@ -254,6 +254,7 @@ async def run_incident(
     ack_registry=None,
     bot_thread=None,
     ack_base_url: str = "",
+    ack_tenant_id: str | None = None,
     max_wait_sec: float = 0.05,
     max_ack_wait_sec: float | None = None,
     privacy_mode: PrivacyMode = "blur",
@@ -535,6 +536,7 @@ async def run_incident(
                 message,
                 wait_budget,
                 base_url,
+                tenant_id=ack_tenant_id,
             )
             if family:
                 if thread is None:

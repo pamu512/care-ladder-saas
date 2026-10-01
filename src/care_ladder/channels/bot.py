@@ -416,13 +416,7 @@ class BotThreadRegistry:
 
 
 def token_for_callback(registry: AckRegistry, callback_id: str) -> str | None:
-    if not callback_id:
-        return None
-    for row in registry.pending_list():
-        token = str(row.get("token") or "")
-        if token[:12] == callback_id or token.startswith(callback_id):
-            return token
-    return None
+    return registry.token_matching_callback(callback_id)
 
 
 def dispatch_inbound(

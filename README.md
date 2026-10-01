@@ -99,6 +99,7 @@ Env (Render dashboard → Environment, or `.env` locally):
 | `TELEGRAM_CHAT_ID` | yes | Household chat/group id. Unset = stub |
 | `TELEGRAM_MODE` | no | `poll` (default, demo) or `hook` |
 | `TELEGRAM_HOOK_URL` | hook mode | e.g. `https://<service>.onrender.com/telegram/webhook` |
+| `TELEGRAM_WEBHOOK_SECRET` | hook mode (live) | Shared with Telegram `setWebhook(secret_token=...)`. Required once `TELEGRAM_BOT_TOKEN` is set; `POST /telegram/webhook` checks `X-Telegram-Bot-Api-Secret-Token` (fail closed). |
 | `FAMILY_PLAN_PATH` | no | defaults to `configs/demo_family.yaml` |
 | `PUBLIC_BASE_URL` | for ack-link | origin embedded in the fallback link |
 
@@ -112,6 +113,8 @@ Smoke a live Telegram demo on Render:
 6. In Telegram: tap **I'm on it. I'll call her myself** (or reply `1`). First tap wins; the ack-link in the card is the same window.
 7. `GET /incidents/{id}` should show `bot` events with `at` timestamps and `resolve.reason: caretaker_ack`. If nobody taps within ~20s the stub dial rung still runs.
 
+
+Webhook auth: when the bot token is set, forged updates without a matching `X-Telegram-Bot-Api-Secret-Token` are rejected (`ok: false`) without applying an ack. Set `TELEGRAM_WEBHOOK_SECRET` on Render for live hook mode.
 Without token/chat_id the fixture still runs: the audit trail records `adapter: stub` and never claims a Telegram delivery.
 
 ## Honesty notes

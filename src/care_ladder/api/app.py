@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -601,6 +602,7 @@ async def _run_facility_ack_scenario(store: AuditStore, *, acked: bool):
         page_router=PageRouter(),
         ack_registry=registry,
         ack_base_url=_public_base_url(),
+        ack_tenant_id=_store_tenant_id(store),
         max_ack_wait_sec=-1,  # honor the plan's shortened 2s window
         now=DEMO_NOW,
         incident_id=incident_id,
@@ -807,6 +809,36 @@ _ACK_REGISTRY = None
 _BOT_THREADS = None
 
 
+
+def _telegram_bot_token_configured() -> bool:
+    return bool(os.environ.get("TELEGRAM_BOT_TOKEN", "").strip())
+
+
+def _webhook_secret_rejection(request: Request, *, configured: bool) -> str | None:
+    """Reject live webhook updates that fail the secret check.
+
+    Stub mode (no bot token) skips the check so local/demo fixtures keep working.
+    When a bot token is set, missing ``TELEGRAM_WEBHOOK_SECRET`` or a header
+    mismatch fails closed. Return reason string, or None when the update may proceed.
+    """
+    if not configured:
+        return None
+    expected = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "").strip()
+    if not expected:
+        return "webhook_secret_unset"
+    presented = request.headers.get("x-telegram-bot-api-secret-token", "")
+    if not hmac.compare_digest(presented.encode("utf-8"), expected.encode("utf-8")):
+        return "webhook_secret_mismatch"
+    return None
+
+
+def _store_tenant_id(store: AuditStore | None) -> str | None:
+    """Best-effort tenant id from a tenant-scoped audit store."""
+    if store is None:
+        return None
+    return getattr(store, "tenant_id", None) or getattr(store, "_tenant_id", None)
+
+
 def _app_ack_registry() -> "AckRegistry":
     global _ACK_REGISTRY
     if _ACK_REGISTRY is None:
@@ -927,6 +959,7 @@ async def _run_family_telegram_page(store: AuditStore):
         ack_registry=registry,
         bot_thread=thread,
         ack_base_url=_public_base_url(),
+        ack_tenant_id=_store_tenant_id(store),
         max_ack_wait_sec=-1,
         now=DEMO_NOW,
     )
@@ -1424,10 +1457,20 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
 
     @application.post("/telegram/webhook")
     async def telegram_webhook(request: Request) -> dict[str, Any]:
-        """Telegram hook mode. Unauthenticated: Telegram posts here. No token → still 200."""
+        """Telegram hook mode. Authenticate with X-Telegram-Bot-Api-Secret-Token when live.
+
+        Stub mode (no TELEGRAM_BOT_TOKEN) skips the secret check. Live mode compares
+        the header to TELEGRAM_WEBHOOK_SECRET (fail closed). Always HTTP 200 on
+        auth failure so Telegram does not retry-storm.
+        """
         from care_ladder.channels.bot import dispatch_inbound
         from care_ladder.channels.router import TelegramAdapter
 
+        rejected = _webhook_secret_rejection(
+            request, configured=_telegram_bot_token_configured()
+        )
+        if rejected is not None:
+            return {"ok": False, "handled": False, "reason": rejected}
         try:
             body = await request.json()
         except Exception:

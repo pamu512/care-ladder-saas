@@ -58,8 +58,9 @@ class PendingAck:
     tenant_id: str | None = None  # set by the API layer for tenant-scoped views
 
     def summary(self) -> dict[str, Any]:
-        return {
-            "token": self.token,
+        # Omit raw token from list summaries (capability URL stays on ack_url for
+        # same-tenant console use). Cross-tenant isolation is enforced by pending_list.
+        out: dict[str, Any] = {
             "incident_id": self.incident_id,
             "rung_id": self.rung_id,
             "channel": self.channel,
@@ -68,6 +69,9 @@ class PendingAck:
             "deadline": self.deadline.isoformat(),
             "ack_url": self.ack_url,
         }
+        if self.tenant_id is not None:
+            out["tenant_id"] = self.tenant_id
+        return out
 
 
 @dataclass(frozen=True)
@@ -167,6 +171,7 @@ class AckRegistry:
         base_url: str,
         *,
         created_at: datetime | None = None,
+        tenant_id: str | None = None,
     ) -> PendingAck:
         now = created_at or self._now()
         deadline = now + timedelta(seconds=max(1.0, float(timeout_sec)))
@@ -183,12 +188,18 @@ class AckRegistry:
             deadline=deadline,
             token=token,
             ack_url=f"{base_url.rstrip('/')}/ack/{token}",
+            tenant_id=tenant_id,
         )
         with self._lock:
             self._pending_by_token[token] = pending
             self._pending_by_incident[(incident_id, rung_id)] = pending
         self._fire_auto_acks_locked_free(incident_id)
         return pending
+
+    def get_pending(self, incident_id: str, rung_id: str) -> PendingAck | None:
+        """Live pending window for an incident/rung (includes token; not a list summary)."""
+        with self._lock:
+            return self._pending_by_incident.get((incident_id, rung_id))
 
     def peek(self, token: str) -> PendingAck | None:
         """Pending entry for a still-valid, un-consumed token (no state change)."""
@@ -204,7 +215,14 @@ class AckRegistry:
             return pending
 
     def pending_list(self, tenant_id: str | None = None) -> list[dict[str, Any]]:
-        """All pending summaries, or only those for one tenant when given."""
+        """Tenant-scoped pending summaries.
+
+        ``tenant_id=None`` never means all-tenants — it returns ``[]``.
+        When a tenant is given, only rows with that exact ``PendingAck.tenant_id``
+        are returned (unscoped ``None`` rows are not leaked across tenants).
+        """
+        if tenant_id is None:
+            return []
         now = self._now()
         out: list[dict[str, Any]] = []
         with self._lock:
@@ -213,13 +231,33 @@ class AckRegistry:
                 if p.deadline <= now:
                     stale.append(token)
                     continue
-                if tenant_id is None or p.tenant_id in (None, tenant_id):
+                if p.tenant_id == tenant_id:
                     out.append(p.summary())
             for token in stale:
                 p = self._pending_by_token.pop(token)
                 self._pending_by_incident.pop((p.incident_id, p.rung_id), None)
         out.sort(key=lambda s: s["created_at"])
         return out
+
+    def token_matching_callback(self, callback_id: str) -> str | None:
+        """Resolve a Telegram callback prefix to a live pending token (internal).
+
+        If several live tokens share the prefix, return None (ambiguous) so a
+        forged/stale button cannot ack the wrong tenant window.
+        """
+        if not callback_id:
+            return None
+        now = self._now()
+        matches: list[str] = []
+        with self._lock:
+            for token, p in self._pending_by_token.items():
+                if p.deadline <= now:
+                    continue
+                if token.startswith(callback_id) or token[:12] == callback_id:
+                    matches.append(token)
+        if len(matches) == 1:
+            return matches[0]
+        return None
 
     # ---- acknowledging -----------------------------------------------------
 

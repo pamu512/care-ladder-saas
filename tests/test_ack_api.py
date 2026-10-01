@@ -86,9 +86,8 @@ def test_ack_page_renders_for_live_token():
     assert r.status_code == 200
     assert "resident needs help in room 9" in r.text
     assert "/acks/" in r.text
-    # pending visible on the console surface
-    pend = client.get("/acks/pending").json()
-    assert any(x["token"] == p.token for x in pend)
+    # Without a session tenant, /acks/pending never dumps all windows (P1).
+    assert client.get("/acks/pending").json() == []
     # acknowledging via HTTP closes it and records who
     post = client.post(f"/acks/{p.token}", json={"by": "RN Dana", "note": "room 9"})
     assert post.status_code == 200
