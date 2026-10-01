@@ -353,7 +353,7 @@ def family_runtime_payload(
         "last_message": {"kind": last_kind, "at": clock.isoformat(), "label": last_label},
         "channels": {
             "whatsapp": {
-                "status": "connected",
+                "status": "connected" if "whatsapp" in live else "demo",
                 "live": "whatsapp" in live,
                 "members": ["James", "Sarah"],
                 "deep_link": "https://wa.me/",
@@ -797,8 +797,37 @@ async def _run_opencv_pose_person(store: AuditStore):
     )
 
 
-# In-flight upload analysis jobs: job_id -> {status, filename, incident_id, error}
+# In-flight upload analysis jobs: job_id -> {status, filename, incident_id, error, ...}
 _UPLOAD_JOBS: dict[str, dict[str, Any]] = {}
+_UPLOAD_JOB_TTL_SEC = 3600.0  # drop finished jobs older than 1h
+_UPLOAD_JOB_MAX = 64  # hard cap on map size
+
+
+def _prune_upload_jobs(now: float | None = None) -> None:
+    """Drop finished upload jobs past TTL; enforce max size (oldest first)."""
+    import time as _time
+
+    clock = now if now is not None else _time.time()
+    stale = [
+        jid
+        for jid, entry in _UPLOAD_JOBS.items()
+        if entry.get("status") in {"done", "error"}
+        and (clock - float(entry.get("created_at") or clock)) >= _UPLOAD_JOB_TTL_SEC
+    ]
+    for jid in stale:
+        _UPLOAD_JOBS.pop(jid, None)
+    if len(_UPLOAD_JOBS) <= _UPLOAD_JOB_MAX:
+        return
+    # Evict oldest finished first, then oldest overall.
+    ordered = sorted(
+        _UPLOAD_JOBS.items(),
+        key=lambda kv: (
+            0 if kv[1].get("status") in {"done", "error"} else 1,
+            float(kv[1].get("created_at") or 0.0),
+        ),
+    )
+    for jid, _ in ordered[: max(0, len(_UPLOAD_JOBS) - _UPLOAD_JOB_MAX)]:
+        _UPLOAD_JOBS.pop(jid, None)
 
 # App-level ack registry: shared by demo fixtures (orchestrator wait loop) and
 # the /ack + /acks HTTP surface so a caretaker link tap resolves the in-flight
@@ -1505,11 +1534,16 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
 
         spilled = save_upload(data, suffix=suffix)
         job_id = uuid4().hex
+        import time as _time
+
+        _prune_upload_jobs()
         _UPLOAD_JOBS[job_id] = {
             "status": "processing",
             "filename": file.filename,
             "incident_id": None,
             "error": None,
+            "created_at": _time.time(),
+            "tenant_id": session.tenant_id if session is not None else None,
         }
 
         def _process() -> None:
@@ -1532,11 +1566,26 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         return DemoRunResponse(incident_id=job_id)
 
     @application.get("/demo/upload/{job_id}")
-    def upload_job_status(job_id: str) -> dict[str, Any]:
+    def upload_job_status(job_id: str, request: Request) -> dict[str, Any]:
+        session = _require_session(request)
+        if session is None and _auth_on():
+            raise HTTPException(status_code=401, detail="authentication required")
+        _prune_upload_jobs()
         job = _UPLOAD_JOBS.get(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="unknown job id")
-        return job
+        job_tenant = job.get("tenant_id")
+        if (
+            session is not None
+            and job_tenant is not None
+            and session.tenant_id != job_tenant
+        ):
+            raise HTTPException(status_code=404, detail="unknown job id")
+        return {
+            k: v
+            for k, v in job.items()
+            if k not in {"tenant_id"}  # do not leak tenant binding in poll payload
+        }
 
     def _run_upload_sync(spilled: Path, store: AuditStore) -> str:
         """CPU-heavy upload analysis (runs in executor thread): decode →
@@ -1859,16 +1908,40 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
                     for e in i.events
                 )
             ]
-            state.resident_resolved = [
-                {
-                    "incident_id": i.id,
-                    "room_label": "204",
-                    "place_label": "204",
-                    "subject_display_name": None,
-                    "reply_class": "positive",
-                }
-                for i in resolved_incidents
-            ]
+            cases_by_inc = {c.incident_id: c for c in state.cases.values()}
+            prior_by_inc = {
+                r["incident_id"]: r
+                for r in state.resident_resolved
+                if isinstance(r, dict) and r.get("incident_id")
+            }
+            rebuilt: list[dict[str, Any]] = []
+            for i in resolved_incidents:
+                case = cases_by_inc.get(i.id)
+                prior = prior_by_inc.get(i.id)
+                if case is not None:
+                    room = case.room_label or ""
+                    place = (getattr(case, "place_label", "") or "") or room
+                    subject = getattr(case, "subject_display_name", None)
+                    kind = getattr(case, "subject_kind", None)
+                elif prior is not None:
+                    room = prior.get("room_label") or ""
+                    place = prior.get("place_label") or room
+                    subject = prior.get("subject_display_name")
+                    kind = prior.get("subject_kind")
+                else:
+                    room = place = ""
+                    subject = kind = None
+                rebuilt.append(
+                    {
+                        "incident_id": i.id,
+                        "room_label": room,
+                        "place_label": place,
+                        "subject_display_name": subject,
+                        "subject_kind": kind,
+                        "reply_class": "positive",
+                    }
+                )
+            state.resident_resolved = rebuilt
         except Exception:
             pass
         queue = []
