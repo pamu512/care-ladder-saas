@@ -36,7 +36,7 @@ def test_settings_pin_peek_roundtrip(client_facility):
 
 
 def test_two_open_cases_two_different_owners(client_facility):
-    """Default demo: two negative fixtures -> two cases; assigns to different staff."""
+    """Default demo: two negative fixtures -> two cases auto-routed to different staff."""
     import sys
 
     _appmod = sys.modules["care_ladder.api.app"]
@@ -46,11 +46,20 @@ def test_two_open_cases_two_different_owners(client_facility):
     assert client_facility.post("/demo/run", json={"fixture": "facility_negative_reply"}).status_code == 200
     cases = client_facility.get("/facility/cases").json()["open"]
     assert len(cases) == 2
-    s1 = [s for s in client_facility.get("/facility/staff").json()["staff"] if s["status"] == "available"]
-    assert len(s1) >= 2
-    r1 = client_facility.post(f"/facility/alerts/{cases[0]['incident_id']}/assign", json={"staff_id": s1[0]["id"]})
-    r2 = client_facility.post(f"/facility/alerts/{cases[1]['incident_id']}/assign", json={"staff_id": s1[1]["id"]})
-    assert r1.status_code == 200 and r2.status_code == 200
+    owners = [c["owner_staff_id"] for c in cases]
+    assert all(owners), "break-aware auto-route should assign each open case"
+    assert owners[0] != owners[1], "one-focus auto-route must pick different staff"
+    # Manual re-assign still pages an available staff member (Floor Lead).
+    lead = next(
+        s for s in client_facility.get("/facility/staff").json()["staff"]
+        if s["display_name"] == "Floor Lead" and s["status"] == "available"
+    )
+    r = client_facility.post(
+        f"/facility/alerts/{cases[0]['incident_id']}/assign",
+        json={"staff_id": lead["id"]},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["case"]["owner_staff_id"] == lead["id"]
 
 
 def test_assign_rejects_second_case_when_multi_own_off():

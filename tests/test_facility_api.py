@@ -12,8 +12,14 @@ from care_ladder.audit.store import AuditStore
 
 @pytest.fixture()
 def client(monkeypatch):
+    import sys
+
     monkeypatch.setenv("CARE_LADDER_AUTH", "on")
     monkeypatch.setenv("SESSION_SECRET", "facility-test")
+    appmod = sys.modules["care_ladder.api.app"]
+    appmod._FACILITY_STATES.clear()
+    if hasattr(appmod, "_SETTINGS_OVERRIDES"):
+        appmod._SETTINGS_OVERRIDES.clear()
     app = create_app(store=AuditStore())
     return TestClient(app)
 
@@ -93,11 +99,14 @@ def test_alerts_priority_order_and_assign(client):
     assert ids.index(p1) < ids.index(p2)
 
     staff = client.get("/facility/staff").json()["staff"]
-    maria = next(s for s in staff if "Maria" in s["display_name"])
-    r = client.post(f"/facility/alerts/{p1}/assign", json={"staff_id": maria["id"]})
-    assert r.status_code == 200
+    # Auto-route already claims Maria for the first open case; assign an
+    # available on-duty staff member (Jamie) so one-focus does not 409.
+    jamie = next(s for s in staff if "Jamie" in s["display_name"])
+    r = client.post(f"/facility/alerts/{p1}/assign", json={"staff_id": jamie["id"]})
+    assert r.status_code == 200, r.text
     detail = client.get(f"/facility/alerts/{p1}").json()
-    assert detail["case"]["owner_staff_id"] == maria["id"]
+    assert detail["case"]["owner_staff_id"] == jamie["id"]
+    assert "notify" in r.json()
 
 
 def test_assign_skips_on_break_without_override(client):
