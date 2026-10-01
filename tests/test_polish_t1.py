@@ -11,8 +11,14 @@ from care_ladder.db.models import Base
 
 @pytest.fixture()
 def client(monkeypatch):
+    import sys
+
     monkeypatch.setenv("CARE_LADDER_AUTH", "on")
     monkeypatch.setenv("SESSION_SECRET", "polish-t1")
+    appmod = sys.modules["care_ladder.api.app"]
+    appmod._FACILITY_STATES.clear()
+    if hasattr(appmod, "_SETTINGS_OVERRIDES"):
+        appmod._SETTINGS_OVERRIDES.clear()
     app = create_app(store=AuditStore())
     return TestClient(app)
 
@@ -34,13 +40,18 @@ def _run(client, fixture):
 def test_case_out_includes_owner_and_opened(client):
     _facility_login(client)
     iid = _run(client, "facility_negative_reply")
-    staff = client.get("/facility/staff").json()["staff"]
-    maria = next(s for s in staff if "Maria" in s["display_name"])
-    assert client.post(f"/facility/alerts/{iid}/assign", json={"staff_id": maria["id"]}).status_code == 200
+    staff = {s["id"]: s for s in client.get("/facility/staff").json()["staff"]}
     cases = client.get("/facility/cases").json()
     c = next(x for x in cases["open"] if x["incident_id"] == iid)
-    assert c["owner_display_name"] == maria["display_name"]
-    assert c["owner_initials"] == maria["initials"]
+    # Auto-route assigns an on-duty owner (Maria first); page-on-assign still works.
+    assert c["owner_staff_id"] in staff
+    owner = staff[c["owner_staff_id"]]
+    assert c["owner_display_name"] == owner["display_name"]
+    assert c["owner_initials"] == owner["initials"]
+    assert owner["display_name"] != "Alex R.", "on_break staff must not be auto-routed"
+    r = client.post(f"/facility/alerts/{iid}/assign", json={"staff_id": c["owner_staff_id"]})
+    assert r.status_code == 200, r.text
+    assert "notify" in r.json()
     assert c["opened_at"]
     assert c["sla_ack_sec"] == 120
     assert c["sla_handling_sec"] == 900
