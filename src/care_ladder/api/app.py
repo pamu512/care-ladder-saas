@@ -175,6 +175,10 @@ def _facility_after_incident(tenant_id: str, incident, fixture: str, session_fac
     )
     case.place_label = subject["place"]
     state.open_case(case)
+    # Mockup H: break-aware auto-route pages an on-duty assignee (skips on_break).
+    from care_ladder.facility.routing import auto_route
+
+    auto_route(state, case.id)
 
 
 class CheckoutRequest(BaseModel):
@@ -2021,10 +2025,27 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         case = next((c for c in state.cases.values() if c.incident_id == incident_id), None)
         if case is None:
             raise HTTPException(status_code=404, detail="alert not found")
-        result = state.assign(case.id, body.get("staff_id", ""), pull_off_break=bool(body.get("pull_off_break")))
+        from care_ladder.channels.notify import NotifyChannelAdapter
+        from care_ladder.facility.routing import assign_and_page
+
+        result = assign_and_page(
+            state,
+            case.id,
+            body.get("staff_id", ""),
+            pull_off_break=bool(body.get("pull_off_break")),
+            notifier=NotifyChannelAdapter(),
+        )
         if result is None:
-            raise HTTPException(status_code=409, detail="staff member is on break; use pull_off_break to override")
-        return {"ok": True, "case": _case_out(result[0], state)}
+            member = state.staff.get(body.get("staff_id", ""))
+            if member is not None and member.status == "on_break":
+                detail = "staff member is on break; use pull_off_break to override"
+            elif member is not None and member.status == "on_case":
+                detail = "staff member is already on a case; one-focus blocks a second assignment"
+            else:
+                detail = "staff member unavailable for assignment"
+            raise HTTPException(status_code=409, detail=detail)
+        case_out, _member, notify_result = result
+        return {"ok": True, "case": _case_out(case_out, state), "notify": notify_result}
 
     @application.post("/facility/alerts/{incident_id}/override")
     def facility_override(incident_id: str, body: dict, request: Request):
@@ -2041,10 +2062,18 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         if action == "deescalate" and case.priority != "P3":
             order = ["P1", "P2", "P3"]
             case.priority = order[min(order.index(case.priority) + 1, 2)]
+        notify_result = None
         if action == "repage":
             case.state = "paged"
+            from care_ladder.channels.notify import NotifyChannelAdapter
+            from care_ladder.facility.routing import repage_case
+
+            notify_result = repage_case(state, case.id, notifier=NotifyChannelAdapter())
         state.log_override(action, case.id)
-        return {"ok": True, "priority": case.priority, "state": case.state}
+        out = {"ok": True, "priority": case.priority, "state": case.state}
+        if notify_result is not None:
+            out["notify"] = notify_result
+        return out
 
     @application.get("/facility/cases")
     def facility_cases(request: Request):
