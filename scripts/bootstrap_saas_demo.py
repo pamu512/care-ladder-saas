@@ -136,12 +136,23 @@ def bootstrap(database_url: str | None = None) -> None:
                 print(f"bootstrap: created tenant {spec['id']}")
             else:
                 tenant = existing
-                # keep our demo rows aligned with the spec (e.g. plan renames)
-                if tenant.plan != spec["plan"] or tenant.mode != spec["mode"]:
-                    tenant.plan = spec["plan"]
-                    tenant.mode = spec["mode"]
-                    print(f"bootstrap: realigned tenant {spec['id']} -> plan={spec['plan']}")
-                print(f"bootstrap: tenant {spec['id']} exists")
+                # Keep demo seed rows aligned with the spec (e.g. plan renames),
+                # but never reset a paid / non-demo subscription back to the
+                # seed plan on every container restart.
+                status = getattr(tenant, "subscription_status", None) or "demo"
+                if status != "demo":
+                    print(
+                        f"bootstrap: tenant {spec['id']} exists "
+                        f"(plan={tenant.plan}, status={status}; skip plan realign)"
+                    )
+                else:
+                    if tenant.plan != spec["plan"] or tenant.mode != spec["mode"]:
+                        tenant.plan = spec["plan"]
+                        tenant.mode = spec["mode"]
+                        print(
+                            f"bootstrap: realigned tenant {spec['id']} -> plan={spec['plan']}"
+                        )
+                    print(f"bootstrap: tenant {spec['id']} exists")
             user = (
                 session.query(User).filter(User.email == spec["email"]).one_or_none()
             )

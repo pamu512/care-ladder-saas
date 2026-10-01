@@ -83,6 +83,7 @@ def test_family_runtime_auth_off_is_honest_demo_fixture():
     assert "telegram" in body["channels"]
     assert "deep_link" in body["channels"]["whatsapp"]
     assert body["channels"]["whatsapp"]["live"] is False
+    assert body["channels"]["whatsapp"]["status"] == "demo"
     assert body["channels"]["telegram"]["live"] is False
     assert "hero" in body
     assert "checkins_answered_today" in body["hero"]
