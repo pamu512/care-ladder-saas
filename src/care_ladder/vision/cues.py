@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 
 from care_ladder.models import CarePlan, CueEvent
+from care_ladder.vision.fall_cls import score_frame
 from care_ladder.vision.pose_heuristics import PoseHeuristics, torso_metrics
 from care_ladder.vision.tracker import PersonTracker
 
@@ -205,7 +206,11 @@ class CueDetector:
                 detail["person_count"] = tr["person_count"]
                 detail["tracks"] = tr["tracks"]
             self._distress_since = None  # suppress the shape fallback
-            return CueEvent(kind="distress_heuristic", confidence=0.85, detail=detail)
+            return CueEvent(
+                kind="distress_heuristic",
+                confidence=0.85,
+                detail=self._with_fall_cls(frame, detail),
+            )
 
         if (
             self.enable_distress_heuristic
@@ -229,7 +234,11 @@ class CueDetector:
                 tr = self.last_tracking
                 detail["person_count"] = tr["person_count"]
                 detail["tracks"] = tr["tracks"]
-            return CueEvent(kind="distress_heuristic", confidence=0.7, detail=detail)
+            return CueEvent(
+                kind="distress_heuristic",
+                confidence=0.7,
+                detail=self._with_fall_cls(frame, detail),
+            )
 
         if (
             self.enable_no_movement
@@ -253,6 +262,13 @@ class CueDetector:
             return CueEvent(kind="no_movement", confidence=0.8, detail=detail)
 
         return None
+
+    def _with_fall_cls(self, frame: np.ndarray, detail: dict[str, Any]) -> dict[str, Any]:
+        # Additive soft cue only. Never changes kind/confidence; OpenCV cues drive the ladder.
+        scored = score_frame(frame)
+        if scored is not None:
+            detail["fall_cls"] = scored
+        return detail
 
     def _point_in_zone(self, x: float, y: float) -> bool:
         # >= 0 means inside or on edge

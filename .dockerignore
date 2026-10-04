@@ -11,4 +11,5 @@ tests/
 !tests/fixtures/
 *.md
 !README.md
+!models/MODEL_CARD.md
 infra/

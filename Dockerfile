@@ -24,6 +24,8 @@ COPY tests/fixtures ./tests/fixtures
 # same sources as scripts/download_models.sh.
 ADD https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/person_detection_mediapipe/person_detection_mediapipe_2023mar.onnx /app/models/person_detection_mediapipe_2023mar.onnx
 ADD https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/pose_estimation_mediapipe/pose_estimation_mediapipe_2023mar.onnx /app/models/pose_estimation_mediapipe_2023mar.onnx
+# Sibling consume from opencv-care-ladder a7357c0 (tiny, committed; not a Zoo download).
+COPY models/fall_cls_v1.onnx models/MODEL_CARD.md /app/models/
 
 # Editable install keeps package paths under /app/src so api.app resolves
 # configs/demo_home.yaml via Path(__file__).parents[3] / "configs".
