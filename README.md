@@ -32,6 +32,11 @@ OpenCV submission; this repo diverges here with tenancy, facility workflows, and
 - `upstream` remote: https://github.com/pamu512/opencv-care-ladder (OpenCV submission, deadline Oct 26)
 - Sync policy: this fork moves independently after the fork point; no merges back during either
   submission window. OpenCV-critical fixes go upstream first, then cherry-pick here.
+- Sibling consume: `models/fall_cls_v1.onnx` + `models/MODEL_CARD.md` are the versioned
+  edge classifier from `opencv-care-ladder` tip `a7357c0` (SHA256
+  `549721e2b29cad10776fde2cb6186cf19383f982050f37e9335096c1aaadb608`). OpenCV cues still
+  drive the ladder; the ONNX is an optional soft score on `distress_heuristic` only
+  (`CARE_LADDER_FALL_CLS=0` to disable). Not a diagnosis.
 
 ## Pricing (fiscal architecture)
 
