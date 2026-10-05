@@ -12,6 +12,12 @@ CaseOrigin = Literal["from_negative_reply", "from_silence", "from_cue", "manual"
 CaseState = Literal["paged", "handling", "wrapping", "closed"]
 StaffStatus = Literal["available", "on_case", "on_break"]
 
+# Layer 2 live cover (PRD ops spine): availability for paging, distinct from
+# StaffStatus occupancy and from BotThread.on_call_result (family bot call
+# outcome). on_call here means "pagemable backup now"; rotations are layer 3.
+CoverState = Literal["on_duty", "on_break", "on_call", "backup"]
+COVER_STATES: tuple[str, ...] = ("on_duty", "on_break", "on_call", "backup")
+
 
 _LOCAL_SEQ = 0
 
@@ -41,6 +47,7 @@ class StaffMember(BaseModel):
     role: str
     initials: str
     status: StaffStatus = "available"
+    cover: CoverState = "on_duty"
     break_until: datetime | None = None
     active_case_id: str | None = None
     parked_case_ids: list[str] = Field(default_factory=list)  # multi_own secondaries
@@ -48,11 +55,28 @@ class StaffMember(BaseModel):
     def go_on_break(self, minutes: int, now: datetime | None = None) -> None:
         base = now or datetime.now(timezone.utc)
         self.status = "on_break"
+        self.cover = "on_break"
         self.break_until = base + timedelta(minutes=minutes)
 
     def come_off_break(self) -> None:
         self.status = "available"
+        self.cover = "on_duty"
         self.break_until = None
+
+    def set_cover(self, cover: str) -> None:
+        """Layer 2 live cover edit (owner or floor lead only, API-gated).
+
+        ``on_duty`` ends a break (the person is back on the floor);
+        ``on_break`` without a live break clock just flags availability.
+        Occupancy (``status``) is a case fact and is never changed here,
+        except ending a break, which ``on_duty`` means.
+        """
+        if cover not in COVER_STATES:
+            raise ValueError(f"unknown cover state {cover!r}; expected one of {COVER_STATES}")
+        self.cover = cover  # type: ignore[assignment]
+        if cover == "on_duty" and self.status == "on_break":
+            self.status = "available"
+            self.break_until = None
 
     def assignable(self, now: datetime | None = None) -> bool:
         if self.status == "on_break":
@@ -60,6 +84,8 @@ class StaffMember(BaseModel):
                 base = now or datetime.now(timezone.utc)
                 if base >= self.break_until:
                     self.status = "available"  # break expired
+                    if self.cover == "on_break":
+                        self.cover = "on_duty"
                     self.break_until = None
                     return True
             return False  # requires lead pull_off_break override
@@ -82,6 +108,7 @@ class Case(BaseModel):
     state: CaseState = "paged"
     owner_staff_id: str | None = None
     slack_thread_url: str = ""
+    handoffs: list[dict] = Field(default_factory=list)  # layer 2 handoff notes
     ack_at: datetime | None = None
     closed_at: datetime | None = None
     documentation: str | None = None

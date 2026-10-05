@@ -11,6 +11,7 @@ class SessionData(BaseModel):
     user_id: str
     tenant_id: str
     email: str
+    actor_staff_id: str | None = None  # roster staff the console user acts as (layer 2)
 
 
 def _serializer(secret: str) -> URLSafeTimedSerializer:

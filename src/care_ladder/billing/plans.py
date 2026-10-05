@@ -26,3 +26,16 @@ def tenant_can_use_notify(tenant: dict[str, Any]) -> bool:
             and tenant.get("status") in ("active", "trialing", "demo")
         )
     return False
+
+
+def tenant_can_use_layer2(tenant: dict[str, Any]) -> bool:
+    """Layer 2 (cover and respond) sits on Facility Growth only (PRD lock).
+
+    The free judge tenant (demo) keeps layer 2 for the honest demo; home is
+    excluded from this spine and facility_starter does not get layer 2.
+    """
+    if tenant.get("mode") != "facility":
+        return False
+    return tenant.get("plan") in ("facility_growth", "demo") and tenant.get(
+        "status"
+    ) in ("active", "trialing", "demo")

@@ -402,7 +402,7 @@ footer a{color:var(--faint)}
           <div class="card">
             <h3>Staff · shifts</h3>
             <div id="staff-roster"></div>
-            <p class="muted small" style="margin-top:8px">P1 pages break through unless do-not-disturb is set. Pull-off-break is a logged override.</p>
+            <p class="muted small" style="margin-top:8px">Live cover (on duty, on call, backup) is what paging uses. Only the owner or the floor lead may edit it. On call is a live flag; rotations come later. Pull-off-break is a logged override.</p>
           </div>
           <div class="card">
             <h3>Coverage policy</h3>
@@ -474,6 +474,7 @@ footer a{color:var(--faint)}
           <div class="setrow"><span class="k">Vocabulary</span><span class="v muted small" id="vocab-line">resident · room · Floor lead</span></div>
           <div class="setrow"><span class="k">Quiet hours</span><span class="v" id="quiet-line"><span class="muted small">Loaded from the facility plan when available.</span></span></div>
           <div id="settings-row"></div>
+          <div class="setrow"><span class="k">Audit retention</span><span class="v" id="retention-line"><span class="muted small">3 years default</span></span></div>
         </div>
         <div class="card">
           <h3>Escalation policy</h3>
@@ -481,6 +482,7 @@ footer a{color:var(--faint)}
           <div class="setrow"><span class="k">Handling target</span><span class="v" id="sla-handle-line"><span class="mono small">from pack</span></span></div>
           <div class="setrow"><span class="k">Negative reply</span><span class="v"><span class="badge b-bad">raise to P1</span> <span class="muted small"> · skip wait rungs · page immediately</span></span></div>
           <div class="setrow"><span class="k">P1 during breaks</span><span class="v"><span class="badge b-warn">breaks through</span> <span class="muted small"> · unless do-not-disturb</span></span></div>
+          <div class="setrow"><span class="k">Private vs common</span><span class="v"><span class="badge b-info">per place</span> <span class="muted small"> · private places get spoken confirm-first on the on-duty path; common places skip it; no site-wide override; on-call backup pages are straight pages</span></span></div>
           <div class="setrow"><span class="k">Emergency dialing</span><span class="v"><span class="badge b-bad">fail-closed</span> <span class="muted small"> · always behind a human gate</span></span></div>
         </div>
         <section class="gov-strip" id="governance" aria-label="Governance guarantees">
@@ -690,6 +692,22 @@ function renderSettingsView(){
   }
   if (S.sla_ack_sec != null) $("#sla-ack-line").innerHTML = `<span class="mono small">${fmtDur(S.sla_ack_sec)}</span> <span class="muted small"> · then supervisor + dial</span>`;
   if (S.sla_handling_sec != null) $("#sla-handle-line").innerHTML = `<span class="mono small">${fmtDur(S.sla_handling_sec)}</span> <span class="muted small"> · SLA nudge to owner, then lead</span>`;
+  const rl = $("#retention-line");
+  if (rl){
+    const years = S.audit_retention_years || 3;
+    rl.innerHTML = `<span class="mono small">${years} years</span> <span class="muted small"> · default 3, owner may extend · <button class="btn subtle" type="button" id="retention-extend">Extend</button></span>`;
+    const btn = $("#retention-extend");
+    if (btn) btn.addEventListener("click", async ()=>{
+      const ask = window.prompt("Extend audit retention to how many years? (3 to 10, extend-only)", String(years));
+      if (ask == null) return;
+      const n = parseInt(ask, 10);
+      if (!Number.isFinite(n)){ showToast("Enter a number of years", true); return; }
+      const r = await japi("/facility/settings", {method:"PATCH", body: JSON.stringify({audit_retention_years: n})});
+      if (r.status!==200){ showToast((r.body&&r.body.detail)||"Could not update retention", true); return; }
+      window.FACILITY_SETTINGS = r.body;
+      renderSettingsView();
+    });
+  }
   renderSettingsRow();
 }
 
@@ -881,7 +899,8 @@ const RUNG_LABELS = {
   jump:"Wait rungs skipped", notify_and_await_ack:"Page caretakers",
   notify_supervisor:"Page group", notify_channel:"Page group",
   ack_timeout:"Ack window", dial_contact:"Dial caregiver", wait:"Wait",
-  resolve:"Resolved", suppress:"Suppressed"
+  resolve:"Resolved", suppress:"Suppressed", staff_page:"Staff page",
+  handoff_note:"Handoff note"
 };
 function ladderHtml(rungs){
   if (!rungs || !rungs.length) return '<p class="muted small">ladder pending</p>';
@@ -988,7 +1007,12 @@ function renderCases(){
         ${caseBadge(c)}
       </div>
       <div class="muted small" style="margin-top:6px">state ${escapeHtml(c.state)} · ${slaLine(c)} · owner ${escapeHtml(ownerLabel(c))}</div>
+      ${(c.handoffs||[]).length ? `<div class="doc-block"><h6>Handoff notes</h6>${c.handoffs.map(h=>`<p>${escapeHtml(h.note)}<span class="muted small"> · ${escapeHtml(h.by_name || "staff")} · ${escapeHtml(String(h.at||"").replace("T"," ").slice(0,16))}</span></p>`).join("")}</div>` : ""}
       ${c.state!=="closed"?`
+        <textarea class="small" style="margin-top:8px" data-handoff="${c.id}" placeholder="Handoff note for the next caregiver (min 5 chars)"></textarea>
+        <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
+          <button class="btn subtle" type="button" data-handoff-btn="${c.id}">Add handoff note</button>
+        </div>
         <textarea class="small" style="margin-top:8px" data-doc="${c.id}" placeholder="Closing notes (min 20 chars)"></textarea>
         <div class="doc-count" data-doc-count="${c.id}">0/20</div>
         <div class="form-error" data-doc-err="${c.id}"></div>
@@ -1030,8 +1054,29 @@ function renderCases(){
     const sync = ()=>{ if (counter) counter.textContent = ta.value.trim().length + "/20"; };
     ta.addEventListener("input", sync); sync();
   });
+  open.querySelectorAll("[data-handoff-btn]").forEach(b=> b.addEventListener("click", async ()=>{
+    const ta = open.querySelector(`[data-handoff="${b.dataset.handoffBtn}"]`);
+    const {status, body} = await japi(`/facility/cases/${b.dataset.handoffBtn}/handoff`, {method:"POST", body:JSON.stringify({note: ta ? ta.value : ""})});
+    if (status!==200){ showToast((body&&body.detail)||"Handoff note failed", true); return; }
+    if (ta) ta.value = "";
+    refresh();
+  }));
 }
 
+const COVER_LABELS = {on_duty:"On duty", on_break:"On break", on_call:"On call", backup:"Backup"};
+function coverChip(s){
+  // Live cover (layer 2): what routing will use for paging.
+  const c = s.cover || "on_duty";
+  const cls = c === "on_duty" ? "b-ok" : (c === "on_break" ? "b-warn" : "b-info");
+  return `<span class="badge ${cls}">${escapeHtml(COVER_LABELS[c] || c)}</span>`;
+}
+function coverControls(s){
+  const c = s.cover || "on_duty";
+  return `<span class="break-group" role="group" aria-label="Live cover for ${escapeHtml(s.display_name)}">` +
+    ["on_duty","on_call","backup"].map(k =>
+      `<button class="btn subtle${k===c?" on":""}" type="button" data-cover="${s.id}" data-to="${k}" aria-pressed="${k===c}">${COVER_LABELS[k]}</button>`
+    ).join("") + `</span>`;
+}
 function staffRowHtml(s, withBreaks){
   const dim = s.status === "on_break" ? " dim" : "";
   const breaks = withBreaks
@@ -1046,7 +1091,9 @@ function staffRowHtml(s, withBreaks){
   return `<div class="sp-row${dim}">
     <div class="ava">${escapeHtml(s.initials)}</div>
     <div class="who"><b>${escapeHtml(s.display_name)}</b><span>${escapeHtml(s.role)}${s.active_case_id ? " · on a case" : ""}</span></div>
+    ${coverChip(s)}
     <span class="st ${statusClass(s.status)}">${escapeHtml(breakLeftLabel(s))}</span>
+    ${withBreaks ? coverControls(s) : ""}
     ${breaks}
   </div>`;
 }
@@ -1057,6 +1104,11 @@ function wireBreaks(root){
     const minutes = parseInt(b.dataset.minutes || "15", 10);
     const {status, body} = await japi(`/facility/staff/${b.dataset.break}/break`, {method:"POST", body:JSON.stringify({on_break:on, minutes})});
     if (status!==200){ showToast((body&&body.detail)||"Break update failed", true); return; }
+    refresh();
+  }));
+  root.querySelectorAll("[data-cover]").forEach(b=> b.addEventListener("click", async ()=>{
+    const {status, body} = await japi(`/facility/staff/${b.dataset.cover}/cover`, {method:"POST", body:JSON.stringify({cover:b.dataset.to})});
+    if (status!==200){ showToast((body&&body.detail)||"Cover update failed", true); return; }
     refresh();
   }));
 }
@@ -1240,6 +1292,10 @@ async function renderOverview(){
   const awaiting = (state.cases.open||[]).filter(c=>!c.ack_at).length;
   const avail = state.staff.filter(s=>s.status==="available").length;
   const totalStaff = state.staff.length;
+  const cover = {on_duty:0, on_break:0, on_call:0, backup:0};
+  state.staff.forEach(s=>{ const k = s.cover || "on_duty"; cover[k] = (cover[k]||0)+1; });
+  const onDutyPool = cover.on_duty;
+  const backupPool = cover.on_call + cover.backup;
   const b = state.auditSummary || {};
   const resolved = (b.cases_closed_today||0) + (b.resident_resolved_today||state.resident.length||0);
   const banner = $("#overview-banner");
@@ -1253,7 +1309,8 @@ async function renderOverview(){
   $("#overview-kpi").innerHTML = [
     kpiBox(open?"bad":"", String(open), "Open alerts"),
     kpiBox(awaiting?"warn":"", String(awaiting), "Awaiting ack"),
-    kpiBox("", `${avail} <small>of ${totalStaff||0}</small>`, "Staff available"),
+    kpiBox(onDutyPool? "" : "bad", `${onDutyPool} <small>of ${totalStaff||0}</small>`, "On duty"),
+    kpiBox(backupPool? "good" : "warn", String(backupPool), "On call + backup"),
     kpiBox("good", String(resolved), "Resolved today"),
   ].join("");
   const q = $("#overview-queue");

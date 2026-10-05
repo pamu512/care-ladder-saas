@@ -75,6 +75,45 @@ class FacilityState:
         self._persist()
         return m
 
+    def set_cover(self, staff_id: str, cover: str) -> StaffMember | None:
+        """Layer 2 live cover edit. Validation/gating happens at the API."""
+        m = self.staff.get(staff_id)
+        if m is None:
+            return None
+        m.set_cover(cover)
+        self._persist()
+        return m
+
+    def add_handoff(
+        self,
+        case_id: str,
+        note: str,
+        *,
+        by_staff_id: str | None = None,
+        by_name: str | None = None,
+    ) -> Case | None:
+        """Append a handoff note to the open case (layer 2).
+
+        The note is a mid-case handoff field, distinct from the close
+        ``documentation`` string. It is also appended to the incident audit
+        (``handoff_note`` event) when a store is attached by the caller.
+        """
+        c = self.cases.get(case_id)
+        if c is None or c.state == "closed":
+            return None
+        text = (note or "").strip()
+        if len(text) < 5:
+            return None
+        entry = {
+            "note": text,
+            "by_staff_id": by_staff_id,
+            "by_name": by_name,
+            "at": _now().isoformat(),
+        }
+        c.handoffs.append(entry)
+        self._persist()
+        return c
+
     def assign(self, case_id: str, staff_id: str, *, pull_off_break: bool = False) -> tuple[Case, StaffMember] | None:
         case = self.cases.get(case_id)
         member = self.staff.get(staff_id)
@@ -279,12 +318,19 @@ class FacilityState:
                 handling_secs.append((c.closed_at - c.ack_at).total_seconds())
 
         resolved_by_response = len(self.resident_resolved)
+        cover_counts: dict[str, int] = {"on_duty": 0, "on_break": 0, "on_call": 0, "backup": 0}
+        for m in self.staff.values():
+            cover_counts[m.cover] = cover_counts.get(m.cover, 0) + 1
+        handoff_total = sum(1 for c in self.cases.values() if getattr(c, "handoffs", None))
         return {
             "cases_open": len(open_cases),
             "cases_closed_today": len(closed_today),
             "resident_resolved_today": resolved_by_response,
             "overrides_today": len(self.overrides),
             "outcomes": outcomes,
+            # layer 2 live cover + handoff rollups
+            "cover": cover_counts,
+            "cases_with_handoff": handoff_total,
             # time KPIs (UI polish Task 1)
             "median_ack_sec": self._median(ack_secs),
             "median_handling_sec": self._median(handling_secs),
