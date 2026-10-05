@@ -72,6 +72,9 @@ class StaffRow(Base):
     role: Mapped[str] = mapped_column(String(32))
     initials: Mapped[str] = mapped_column(String(8))
     status: Mapped[str] = mapped_column(String(16), default="available")  # available | on_case | on_break
+    # Layer 2 live cover: on_duty | on_break | on_call | backup (availability
+    # for paging; distinct from status occupancy and bot on_call_result).
+    cover: Mapped[str] = mapped_column(String(16), default="on_duty", server_default="on_duty")
     break_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     active_case_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     parked_case_ids: Mapped[list] = mapped_column(JSON, default=list)  # multi_own secondaries
@@ -94,6 +97,9 @@ class CaseRow(Base):
     state: Mapped[str] = mapped_column(String(16), default="paged")
     owner_staff_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     slack_thread_url: Mapped[str] = mapped_column(String(300), default="")
+    # Layer 2 handoff notes: [{note, by_staff_id, by_name, at}] appended during
+    # handoff (before owner change or close); shown next to close documentation.
+    handoffs: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
     ack_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     documentation: Mapped[str | None] = mapped_column(Text, nullable=True)

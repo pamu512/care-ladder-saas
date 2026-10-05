@@ -389,10 +389,24 @@ def build_channels(
             ack = _ack_for_incident(inc.events)
             page = _page_label(inc, state)
             for ev in inc.events:
-                if ev.tool not in _PAGE_TOOLS:
+                if ev.tool not in _PAGE_TOOLS and ev.tool != "staff_page":
                     continue
                 detail = ev.detail or {}
                 at = ev.at.isoformat() if getattr(ev, "at", None) else None
+                if ev.tool == "staff_page":
+                    # Layer 2 staff page: who was paged + stub vs delivered.
+                    who = detail.get("paged_staff_name") or detail.get("paged_staff_id") or "staff"
+                    kind = detail.get("page_kind") or "on_duty"
+                    deliveries.append(
+                        {
+                            "at": at,
+                            "page": f"{page} · {kind.replace('_', ' ')} · {who}",
+                            "channel": detail.get("adapter") or "stub",
+                            "result": _delivery_result(detail),
+                            "ack": ack,
+                        }
+                    )
+                    continue
                 deliveries.append(
                     {
                         "at": at,

@@ -135,7 +135,7 @@ def _demo_roster_specs(tenant_id: str) -> list[dict[str, str]]:
     ]
 
 
-def _facility_after_incident(tenant_id: str, incident, fixture: str, session_factory=None) -> None:
+def _facility_after_incident(tenant_id: str, incident, fixture: str, session_factory=None, store=None) -> None:
     """Mockup H: open cases / record resident-resolved after a facility fixture."""
     from care_ladder.facility.models import Case, Priority
 
@@ -176,9 +176,11 @@ def _facility_after_incident(tenant_id: str, incident, fixture: str, session_fac
     case.place_label = subject["place"]
     state.open_case(case)
     # Mockup H: break-aware auto-route pages an on-duty assignee (skips on_break).
-    from care_ladder.facility.routing import auto_route
+    # Layer 2: on-duty empty falls through to on call / backup straight page;
+    # the page lands on the incident audit (who + stub vs delivered).
+    from care_ladder.facility.routing import auto_route, preferred_notifier
 
-    auto_route(state, case.id)
+    auto_route(state, case.id, notifier=preferred_notifier(), store=store)
 
 
 class CheckoutRequest(BaseModel):
@@ -188,6 +190,10 @@ class CheckoutRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+    actor_staff_id: str | None = Field(
+        default=None,
+        description="optional roster staff id the console user is acting as (layer 2 cover editor gate)",
+    )
 
 
 class DemoRunRequest(BaseModel):
@@ -1119,7 +1125,12 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         from care_ladder.auth.sessions import SessionData, create_session_token
 
         token = create_session_token(
-            SessionData(user_id=user.email, tenant_id=user.tenant_id, email=user.email),
+            SessionData(
+                user_id=user.email,
+                tenant_id=user.tenant_id,
+                email=user.email,
+                actor_staff_id=body.actor_staff_id or None,
+            ),
             secret=_session_secret(),
         )
         response.set_cookie(
@@ -1222,6 +1233,67 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             except Exception:
                 pass  # fall through to the in-memory table
         return _BILLING_TENANTS.get(session.tenant_id)
+
+    def _require_cover_editor(
+        request: Request,
+        state,
+        actor_staff_id: str | None = None,
+        session=None,
+    ) -> None:
+        """Layer 2 editor gate: only the owner or the floor lead may edit
+        on duty / on break / on call / backup (PRD resolved decision 5).
+
+        The acting staff member is the request's ``actor_staff_id`` or the
+        one recorded at login; when present it must be the roster lead.
+        Without an acting staff member the session user must be the tenant
+        owner. Raises 403 otherwise.
+        """
+        sess = session or _require_session(request)
+        if sess is None:
+            return  # auth off: demo mode, no editor gate
+        actor = actor_staff_id or getattr(sess, "actor_staff_id", None)
+        if actor:
+            member = (state.staff.get(actor)) if state is not None else None
+            lead_roles = {"lead", "floor lead", "nurse lead"}
+            if member is not None and member.role.strip().lower() in lead_roles:
+                return
+            raise HTTPException(
+                status_code=403,
+                detail="only the owner or the floor lead may edit live cover",
+            )
+        # No acting staff member: the session user must be the tenant owner.
+        # Demo-registry users own their tenant (memory-mode guarantee); for
+        # real users the Postgres User row is authoritative. Fail closed.
+        from care_ladder.tenancy.service import find_demo_user
+
+        demo = find_demo_user(sess.email)
+        if demo is not None:
+            if demo.tenant_id != sess.tenant_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="only the owner or the floor lead may edit live cover",
+                )
+            return
+        factory = getattr(application.state, "pg_session_factory", None)
+        if factory is not None:
+            from care_ladder.db.models import User as UserRow
+
+            with factory() as s:
+                row = (
+                    s.query(UserRow)
+                    .filter(UserRow.email == sess.email, UserRow.tenant_id == sess.tenant_id)
+                    .one_or_none()
+                )
+                if row is None or (row.role or "owner") != "owner":
+                    raise HTTPException(
+                        status_code=403,
+                        detail="only the owner or the floor lead may edit live cover",
+                    )
+                return
+        raise HTTPException(
+            status_code=403,
+            detail="only the owner or the floor lead may edit live cover",
+        )
 
     @application.post("/billing/checkout")
     def billing_checkout(body: CheckoutRequest, request: Request):
@@ -1734,6 +1806,7 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
                 _facility_after_incident(
                     tenant_id, incident, body.fixture,
                     session_factory=getattr(request.app.state, "pg_session_factory", None),
+                    store=store,
                 )
         return DemoRunResponse(incident_id=incident.id)
 
@@ -1771,6 +1844,19 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             return session.tenant_id
         return (record or {}).get("tenant_id") or "demo-facility"
 
+    DEFAULT_AUDIT_RETENTION_YEARS = 3
+
+    def _audit_retention_years(request: Request, record) -> int:
+        """Layer 2: audit retention default is 3 years; the owner may extend.
+
+        Stored on the tenant facility_settings (PG row or in-memory override);
+        values below the default are ignored (extend-only, never shorten).
+        """
+        stored = int(((record or {}).get("facility_settings") or {}).get("audit_retention_years") or 0)
+        over = _SETTINGS_OVERRIDES.get(_session_tenant_id(request, record)) or {}
+        env = int(over.get("audit_retention_years") or 0)
+        return max(DEFAULT_AUDIT_RETENTION_YEARS, stored, env)
+
     @application.get("/facility/settings")
     def facility_settings_get(request: Request):
         session = _require_session(request)
@@ -1789,6 +1875,7 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             out["sla_handling_sec"] = pack.sla_handling_sec
         except Exception:
             out["vocabulary"] = {}
+        out["audit_retention_years"] = _audit_retention_years(request, record)
         return out
 
     @application.patch("/facility/settings")
@@ -1807,6 +1894,19 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             for key in conc:
                 if key not in ("one_focus", "pin_peek", "pin_limit", "multi_own"):
                     raise HTTPException(status_code=422, detail=f"unknown concurrency key {key}")
+        retention = body.get("audit_retention_years")
+        if retention is not None:
+            # Owner-only extension of the audit retention default (3 years).
+            try:
+                retention = int(retention)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=422, detail="audit_retention_years must be an integer")
+            if not 3 <= retention <= 10:
+                raise HTTPException(
+                    status_code=422,
+                    detail="audit_retention_years must be between 3 and 10 (extend-only)",
+                )
+            _require_cover_editor(request, None, session=_require_session(request))
         tenant_id = _session_tenant_id(request, record)
         current = _SETTINGS_OVERRIDES.get(tenant_id) or {}
         new_over = dict(current)
@@ -1815,6 +1915,8 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         if conc is not None:
             merged_conc = {**_default_concurrency(), **(current.get("concurrency") or {}), **conc}
             new_over["concurrency"] = merged_conc
+        if retention is not None:
+            new_over["audit_retention_years"] = retention
         _SETTINGS_OVERRIDES[tenant_id] = new_over
         # PG persistence when available
         factory = getattr(application.state, "pg_session_factory", None)
@@ -1832,6 +1934,8 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
                         if conc is not None:
                             stored_conc = {**stored_conc, **conc}
                         stored["concurrency"] = stored_conc
+                        if retention is not None:
+                            stored["audit_retention_years"] = retention
                         row.facility_settings = stored
                         dbs.commit()
             except Exception:
@@ -1846,6 +1950,7 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             out["sla_handling_sec"] = pack.sla_handling_sec
         except Exception:
             out["vocabulary"] = {}
+        out["audit_retention_years"] = _audit_retention_years(request, record)
         return out
 
     # ---- facility console API (Mockup H) ------------------------------------
@@ -1883,6 +1988,7 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
             "slack_thread_url": c.slack_thread_url, "ack_at": c.ack_at.isoformat() if c.ack_at else None,
             "closed_at": c.closed_at.isoformat() if c.closed_at else None,
             "documentation": c.documentation,
+            "handoffs": list(getattr(c, "handoffs", []) or []),
         }
 
     @application.get("/facility/alerts")
@@ -2105,7 +2211,8 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
         return {
             "staff": [
                 {"id": m.id, "display_name": m.display_name, "role": m.role, "initials": m.initials,
-                 "status": m.status, "break_until": m.break_until.isoformat() if m.break_until else None,
+                 "status": m.status, "cover": m.cover,
+                 "break_until": m.break_until.isoformat() if m.break_until else None,
                  "active_case_id": m.active_case_id}
                 for m in state.roster()
             ]
@@ -2114,10 +2221,92 @@ def create_app(store: AuditStore | None = None, pg_session_factory=None) -> Fast
     @application.post("/facility/staff/{staff_id}/break")
     def facility_staff_break(staff_id: str, body: dict, request: Request):
         tenant_id, state, store = _facility_ctx(request)
+        session = _require_session(request)
+        _require_cover_editor(request, state, body.get("actor_staff_id"), session=session)
         m = state.set_break(staff_id, bool(body.get("on_break")), int(body.get("minutes", 30)))
         if m is None:
             raise HTTPException(status_code=404, detail="staff not found")
-        return {"ok": True, "status": m.status}
+        return {"ok": True, "status": m.status, "cover": m.cover}
+
+    @application.post("/facility/staff/{staff_id}/cover")
+    def facility_staff_cover(staff_id: str, body: dict, request: Request):
+        """Layer 2: set live cover (on duty / on break / on call / backup).
+
+        Editors: owner or floor lead only. Backup is registered staff only -
+        the target must already be on this facility roster (404 otherwise,
+        so agency or sister-site ids can never become backup).
+        """
+        from care_ladder.billing.plans import tenant_can_use_layer2
+        from care_ladder.facility.models import COVER_STATES
+
+        tenant_id, state, store = _facility_ctx(request)
+        record = _tenant_record(request)
+        if record is not None and not tenant_can_use_layer2(record):
+            raise HTTPException(
+                status_code=403,
+                detail="live cover is part of Facility Growth ($99/mo per site); "
+                "upgrade from the Plan view",
+            )
+        session = _require_session(request)
+        _require_cover_editor(request, state, body.get("actor_staff_id"), session=session)
+        cover = body.get("cover")
+        if cover not in COVER_STATES:
+            raise HTTPException(
+                status_code=422,
+                detail=f"cover must be one of {list(COVER_STATES)}",
+            )
+        m = state.set_cover(staff_id, cover)
+        if m is None:
+            raise HTTPException(status_code=404, detail="staff not found")
+        state.log_override("set_cover", staff_id, staff_id)
+        return {"ok": True, "cover": m.cover, "status": m.status}
+
+    @application.post("/facility/cases/{case_id}/handoff")
+    def facility_case_handoff(case_id: str, body: dict, request: Request):
+        """Layer 2: append a handoff note to the open case + case audit."""
+        from care_ladder.billing.plans import tenant_can_use_layer2
+
+        tenant_id, state, store = _facility_ctx(request)
+        record = _tenant_record(request)
+        if record is not None and not tenant_can_use_layer2(record):
+            raise HTTPException(
+                status_code=403,
+                detail="handoff notes are part of Facility Growth ($99/mo per site); "
+                "upgrade from the Plan view",
+            )
+        note = str(body.get("note", "") or "")
+        by_staff_id = body.get("by_staff_id") or None
+        by_name = None
+        if by_staff_id:
+            member = state.staff.get(by_staff_id)
+            by_name = member.display_name if member else None
+        c = state.add_handoff(case_id, note, by_staff_id=by_staff_id, by_name=by_name)
+        if c is None:
+            raise HTTPException(
+                status_code=422,
+                detail="handoff note required (min 5 chars) on an open case",
+            )
+        # copy onto the case incident audit (retention applies there)
+        try:
+            from care_ladder.models import AuditEvent
+
+            incident = store.get(c.incident_id)
+            if incident is not None:
+                incident.events.append(
+                    AuditEvent(
+                        tool="handoff_note",
+                        detail={
+                            "case_id": c.id,
+                            "note": (c.handoffs[-1] or {}).get("note", ""),
+                            "by_staff_id": by_staff_id,
+                            "by_name": by_name,
+                        },
+                    )
+                )
+                store.save(incident)
+        except Exception:
+            pass
+        return {"ok": True, "case": _case_out(c, state)}
 
     def _directory_plan(request: Request):
         from care_ladder.facility.directory import plan_for_type

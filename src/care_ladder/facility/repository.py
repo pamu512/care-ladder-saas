@@ -35,6 +35,7 @@ class FacilityRepository:
                 role=r.role,
                 initials=r.initials,
                 status=r.status,  # type: ignore[arg-type]
+                cover=getattr(r, "cover", "on_duty") or "on_duty",  # type: ignore[arg-type]
                 break_until=r.break_until,
                 active_case_id=r.active_case_id,
                 parked_case_ids=list(getattr(r, "parked_case_ids", None) or []),
@@ -49,6 +50,7 @@ class FacilityRepository:
         return StaffMember(
             id=row.id, tenant_id=row.tenant_id, display_name=row.display_name,
             role=row.role, initials=row.initials, status=row.status,  # type: ignore[arg-type]
+            cover=getattr(row, "cover", "on_duty") or "on_duty",  # type: ignore[arg-type]
             break_until=row.break_until, active_case_id=row.active_case_id,
             parked_case_ids=list(getattr(row, "parked_case_ids", None) or []),
         )
@@ -74,6 +76,8 @@ class FacilityRepository:
         if row is None or row.tenant_id != self.tenant_id:
             return
         row.status = member.status
+        if hasattr(row, "cover"):
+            row.cover = member.cover
         row.break_until = member.break_until
         row.active_case_id = member.active_case_id
         row.parked_case_ids = list(getattr(member, "parked_case_ids", []) or [])
@@ -101,6 +105,7 @@ class FacilityRepository:
             state=case.state, owner_staff_id=case.owner_staff_id,
             slack_thread_url=case.slack_thread_url, ack_at=case.ack_at,
             closed_at=case.closed_at, documentation=case.documentation,
+            handoffs=list(getattr(case, "handoffs", []) or []),
         )
         self.session.add(row)
         self.session.commit()
@@ -129,6 +134,8 @@ class FacilityRepository:
         row.ack_at = case.ack_at
         row.closed_at = case.closed_at
         row.documentation = case.documentation
+        if hasattr(row, "handoffs"):
+            row.handoffs = list(getattr(case, "handoffs", []) or [])
         self.session.commit()
 
     @staticmethod
@@ -144,5 +151,6 @@ class FacilityRepository:
             priority=r.priority,  # type: ignore[arg-type]
             state=r.state,  # type: ignore[arg-type]
             owner_staff_id=r.owner_staff_id, slack_thread_url=r.slack_thread_url,
+            handoffs=list(getattr(r, "handoffs", None) or []),
             ack_at=r.ack_at, closed_at=r.closed_at, documentation=r.documentation,
         )

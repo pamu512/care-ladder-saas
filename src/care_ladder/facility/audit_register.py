@@ -17,6 +17,8 @@ TOOL_LABELS = {
     "ack_timeout": "Ack window expired",
     "suppress": "Suppressed",
     "priority_override": "Priority override",
+    "staff_page": "Staff page",
+    "handoff_note": "Handoff note",
 }
 
 ORIGIN_MAP = {
@@ -101,7 +103,7 @@ def build_register(state, store) -> list[dict[str, Any]]:
 
 
 def _event_kind(tool: str) -> str:
-    if tool.startswith("notify") or tool == "dial_contact":
+    if tool.startswith("notify") or tool in ("dial_contact", "staff_page"):
         return "key"
     if tool in ("resolve", "suppress"):
         return "stop"

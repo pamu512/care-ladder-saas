@@ -79,6 +79,17 @@ def _ensure_schema_columns(engine) -> None:
                 dj = "'[]'::json" if engine.dialect.name == "postgresql" else "'[]'"
                 conn.execute(text(f"ALTER TABLE facility_staff ADD COLUMN parked_case_ids JSON DEFAULT {dj}"))
                 print("bootstrap: added facility_staff.parked_case_ids")
+            if "cover" not in staff_cols:
+                conn.execute(
+                    text("ALTER TABLE facility_staff ADD COLUMN cover VARCHAR(16) DEFAULT 'on_duty' NOT NULL")
+                )
+                print("bootstrap: added facility_staff.cover")
+        if "facility_cases" in inspector.get_table_names():
+            case_cols2 = {c["name"] for c in inspector.get_columns("facility_cases")}
+            if "handoffs" not in case_cols2:
+                dj2 = "'[]'::json" if engine.dialect.name == "postgresql" else "'[]'"
+                conn.execute(text(f"ALTER TABLE facility_cases ADD COLUMN handoffs JSON DEFAULT {dj2}"))
+                print("bootstrap: added facility_cases.handoffs")
         if "facility_settings" not in existing:
             default_json = "'{}'::json" if engine.dialect.name == "postgresql" else "'{}'"
             conn.execute(
