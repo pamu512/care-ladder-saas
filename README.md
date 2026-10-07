@@ -18,7 +18,8 @@ OpenCV submission; this repo diverges here with tenancy, facility workflows, and
 - Caretaker acknowledgment surface: `GET /ack/{token}` one-tap mobile page (no console
   session needed — the token is the capability), `POST /acks/{token}` record endpoint,
   `GET /acks/pending` live panel in the caregiver console with an Acknowledge button
-- Stripe Checkout + webhook for Home ($9/mo) and Facility Starter ($49/mo)
+- Stripe Checkout + webhook for Home ($9/mo), Facility Starter ($49/mo), and
+  Facility Growth ($99/mo)
 - Landing page with pricing and judge demo login; public HTTPS deploy (Render + managed Postgres)
 - Home Path A/B demo fixtures unchanged from upstream
 
@@ -72,8 +73,12 @@ open http://localhost:8000/           # landing + demo logins
 
 Demo accounts (seeded by the bootstrap, also live in auth-less demo mode):
 
-- Home: `demo@careladder.local` / `demo-pass-home`
-- Facility: `facility@careladder.local` / `demo-pass-facility`
+- Home: `demo@careladder.local`
+- Facility: `facility@careladder.local`
+
+Passwords are not published here: they are seeded by the bootstrap and
+pre-filled by the landing page's demo sign-in buttons, so the buttons are the
+intended entry point. Hand off judge credentials privately.
 
 Facility demo fixtures (console buttons):
 
