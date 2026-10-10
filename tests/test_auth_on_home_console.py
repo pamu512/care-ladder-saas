@@ -4,7 +4,7 @@ Live Galuxium (CARE_LADDER_AUTH=on) wrote incidents into a per-tenant memory
 store while GET /incidents/{id}/frames still read application.state.store, so
 frames 404'd with "incident not found" even when GET /incidents/{id} worked.
 The caregiver console then called .json() on non-OK detail payloads and
-crashed mid-refresh after updating the stats counters — empty-state cards
+crashed mid-refresh after updating the stats counters. Empty-state cards
 with non-zero Incidents/Resolved.
 """
 

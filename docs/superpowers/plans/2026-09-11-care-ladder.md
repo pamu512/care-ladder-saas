@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Spec: `docs/superpowers/specs/2026-09-11-agentic-senior-care-ladder-design.md`
-- Award path: Agentic Vision — OpenCV output must change the next tool/rung (prove with audit trace)
+- Award path: Agentic Vision: OpenCV output must change the next tool/rung (prove with audit trace)
 - Spoken check-in copy: `Are you okay? Do you want me to call <Caregiver>?`
 - Privacy default: blur/mosaic or silhouette before any persisted/cloud frame
 - Emergency rung: `enabled: false` by default (fail-closed)
@@ -376,7 +376,7 @@ Assert timeline includes ordered steps and prompt text contains caregiver name.
 - [ ] Dockerfile builds runnable API  
 - [ ] Commit `chore: AWS deployment outline for OpenCV/AWS requirement`
 
-Do **not** block demo on live AWS if local FastAPI works; judges need a working endpoint or screen-share — prefer deploy if credentials available.
+Do **not** block demo on live AWS if local FastAPI works; judges need a working endpoint or screen-share: prefer deploy if credentials available.
 
 ---
 

@@ -1,7 +1,7 @@
-# Agentic Senior Care Ladder — Design Spec
+# Agentic Senior Care Ladder: Design Spec
 
 **Date:** 2026-09-11  
-**Hackathon:** OpenCV AI Competition 2026 (AWS) — [opencv26.devpost.com](https://opencv26.devpost.com/)  
+**Hackathon:** OpenCV AI Competition 2026 (AWS): [opencv26.devpost.com](https://opencv26.devpost.com/)  
 **Award path:** Agentic Vision (primary). COOL optional later, not required for v1.  
 **Working title:** Care Ladder (remote wellness monitor for seniors / recovering people)
 
@@ -56,7 +56,7 @@ Implementation sketch (not final APIs): person/pose detection or motion masks, z
 
 ## 6. Check-in channel and copy
 
-**Preferred:** Amazon Alexa / Google Nest (or equivalent) when linked — low friction for seniors.  
+**Preferred:** Amazon Alexa / Google Nest (or equivalent) when linked: low friction for seniors.  
 **Fallback:** Phone TTS / CALL-E-style voice call.
 
 **Default spoken prompt:**

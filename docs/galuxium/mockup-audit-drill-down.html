@@ -43,7 +43,7 @@
   .kpi{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
   .kpi .box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
   .kpi .n{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
-  .kpi .n small{font-size:11px;color:var(--faint);font-weight:500}
+  .kpi .n small{font-size:11px;color:var(--muted);font-weight:500}
   .kpi .l{color:var(--muted);font-size:11px;margin-top:2px}
   .kpi .good .n{color:var(--ok)} .kpi .warn .n{color:var(--warn)} .kpi .bad .n{color:var(--p1)} .kpi .vio .n{color:var(--violet)}
 
@@ -59,11 +59,11 @@
   .reg{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--card)}
   .reg-head{display:grid;grid-template-columns:16px 92px 1fr 150px 96px 120px 26px;gap:10px;align-items:center;padding:11px 16px;cursor:pointer}
   .reg-head:hover{background:var(--card2)}
-  .caret{color:var(--faint);transition:transform .12s;font-size:11px}
+  .caret{color:var(--muted);transition:transform .12s;font-size:11px}
   .reg.open .caret{transform:rotate(90deg)}
   .cid{font-family:var(--mono);font-size:11.5px;color:var(--accent)}
   .room{font-size:13.5px;font-weight:650}
-  .room span{display:block;font-size:10.5px;color:var(--faint);font-weight:400}
+  .room span{display:block;font-size:10.5px;color:var(--muted);font-weight:400}
   .own{font-size:12.5px;color:var(--muted)}
   .own b{color:var(--text);font-weight:600}
   .tt{font-family:var(--mono);font-size:11px;text-align:center}
@@ -76,14 +76,14 @@
 
   /* drill-down body */
   .reg-body{border-top:1px solid var(--border);background:var(--card2);padding:16px 18px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px}
-  .report h5{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+  .report h5{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
   .report .inc-link{font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:12px;display:block}
 
   .r-line{display:grid;grid-template-columns:150px 1fr 78px;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:12.5px;align-items:baseline}
   .r-line:last-child{border-bottom:0}
   .r-line .nm{font-weight:600;font-size:12px}
   .r-line .ds{color:var(--muted)} .r-line .ds b{color:var(--text);font-weight:600}
-  .r-line .ts{font-family:var(--mono);font-size:10.5px;color:var(--faint);text-align:right}
+  .r-line .ts{font-family:var(--mono);font-size:10.5px;color:var(--muted);text-align:right}
   .r-line.key .nm{color:var(--accent)}
   .r-line.stop .nm{color:var(--ok)}
   .r-line.jump .nm{color:var(--p1)}
@@ -91,28 +91,28 @@
   .r-line .delta{font-family:var(--mono);font-size:10px;color:var(--accent);margin-left:6px}
 
   .doc-block{margin-top:14px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
-  .doc-block h6{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+  .doc-block h6{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
   .doc-block p{font-size:12.5px;color:var(--muted);line-height:1.6}
   .doc-block p b{color:var(--text)}
-  .sig{margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .sig{margin-top:8px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
 
   /* side rail inside drill-down */
   .rail{display:flex;flex-direction:column;gap:10px}
   .rail .box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 13px}
-  .rail h6{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+  .rail h6{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
   .metric{display:flex;justify-content:space-between;align-items:baseline;padding:3px 0;font-size:12px}
   .metric .k{color:var(--muted)} .metric .v{font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums}
   .metric .v.ok{color:var(--ok)} .metric .v.warn{color:var(--warn)} .metric .v.bad{color:var(--p1)}
   .ov-item{font-size:11.5px;color:var(--muted);padding:3px 0;border-bottom:1px dashed var(--border)}
   .ov-item:last-child{border-bottom:0}
   .ov-item b{color:var(--text);font-weight:600}
-  .ov-item .t{font-family:var(--mono);font-size:10px;color:var(--faint);float:right}
+  .ov-item .t{font-family:var(--mono);font-size:10px;color:var(--muted);float:right}
   .clip-ref{display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--muted)}
-  .clip-frame{width:44px;height:32px;border-radius:5px;background:#070b10;border:1px solid var(--border);display:grid;place-items:center;color:var(--faint)}
+  .clip-frame{width:44px;height:32px;border-radius:5px;background:#070b10;border:1px solid var(--border);display:grid;place-items:center;color:var(--muted)}
   .rail .actions{display:flex;gap:6px;flex-wrap:wrap}
 
   footer{max-width:1280px;margin:0 auto;padding:10px 20px 30px;color:var(--muted);font-size:12px}
-  .mock{font-family:var(--mono);opacity:.7}
+  .mock{font-family:var(--mono)}
 
   @media (max-width:1020px){
     .kpi{grid-template-columns:repeat(3,1fr)}
@@ -172,7 +172,7 @@
       <div class="reg-head" aria-expanded="true">
         <span class="caret">▶</span>
         <span class="cid">CL-1042</span>
-        <span class="room">Room 12 — check-in silence<span>staff-handled · documented</span></span>
+        <span class="room">Room 12: check-in silence<span>staff-handled · documented</span></span>
         <span class="own">owner <b>Maria G.</b></span>
         <span class="tt ok">ack 0m 52s</span>
         <span class="hd">handling 24m 39s</span>
@@ -191,14 +191,14 @@
           <div class="r-line stop"><span class="nm">Case closed</span><span class="ds">documentation submitted in chat<span class="delta">Δ handling 24m 39s</span></span><span class="ts">15:08:02</span></div>
           <div class="doc-block">
             <h6>Submitted documentation</h6>
-            <p>“Resident had dozed off in the armchair after lunch. <b>Vitals normal.</b> Repositioned, offered water, stayed 20 min to observe. No further concerns — will re-check on 16:00 round.”</p>
+            <p>“Resident had dozed off in the armchair after lunch. <b>Vitals normal.</b> Repositioned, offered water, stayed 20 min to observe. No further concerns. Will re-check on 16:00 round.”</p>
             <div class="sig">M. Grant, RN · via /close-case in #care-floor-ops · 15:07:44</div>
           </div>
         </div>
         <aside class="rail">
           <div class="box">
             <h6>Timing</h6>
-            <div class="metric"><span class="k">Time-to-ack</span><span class="v ok">0m 52s <small style="color:var(--faint)">/ 5:00</small></span></div>
+            <div class="metric"><span class="k">Time-to-ack</span><span class="v ok">0m 52s <small style="color:var(--muted)">/ 5:00</small></span></div>
             <div class="metric"><span class="k">Handling time</span><span class="v warn">24m 39s / 15:00</span></div>
             <div class="metric"><span class="k">Cue → first page</span><span class="v">15m 28s</span></div>
             <div class="metric"><span class="k">Nudges</span><span class="v">1 · answered 0m 47s</span></div>
@@ -216,7 +216,7 @@
           </div>
           <div class="box">
             <h6>Overrides on this case</h6>
-            <div class="ov-item">Priority kept <b>P2</b> (auto) · <span class="t">—</span></div>
+            <div class="ov-item">Priority kept <b>P2</b> (auto) · <span class="t">-</span></div>
             <div class="ov-item">None · fully auto-routed</div>
           </div>
           <div class="box actions">
@@ -232,7 +232,7 @@
       <div class="reg-head">
         <span class="caret">▶</span>
         <span class="cid">inc 5c88f1</span>
-        <span class="room">Room 5 — check-in<span class="origin-chip resident">resolved by response</span><span>positive reply · no case opened</span></span>
+        <span class="room">Room 5: check-in<span class="origin-chip resident">resolved by response</span><span>positive reply · no case opened</span></span>
         <span class="own">closed by <b>resident reply</b></span>
         <span class="tt vio">41s</span>
         <span class="hd">no staff action</span>
@@ -244,7 +244,7 @@
       <div class="reg-head">
         <span class="caret">▶</span>
         <span class="cid">CL-1043</span>
-        <span class="room">Room 9 — negative response<span class="origin-chip negative">negative reply</span><span>priority auto-raised P2 → P1</span></span>
+        <span class="room">Room 9: negative response<span class="origin-chip negative">negative reply</span><span>priority auto-raised P2 → P1</span></span>
         <span class="own">owner <b>Maria G.</b></span>
         <span class="tt bad">ack 0m 31s</span>
         <span class="hd">handling 18m 02s</span>
@@ -256,7 +256,7 @@
       <div class="reg-head">
         <span class="caret">▶</span>
         <span class="cid">CL-1040</span>
-        <span class="room">Common room — fall signature<span class="origin-chip timeout">group timeout</span><span>all staff on cases · command-owned</span></span>
+        <span class="room">Common room: fall signature<span class="origin-chip timeout">group timeout</span><span>all staff on cases · command-owned</span></span>
         <span class="own">owner <b>shift lead</b></span>
         <span class="tt bad">missed</span>
         <span class="hd">handling 51m 12s</span>
@@ -268,7 +268,7 @@
       <div class="reg-head">
         <span class="caret">▶</span>
         <span class="cid">inc 71bd33</span>
-        <span class="room">Room 1 — check-in<span class="origin-chip resident">resolved by response</span><span>pendant OK button</span></span>
+        <span class="room">Room 1: check-in<span class="origin-chip resident">resolved by response</span><span>pendant OK button</span></span>
         <span class="own">closed by <b>resident reply</b></span>
         <span class="tt vio">12s</span>
         <span class="hd">no staff action</span>
@@ -296,13 +296,13 @@
         <button class="btn small">All case files (zip)</button>
       </div>
     </div>
-    <p class="muted small" style="margin-top:10px">Every row in the register carries the full ladder transcript, reply classification, documentation and override history — what management reviews, in one place.</p>
+    <p class="muted small" style="margin-top:10px">Every row in the register carries the full ladder transcript, reply classification, documentation and override history: what management reviews, in one place.</p>
   </div>
 </main>
 
 <footer>
   Care Ladder is not a medical device. Telephony is stubbed in this demo; video is blurred before persistence.
-  <span class="mock">static mockup — audit drill-down · demo data only</span>
+  <span class="mock">static mockup: audit drill-down · demo data only</span>
 </footer>
 
 <script>

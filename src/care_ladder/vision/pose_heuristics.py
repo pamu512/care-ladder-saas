@@ -7,7 +7,7 @@ compute torso orientation / hip height and run a temporal state machine:
   with hip low, sustained ≥ ``sustain_sec`` → **fall signature** cue
   (``pattern: sudden_vertical_to_horizontal``).
 - A GRADUAL transition to lying (slow angle drift, e.g. lying down on a bed) does
-  not fire the fast-transition gate — it may still raise a low-severity
+  not fire the fast-transition gate. It may still raise a low-severity
   on-floor signal after a longer window.
 
 Non-clinical heuristic: geometry only; the ladder (voice check-in → caregiver)
@@ -116,7 +116,7 @@ class PoseHeuristics:
                 sudden = bool(left and went and (went[-1] - left[-1]) <= self.gradual_window_sec)
                 # Only the SUDDEN fall signature is cue-worthy. A gradual
                 # transition to on-floor (lying down, crouching, gardening) is
-                # not an incident — a still person on the floor is covered by
+                # not an incident. A still person on the floor is covered by
                 # the no_movement cue with the correct severity.
                 st.down_since = None
                 st.events = st.events[-4:]
@@ -134,7 +134,7 @@ class PoseHeuristics:
                 }
         elif st.down_since is not None:
             # flicker hysteresis: a brief non-down blip (mid-fall roll, keypoint
-            # jitter) must NOT reset the sustained-down clock — a genuine
+            # jitter) must NOT reset the sustained-down clock. A genuine
             # recovery (upright again) does.
             recovered_upright = is_upright
             grace_expired = (t - st.down_since) > self.flicker_grace_sec and recovered_upright is False

@@ -7,7 +7,7 @@
 <style>
   :root{
     --paper:#faf8f5; --card:#ffffff; --sink:#f3efe9;
-    --ink:#22303a; --ink2:#5a6b76; --faint:#8d99a3;
+    --ink:#22303a; --ink2:#5a6b76; --faint:#5a6b76;
     --hair:#e8e2d8; --hair2:#d8d0c2;
     --teal:#0e7490; --teal-deep:#0b5c73; --teal-soft:#e5f2f6; --teal-ink:#0c4a5e;
     --amber:#a16207; --amber-soft:#fdf3d8; --amber-line:#ecd9a8;
@@ -150,7 +150,7 @@
   .call-row{display:flex;align-items:center;gap:10px;padding:6px 0}
   .call-row .ava{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;flex-shrink:0}
   .ava.you{background:var(--teal-soft);color:var(--teal-ink)}
-  .ava.sis{background:#f3e8dd;color:#9a6700}
+  .ava.sis{background:#f3e8dd;color:#8a5a00}
   .ava.nbr{background:var(--sink);color:var(--ink2)}
   .call-row .who{flex:1;font-size:13px}
   .call-row .who b{font-weight:650}
@@ -172,10 +172,12 @@
   .demo-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 
   footer{max-width:1020px;margin:0 auto;padding:0 22px 40px;color:var(--faint);font-size:11.5px;line-height:1.7}
-  footer .mock{font-family:var(--mono);opacity:.75}
+  footer .mock{font-family:var(--mono)}
+  .workspace{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:26px;align-items:start}
 
   @media (max-width:880px){
-    .hero{grid-template-columns:1fr}
+    .hero,.workspace{grid-template-columns:1fr}
+    .workspace > :empty{display:none}
     .moment{grid-template-columns:52px 20px minmax(0,1fr)}
     .moment .t{font-size:10px}
     .rung{grid-template-columns:20px 1fr}
@@ -204,7 +206,7 @@
   <section class="chatstrip" aria-label="Chat runtime status">
     <span class="dot"></span>
     <div class="msg">
-      <b>All quiet — the bot is idle in your family chat</b>
+      <b>All quiet: the bot is idle in your family chat</b>
       <span>Alerts, acknowledgments and updates happen in WhatsApp now. This console mirrors them for review.</span>
       <span class="mono">last bot message: evening recap · 20:00 · notifications on for James + Sarah</span>
     </div>
@@ -217,9 +219,9 @@
     <div class="hello">
       <div class="when">Tuesday afternoon · Sep 29</div>
       <h1>Mom is settled in. She answered <em>every check-in</em> today.</h1>
-      <p class="sub">Care Ladder checked in <b>4 times</b> so far. The last one at <b>14:29</b> —
-      <span style="font-family:var(--serif);font-style:italic">"I'm fine, thanks — just resting."</span>
-      Nothing escalated; no calls were placed. <b>Respond in your chat</b> when something needs you — this page is for looking back.</p>
+      <p class="sub">Care Ladder checked in <b>4 times</b> so far. The last one at <b>14:29</b>:
+      <span style="font-family:var(--serif);font-style:italic">"I'm fine, thanks, just resting."</span>
+      Nothing escalated; no calls were placed. <b>Respond in your chat</b> when something needs you, this page is for looking back.</p>
       <div class="glance">
         <div class="g"><div class="n">4<small> / 4</small></div><div class="l">check-ins answered today</div></div>
         <div class="g"><div class="n">1<small> hr</small></div><div class="l">since her last response</div></div>
@@ -234,7 +236,7 @@
       <div class="lr-row"><span class="dot"></span><span class="nm">Call you</span><span class="st">step 4</span></div>
       <div class="lr-row"><span class="dot"></span><span class="nm">Call Sarah</span><span class="st">step 5</span></div>
       <div class="lr-row rest"><span class="dot"></span><span class="nm">Resting here</span><span class="st">all clear</span></div>
-      <p class="note">Emergency services are never called automatically — a human always decides. Quiet hours 22:00–07:00 pause non-urgent check-ins.</p>
+      <p class="note">Emergency services are never called automatically: a human always decides. Quiet hours 22:00–07:00 pause non-urgent check-ins.</p>
     </aside>
   </div>
 
@@ -249,7 +251,7 @@
       <span class="t">14:29</span><span class="rail"><span class="node"></span></span>
       <div class="body">
         <b>Check-in answered <span class="reply-chip">by voice</span></b>
-        <div class="d"><span class="q">"I'm fine, thanks — just resting."</span> · spoken clearly, no distress words</div>
+        <div class="d"><span class="q">"I'm fine, thanks, just resting."</span> · spoken clearly, no distress words</div>
         <div class="meta">rung 2 of 5 · resolved in 38s · nothing paged</div>
       </div>
     </div>
@@ -258,7 +260,7 @@
       <span class="t">14:27</span><span class="rail"><span class="node"></span></span>
       <div class="body">
         <b>Stillness noticed · check-in sent</b>
-        <div class="d">No movement in the living room for 15 minutes. The speaker asked "Are you okay?" — waiting for the answer.</div>
+        <div class="d">No movement in the living room for 15 minutes. The speaker asked "Are you okay?": waiting for the answer.</div>
         <div class="meta">cue confidence 0.9 · voice window 15:00</div>
       </div>
     </div>
@@ -308,7 +310,7 @@
           <div class="rung done"><span class="dot"></span><span class="nm">Family paged</span><span class="ds">family channel · WhatsApp <span class="mono">21:17</span></span></div>
           <div class="rung warn"><span class="dot"></span><span class="nm">Waiting for ack</span><span class="ds">window 5:00 · <span class="mono">02:41 left</span></span></div>
           <div class="rung"><span class="dot"></span><span class="nm">Call you</span><span class="ds">not needed</span></div>
-          <div class="rung stop"><span class="dot"></span><span class="nm">Resolved</span><span class="ds">you acknowledged · called Mom back · <span class="mono">"all fine — balcony"</span></span></div>
+          <div class="rung stop"><span class="dot"></span><span class="nm">Resolved</span><span class="ds">you acknowledged · called Mom back · <span class="mono">"all fine, balcony"</span></span></div>
           <div class="clipstrip">
             <div class="frame"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14"/></svg></div>
             <div class="frame"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14"/></svg></div>
@@ -331,14 +333,14 @@
   </div>
 
   <!-- SIDE RAIL -->
-  <div style="display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:26px;align-items:start">
+  <div class="workspace">
     <div></div>
     <div class="railcards">
       <div class="rc">
         <h3>Family chat <span class="edit">Pair a member</span></h3>
         <div class="call-row"><div class="ava you">WA</div><div class="who"><b>WhatsApp · connected</b><span>James · Sarah · alerts + buttons</span></div><span class="ord">live</span></div>
         <div class="call-row"><div class="ava nbr">TG</div><div class="who"><b>Telegram · available</b><span>daily rhythm + commands</span></div><span class="ord">pair</span></div>
-        <p class="call-note">Each member pairs their own chat by scanning the QR in Settings. Acknowledging in chat stops the ladder — this console never needs to be open.</p>
+        <p class="call-note">Each member pairs their own chat by scanning the QR in Settings. Acknowledging in chat stops the ladder: this console never needs to be open.</p>
       </div>
       <div class="rc">
         <h3>If Mom doesn't answer <span class="edit">Edit</span></h3>
@@ -380,9 +382,9 @@
 </main>
 
 <footer>
-  Care Ladder is a wellness companion, not a medical device: it does not diagnose and never calls emergency services on its own — a human always decides.
+  Care Ladder is a wellness companion, not a medical device: it does not diagnose and never calls emergency services on its own: a human always decides.
   Camera frames are blurred before anything is saved; raw video never leaves the device. Reserved fictional numbers are used throughout demos.
-  <div class="mock">static mockup v2 — family console · setup + archive · runtime lives in chat (see family-chat-runtime mockup + plan)</div>
+  <div class="mock">static mockup v2: family console · setup + archive · runtime lives in chat (see family-chat-runtime mockup + plan)</div>
 </footer>
 
 </body>

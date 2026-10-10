@@ -10,7 +10,7 @@ from care_ladder.models import CarePlan, Contact
 
 # NANP fiction: NPA-555-01XX (e.g. +12125550101). Also allow bare 555-01XX local form.
 _RESERVED_NANP_555_01XX = re.compile(r"^\+1\d{3}55501\d{2}$")
-# Emergency-like / real-emergency patterns — always reject in demo (fail-closed).
+# Emergency-like / real-emergency patterns. Always reject in demo (fail-closed).
 _EMERGENCY_PATTERNS = (
     re.compile(r"(^|[^0-9])911([^0-9]|$)"),
     re.compile(r"(^|[^0-9])112([^0-9]|$)"),

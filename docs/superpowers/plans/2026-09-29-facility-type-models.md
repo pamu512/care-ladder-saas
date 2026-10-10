@@ -15,7 +15,7 @@
 - Repo: `pamu512/care-ladder-saas`. Not OpenCV Care Ladder; not Alexa/Fire TV.
 - Baseline: current `origin/main` (UI polish merged; tip was `ae269c1` when this plan was written; re-fetch before coding).
 - Implement via **Mac Hermes only** (no Cursor cloud agents for code).
-- No em dashes (`—` / `\u2014`) in user-facing copy, commit subjects, or new YAML messages.
+- No em dashes (long dash or `\u2014`) in user-facing copy, commit subjects, or new YAML messages.
 - TDD: failing test → implement → pass → commit per task.
 - Do not Final-Submit Devpost.
 - Prefer trailing slash `/ui/facility/` in links.

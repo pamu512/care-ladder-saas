@@ -3,7 +3,7 @@
 **Date:** 2026-09-28  
 **Repo:** `pamu512/care-ladder-saas`  
 **Status:** Approved direction (Approach 1 vertical slices; 2–3 stretch)  
-**Visual source:** Mockup H static HTML (`mockup-h-break-aware-routing.html`) — Alert center / Cases / Audit with break-aware routing  
+**Visual source:** Mockup H static HTML (`mockup-h-break-aware-routing.html`): Alert center / Cases / Audit with break-aware routing  
 **Owner for implement:** Mac Hermes (Cursor cloud or local Mac worker on this repo)  
 **Product owner:** Galaxium - Care ladder agent / Anoop
 
@@ -37,7 +37,7 @@ The live facility console is still the single-pane demo UI (`/ui/`): fixture but
 
 ### 3.2 Facility floor lead (in scope)
 
-- New facility console (same `/ui/` route when tenant `mode=facility`, or dedicated `/ui/facility` if cleaner — implementer chooses; must not break Home).
+- New facility console (same `/ui/` route when tenant `mode=facility`, or dedicated `/ui/facility` if cleaner: implementer chooses; must not break Home).
 - Tabs: **Alert center**, **Cases**, **Audit**.
 - Can assign, reprioritize, escalate/de-escalate, pull staff off break (logged).
 
@@ -175,10 +175,10 @@ Existing: `/demo/run` fixtures extended with **negative response** facility fixt
 
 ## 10. Reference files in repo today
 
-- `src/care_ladder/api/app.py` — create_app, fixtures, billing, `_require_session`, `_tenant_store`
-- `src/care_ladder/api/static/index.html` — current console
-- `src/care_ladder/billing/plans.py` — `tenant_can_use_notify`
+- `src/care_ladder/api/app.py`: create_app, fixtures, billing, `_require_session`, `_tenant_store`
+- `src/care_ladder/api/static/index.html`: current console
+- `src/care_ladder/billing/plans.py`: `tenant_can_use_notify`
 - `src/care_ladder/channels/notify.py`, speaker/dial
-- `scripts/bootstrap_saas_demo.py` — create_all + demo tenants
-- `docs/galuxium/demo-video-galuxium.md` — update facility shots after UI lands
+- `scripts/bootstrap_saas_demo.py`: create_all + demo tenants
+- `docs/galuxium/demo-video-galuxium.md`: update facility shots after UI lands
 - Plan history: `docs/superpowers/plans/2026-09-17-galuxium-care-ladder-saas.md` (do not re-check its boxes; new plan owns this work)

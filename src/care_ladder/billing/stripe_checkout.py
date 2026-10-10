@@ -6,7 +6,7 @@ Fail-closed rules (plan Global Constraints):
   CARE_LADDER_ALLOW_UNSIGNED_WEBHOOKS is an explicit opt-in (1/true/on)
 - bad/missing signature on a configured secret: rejected
 - demo env: honest stub checkout URL (documented in UI copy; separate from
-  webhook verification — CARE_LADDER_ENV=demo does not accept unsigned POSTs)
+  webhook verification. CARE_LADDER_ENV=demo does not accept unsigned POSTs)
 """
 from __future__ import annotations
 

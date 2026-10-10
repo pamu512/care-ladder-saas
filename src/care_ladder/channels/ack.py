@@ -217,7 +217,7 @@ class AckRegistry:
     def pending_list(self, tenant_id: str | None = None) -> list[dict[str, Any]]:
         """Tenant-scoped pending summaries.
 
-        ``tenant_id=None`` never means all-tenants — it returns ``[]``.
+        ``tenant_id=None`` never means all-tenants: it returns ``[]``.
         When a tenant is given, only rows with that exact ``PendingAck.tenant_id``
         are returned (unscoped ``None`` rows are not leaked across tenants).
         """

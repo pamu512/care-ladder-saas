@@ -1,7 +1,7 @@
 """Cloud sinks: S3 clip persistence + EventBridge cue emission.
 
 Both are env-gated and silently no-op when unconfigured so local dev/tests stay
-hermetic. Privacy rule: ONLY silhouette/blur-transformed frames ever reach S3 —
+hermetic. Privacy rule: ONLY silhouette/blur-transformed frames ever reach S3,
 enforced by requiring the transform tag on upload.
 """
 
@@ -54,7 +54,7 @@ class CloudSinks:
     ) -> list[str]:
         """Upload privacy-transformed frames as PNGs; return S3 URIs.
 
-        Refuses (returns []) when the privacy tag is missing — the no-raw-bytes
+        Refuses (returns []) when the privacy tag is missing. The no-raw-bytes
         rule is enforced here, not just at attach time.
         """
         if not self._s3 or not frames:

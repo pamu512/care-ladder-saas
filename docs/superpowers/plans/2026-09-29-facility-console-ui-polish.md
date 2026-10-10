@@ -15,7 +15,7 @@
 - Repo: `pamu512/care-ladder-saas`. Not OpenCV Care Ladder; not Alexa/Fire TV.
 - Baseline tip when this plan was written: `1f14a61` (N1 auth-off facility 500 already fixed). Do not re-fix N1.
 - Home Path A/B behavior unchanged except shared nav/logo if Task 6 touches `index.html`.
-- No em dashes (— / `\u2014`) in user-facing copy or commit subjects that need to stay clean.
+- No em dashes (long dash or `\u2014`) in user-facing copy or commit subjects that need to stay clean.
 - TDD: failing test → implement → pass → commit per task.
 - Offline CI: no Vertex required.
 - Prefer trailing slash `/ui/facility/` in links.

@@ -34,7 +34,7 @@ def run_case(case, use_dnn: bool) -> dict:
             "case_id": case.case_id,
             "expect_cue": case.expect_cue,
             "emitted": None,
-            "skipped": "no frames (missing photo fixture or clip — run scripts/download_clips.sh)",
+            "skipped": "no frames (missing photo fixture or clip: run scripts/download_clips.sh)",
         }
 
     detector_kwargs = {}

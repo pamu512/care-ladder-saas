@@ -36,7 +36,7 @@ def test_gradual_lying_down_not_sudden():
     h.observe({"torso_angle_deg": 50.0, "hip_y_ratio": 0.55, "keypoint_vis": 0.9}, 5.0)
     h.observe(_down(), 8.0)      # transition frame
     detail = h.observe(_down(), 10.5)
-    # gradual lying down is NOT cue-worthy — no distress detail returned
+    # gradual lying down is NOT cue-worthy. No distress detail returned.
     assert detail is None
     assert any(e["type"] == "gradual_on_floor_ignored" for e in h.state.events)
 
