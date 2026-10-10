@@ -80,4 +80,4 @@ def test_render_postgres_url_loads_psycopg_dialect():
 
     engine = create_engine_from_url("postgresql://u:p@127.0.0.1:5432/care")
     assert engine.dialect.driver == "psycopg"
-    import psycopg  # noqa: F401 — the package create_engine imports
+    import psycopg  # noqa: F401  # the package create_engine imports

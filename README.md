@@ -16,7 +16,7 @@ OpenCV submission; this repo diverges here with tenancy, facility workflows, and
   signed, single-use acknowledgment link; no ack inside the window → supervisor rung
   + dial (escalation on delayed/no response is the default behavior)
 - Caretaker acknowledgment surface: `GET /ack/{token}` one-tap mobile page (no console
-  session needed — the token is the capability), `POST /acks/{token}` record endpoint,
+  session needed (the token is the capability)), `POST /acks/{token}` record endpoint,
   `GET /acks/pending` live panel in the caregiver console with an Acknowledge button
 - Stripe Checkout + webhook for Home ($9/mo), Facility Starter ($49/mo), and
   Facility Growth ($99/mo)
@@ -82,15 +82,15 @@ intended entry point. Hand off judge credentials privately.
 
 Facility demo fixtures (console buttons):
 
-- `facility_notify_silence` — silence → page ops → (bounded wait) → supervisor → dial
-- `facility_ack_resolved` — page goes out, caretaker acknowledges inside the window,
+- `facility_notify_silence`: silence → page ops → (bounded wait) → supervisor → dial
+- `facility_ack_resolved`: page goes out, caretaker acknowledges inside the window,
   escalation stops, incident resolves with `reason: caretaker_ack`
-- `facility_ack_timeout` — nobody acknowledges → `ack_timeout` logged, ladder
+- `facility_ack_timeout`: nobody acknowledges → `ack_timeout` logged, ladder
   escalates to supervisor + dial (the delayed/no-response path)
 
 Ack-link env:
 
-- `PUBLIC_BASE_URL` — base for ack links embedded in pages (defaults to empty;
+- `PUBLIC_BASE_URL`: base for ack links embedded in pages (defaults to empty;
   set to your deployed origin, e.g. `https://careladder.example`)
 
 ## Family chat P1 (Telegram)
@@ -137,7 +137,7 @@ Without token/chat_id the fixture still runs: the audit trail records `adapter: 
   (`TEAMS_WEBHOOK_URL`, `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`,
   `WHATSAPP_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` + `WHATSAPP_TO`); otherwise the
   audit trail records `adapter: stub` and delivery is simulated. WhatsApp uses
-  the Cloud API text endpoint — production business-initiated messaging needs
+  the Cloud API text endpoint. Production business-initiated messaging needs
   an approved template; Telegram uses the Bot API.
 - Acknowledgment tokens are signed with `SESSION_SECRET` (random per-process
   secret when unset), single-use, and expire with the rung's ack window (+60s

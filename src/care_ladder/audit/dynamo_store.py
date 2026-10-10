@@ -7,7 +7,7 @@ Design:
 - Table ``care-ladder-incidents`` (created on demand), PK ``incident_id`` (S).
 - Item = full Incident JSON + serialized privacy-transformed frames (PNG bytes,
   base64) so the caregiver clip viewer works from any task instance.
-- Frames are ONLY the blur/silhouette copies — the same guarantee as memory.
+- Frames are ONLY the blur/silhouette copies, the same guarantee as memory.
 """
 
 from __future__ import annotations
@@ -112,7 +112,7 @@ class DynamoAuditStore(AuditStore):
             item[_FRAMES_ATTR] = _frames_to_b64(frames)
         item["saved_at"] = int(time.time())
         # boto3 resource-style clients expect NATIVE types (str/int/list/dict),
-        # not low-level AttributeValue maps — the manual marshaller wrapped the
+        # not low-level AttributeValue maps. The manual marshaller wrapped the
         # key as {"S": ...} which boto3 re-wrapped as a Map, breaking the schema.
         ddb_item = _to_native(dict(item))
         ddb_item["incident_id"] = incident.id

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Mockup H — Break-aware routing · Alert Center / Cases / Audit</title>
+<title>Mockup H: Break-aware routing · Alert Center / Cases / Audit</title>
 <style>
   :root{
     --bg:#0b111c; --panel:#111a29; --panel2:#0d1523; --raise:#162133; --sink:#0e1826;
@@ -27,7 +27,7 @@
         display:flex;align-items:center;justify-content:center;color:#06121a;flex-shrink:0}
   .mark svg{width:17px;height:17px}
   .crumb h1{font-size:16px;font-weight:750;letter-spacing:-.01em}
-  .crumb .env{font-size:11px;color:var(--dim);font-family:var(--mono)}
+  .crumb .env{font-size:11px;color:var(--ink2);font-family:var(--mono)}
   .clock{font-family:var(--mono);font-size:13px;color:var(--ink2)}
   .bar-actions{margin-left:auto;display:flex;gap:8px}
   .btn{border:1px solid var(--line2);background:var(--panel);color:var(--ink2);border-radius:9px;padding:8px 14px;
@@ -41,16 +41,16 @@
   .btn.danger:hover{filter:brightness(1.08);color:#1c0606}
 
   .tabs{max-width:1280px;margin:0 auto;padding:0 24px;display:flex;gap:4px}
-  .tab{border:0;background:transparent;color:var(--dim);font:600 13.5px var(--sans);padding:11px 16px;cursor:pointer;
+  .tab{border:0;background:transparent;color:var(--ink2);font:600 13.5px var(--sans);padding:11px 16px;cursor:pointer;
        border-radius:10px 10px 0 0;display:flex;align-items:center;gap:8px;border-bottom:2px solid transparent}
-  .tab:hover{color:var(--ink2)}
+  .tab:hover{color:var(--ink)}
   .tab.on{color:var(--ink);border-bottom-color:var(--cyan);background:var(--panel2)}
   .tab .badge-n{font-family:var(--mono);font-size:10.5px;border-radius:999px;padding:1px 8px;background:var(--raise);color:var(--ink2)}
   .tab.on .badge-n.hot{background:var(--amber-soft);color:var(--amber)}
   .pane{display:none;max-width:1280px;margin:0 auto;padding:20px 24px 44px}
   .pane.on{display:block}
 
-  .k-label{font-size:10.5px;font-weight:750;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);
+  .k-label{font-size:10.5px;font-weight:750;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);
            margin:4px 0 10px;display:flex;align-items:center;gap:8px}
   .k-label .n{font-family:var(--mono);color:var(--ink2);letter-spacing:0}
   .k-label .live{width:7px;height:7px;border-radius:50%;background:var(--amber)}
@@ -66,9 +66,9 @@
   .rb-dot.ok{background:var(--green-soft);color:var(--green);border:1.5px solid rgba(74,222,128,.4)}
   .rb-dot.bad{background:var(--red-soft);color:var(--red);border:1.5px solid rgba(248,113,113,.4)}
   .rb-dot.staff{background:var(--cyan-soft);color:var(--cyan);border:1.5px solid rgba(56,214,236,.4)}
-  .rb-arrow{color:var(--dim)}
+  .rb-arrow{color:var(--ink2)}
   .rb-split{display:flex;flex-direction:column;gap:4px;margin-left:8px}
-  .rb-note{font-size:11px;color:var(--dim);margin-top:7px}
+  .rb-note{font-size:11px;color:var(--ink2);margin-top:7px}
 
   .ac-grid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start}
 
@@ -80,7 +80,7 @@
   .a-pri{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
          border-right:1px solid var(--line);padding-right:12px}
   .a-pri .p{font-family:var(--mono);font-size:15px;font-weight:750}
-  .a-pri .c{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+  .a-pri .c{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
   .p1{color:var(--red)} .p2{color:var(--amber)} .p3{color:var(--sage)}
   .a-main{min-width:0}
   .a-title{font-size:14px;font-weight:650}
@@ -95,11 +95,11 @@
   .a-reply{margin-top:8px;background:var(--sink);border-left:3px solid var(--red);border-radius:0 8px 8px 0;
            padding:7px 12px;font-size:12.5px}
   .a-reply .q{color:var(--ink);font-style:italic}
-  .a-reply .m{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:3px}
-  .a-eta{font-family:var(--mono);font-size:10.5px;color:var(--dim)}
+  .a-reply .m{font-family:var(--mono);font-size:10px;color:var(--ink2);margin-top:3px}
+  .a-eta{font-family:var(--mono);font-size:10.5px;color:var(--ink2)}
   .a-eta b{color:var(--amber);font-weight:650} .a-eta b.red{color:var(--red)}
   .a-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;justify-content:center}
-  .grip{color:var(--dim);font-size:11px;letter-spacing:.05em}
+  .grip{color:var(--ink2);font-size:11px;letter-spacing:.05em}
 
   .selfres{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
   .sr-row{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);
@@ -108,23 +108,23 @@
          display:flex;align-items:center;justify-content:center;flex-shrink:0}
   .sr-ok svg{width:13px;height:13px}
   .sr-room{font-weight:650}
-  .sr-room span{display:block;font-size:10.5px;color:var(--dim);font-weight:400}
+  .sr-room span{display:block;font-size:10.5px;color:var(--ink2);font-weight:400}
   .sr-reply{color:var(--ink2);font-style:italic;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .sr-reply b{color:var(--sage);font-weight:650}
-  .sr-time{font-family:var(--mono);font-size:11px;color:var(--dim);white-space:nowrap}
+  .sr-time{font-family:var(--mono);font-size:11px;color:var(--ink2);white-space:nowrap}
   .sr-time b{color:var(--green);font-weight:650}
 
   .detail{background:var(--panel2);border:1px solid var(--line);border-radius:15px;padding:16px 18px;position:sticky;top:118px}
   .d-title{font-size:17px;font-weight:750}
   .d-title .res{color:var(--ink2);font-weight:500}
-  .d-meta{font-family:var(--mono);font-size:11px;color:var(--dim);margin:3px 0 12px}
+  .d-meta{font-family:var(--mono);font-size:11px;color:var(--ink2);margin:3px 0 12px}
   .d-sec{border-top:1px solid var(--line);padding:12px 0 4px}
-  .d-sec h4{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);margin-bottom:9px}
+  .d-sec h4{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink2);margin-bottom:9px}
 
   .resp-card{background:var(--sink);border:1px solid rgba(248,113,113,.35);border-left:3px solid var(--red);
              border-radius:10px;padding:11px 14px}
   .resp-quote{font-size:14.5px;font-style:italic;color:var(--ink)}
-  .resp-meta{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:5px}
+  .resp-meta{font-family:var(--mono);font-size:10.5px;color:var(--ink2);margin-top:5px}
   .resp-effect{margin-top:9px;font-size:12px;color:var(--ink2);line-height:1.55}
   .resp-effect b{color:var(--red)} .resp-effect b.up{color:var(--amber)}
 
@@ -137,11 +137,11 @@
   .mr.jump .dot{background:var(--red);border-color:var(--red)}
   .mr .nm{font-weight:650}
   .mr.done .nm{color:var(--ink2);font-weight:550}
-  .mr .ts{font-family:var(--mono);font-size:10px;color:var(--dim)}
+  .mr .ts{font-family:var(--mono);font-size:10px;color:var(--ink2)}
   .mr .why{grid-column:2;font-size:10px;color:var(--red);font-family:var(--mono)}
 
   .pri-seg{display:flex;border:1px solid var(--line2);border-radius:9px;overflow:hidden;margin-bottom:10px}
-  .pri-seg button{flex:1;border:0;background:transparent;color:var(--dim);font:650 12px var(--sans);padding:8px 0;cursor:pointer}
+  .pri-seg button{flex:1;border:0;background:transparent;color:var(--ink2);font:650 12px var(--sans);padding:8px 0;cursor:pointer}
   .pri-seg button.on.p1{background:var(--red-soft);color:var(--red)}
   .pri-seg button.on.p2{background:var(--amber-soft);color:var(--amber)}
   .pri-seg button.on.p3{background:rgba(125,211,168,.14);color:var(--sage)}
@@ -158,7 +158,7 @@
   .ava.fl{background:#4a2c1e;color:#ffb895} .ava.jd{background:#233242;color:#9cc4e4}
   .sp-row .who{flex:1;font-size:12.5px}
   .sp-row .who b{font-weight:650}
-  .sp-row .who span{display:block;font-size:10px;color:var(--dim)}
+  .sp-row .who span{display:block;font-size:10px;color:var(--ink2)}
   .sp-status{font-size:9.5px;font-weight:750;letter-spacing:.04em;border-radius:5px;padding:2px 7px;text-transform:uppercase}
   .sp-status.free{background:var(--green-soft);color:var(--green)}
   .sp-status.on{background:var(--amber-soft);color:var(--amber)}
@@ -172,10 +172,10 @@
                     background:#dfe8f2;transition:left .15s}
   .bt-switch[aria-checked="true"]{background:rgba(185,166,255,.5)}
   .bt-switch[aria-checked="true"]::after{left:18px}
-  .break-note{font-size:11px;color:var(--dim);margin-top:6px;line-height:1.5}
+  .break-note{font-size:11px;color:var(--ink2);margin-top:6px;line-height:1.5}
   .break-note b{color:var(--violet)}
   .ov-row{display:flex;gap:8px;flex-wrap:wrap}
-  .note{font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5}
+  .note{font-size:11px;color:var(--ink2);margin-top:8px;line-height:1.5}
 
   /* ============ CASES ============ */
   .case-grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start}
@@ -196,7 +196,7 @@
           font-size:12.5px;color:var(--ink2);line-height:1.55}
   .cc-doc b{color:var(--ink)}
   .cc-foot{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap}
-  .thread-ref{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-left:auto}
+  .thread-ref{font-family:var(--mono);font-size:10.5px;color:var(--ink2);margin-left:auto}
   .case-side{background:var(--panel2);border:1px solid var(--line);border-radius:15px;padding:16px 18px;position:sticky;top:118px}
   .cs-row{display:flex;align-items:center;gap:10px;padding:8px 6px;font-size:13px;border-radius:9px}
   .cs-row:hover{background:var(--raise)}
@@ -205,20 +205,20 @@
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px;margin-bottom:16px}
   .kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
   .kpi .v{font-family:var(--mono);font-size:19px;font-weight:750;font-variant-numeric:tabular-nums}
-  .kpi .v small{font-size:10.5px;color:var(--dim);font-weight:500}
-  .kpi .l{font-size:9.5px;color:var(--dim);margin-top:2px;letter-spacing:.04em;text-transform:uppercase}
+  .kpi .v small{font-size:10.5px;color:var(--ink2);font-weight:500}
+  .kpi .l{font-size:9.5px;color:var(--ink2);margin-top:2px;letter-spacing:.04em;text-transform:uppercase}
   .kpi.good .v{color:var(--green)} .kpi.warn .v{color:var(--amber)} .kpi.bad .v{color:var(--red)}
   .kpi.violet .v{color:var(--violet)}
 
   .au-grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start}
   .au-card{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:14px}
-  .au-card h4{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+  .au-card h4{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:12px}
   .bars{display:flex;align-items:flex-end;gap:6px;height:80px}
   .bar{flex:1;border-radius:4px 4px 0 0;background:var(--cyan-deep);min-height:6px;position:relative}
   .bar.violet{background:#6d5bb8} .bar.warn{background:var(--amber)} .bar.bad{background:var(--red)}
-  .bar .tip{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:8.5px;color:var(--dim);white-space:nowrap}
-  .bars-axis{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:6px}
-  .legend{font-size:10.5px;color:var(--dim);margin-top:8px}
+  .bar .tip{position:absolute;top:-15px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:8.5px;color:var(--ink2);white-space:nowrap}
+  .bars-axis{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--ink2);margin-top:6px}
+  .legend{font-size:10.5px;color:var(--ink2);margin-top:8px}
 
   .filters{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
   .fchip{border:1px solid var(--line2);background:transparent;color:var(--ink2);border-radius:999px;
@@ -230,7 +230,7 @@
   .rep-head:hover{background:var(--raise)}
   .rep-head .cid{font-family:var(--mono);color:var(--cyan);font-size:11.5px}
   .rep-head .room{font-weight:650}
-  .rep-head .room span{display:block;font-size:10px;color:var(--dim);font-weight:400}
+  .rep-head .room span{display:block;font-size:10px;color:var(--ink2);font-weight:400}
   .rep-head .own{color:var(--ink2)}
   .rep-head .own b{color:var(--ink);font-weight:650}
   .rep-head .tt{font-family:var(--mono);font-size:11px;justify-self:center}
@@ -238,17 +238,17 @@
   .rep-head .hd{font-family:var(--mono);font-size:11px;color:var(--ink2);justify-self:end}
   .rep-open{border-top:1px dashed var(--line);padding:14px 18px;background:var(--sink)}
   .report{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
-  .report h5{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+  .report h5{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px}
   .r-line{display:grid;grid-template-columns:130px 1fr 74px;gap:10px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:12px;align-items:baseline}
   .r-line:last-child{border-bottom:0}
   .r-line .nm{font-weight:650}
   .r-line .ds{color:var(--ink2)} .r-line .ds b{color:var(--ink)}
-  .r-line .ts{font-family:var(--mono);font-size:10.5px;color:var(--dim);justify-self:end}
+  .r-line .ts{font-family:var(--mono);font-size:10.5px;color:var(--ink2);justify-self:end}
   .r-line.key .nm{color:var(--cyan)} .r-line.stop .nm{color:var(--green)} .r-line.jump .nm{color:var(--red)}
   .r-line .quote{color:var(--ink);font-style:italic}
 
-  footer{max-width:1280px;margin:0 auto;padding:0 24px 34px;font-size:11.5px;color:var(--dim)}
-  footer .mock{font-family:var(--mono);opacity:.75}
+  footer{max-width:1280px;margin:0 auto;padding:0 24px 34px;font-size:11.5px;color:var(--ink2)}
+  footer .mock{font-family:var(--mono)}
 
   @media (max-width:1020px){
     .ac-grid,.case-grid,.au-grid{grid-template-columns:1fr}
@@ -268,7 +268,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 3v18M20 3v18M4 7h16M4 12h16M4 17h16"/></svg>
     </div>
     <div class="crumb">
-      <h1>Care Ladder — floor console</h1>
+      <h1>Care Ladder: floor console</h1>
       <span class="env">demo-facility · Facility Starter · 10 rooms watched</span>
     </div>
     <span class="clock">14:52</span>
@@ -306,7 +306,7 @@
       <div class="alert-card p1 negresp sel">
         <div class="a-pri"><span class="p p1">P1</span><span class="c">raised</span></div>
         <div class="a-main">
-          <div class="a-title">Room 9 — negative response at check-in</div>
+          <div class="a-title">Room 9: negative response at check-in</div>
           <div class="a-sub">no_movement cue · inc 91c4e7ab · check-in 14:36</div>
           <div class="a-state">
             <span class="st-chip negresp">Negative response</span>
@@ -324,7 +324,7 @@
       <div class="alert-card p1">
         <div class="a-pri"><span class="p p1">P1</span><span class="c">critical</span></div>
         <div class="a-main">
-          <div class="a-title">Common room — fall signature</div>
+          <div class="a-title">Common room: fall signature</div>
           <div class="a-sub">vertical→horizontal transition · inc 5d02b7ae · opened 14:11</div>
           <div class="a-state">
             <span class="st-chip esc">Group timeout</span>
@@ -338,7 +338,7 @@
       <div class="alert-card p2">
         <div class="a-pri"><span class="p p2">P2</span><span class="c">attention</span></div>
         <div class="a-main">
-          <div class="a-title">Room 12 — check-in silence</div>
+          <div class="a-title">Room 12: check-in silence</div>
           <div class="a-sub">no movement 15 min · inc 8f3a91c2 · paged 14:42</div>
           <div class="a-state">
             <span class="st-chip assigned">Assigned · Maria G.</span>
@@ -351,7 +351,7 @@
       <div class="alert-card p3">
         <div class="a-pri"><span class="p p3">P3</span><span class="c">monitor</span></div>
         <div class="a-main">
-          <div class="a-title">Room 2 — lens covered</div>
+          <div class="a-title">Room 2: lens covered</div>
           <div class="a-sub">non-distress cue · inc c1180f4d · 05:12</div>
           <div class="a-state">
             <span class="st-chip calm">Can de-escalate</span>
@@ -368,7 +368,7 @@
         <div class="sr-row">
           <span class="sr-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
           <div class="sr-room">Room 5<span>no_movement cue 14:29</span></div>
-          <div class="sr-reply">“I'm fine, thanks — just resting.” <b>· verbal OK</b></div>
+          <div class="sr-reply">“I'm fine, thanks, just resting.” <b>· verbal OK</b></div>
           <span class="sr-time">resolved in <b>41s</b> · 14:29</span>
         </div>
         <div class="sr-row">
@@ -383,13 +383,13 @@
           <div class="sr-reply">“All good.” <b>· verbal OK</b></div>
           <span class="sr-time">resolved in <b>1m 05s</b> · 13:22</span>
         </div>
-        <div class="note">These never page staff and never open cases — they flow straight to Audit with response transcripts. 3 more earlier today.</div>
+        <div class="note">These never page staff and never open cases: they flow straight to Audit with response transcripts. 3 more earlier today.</div>
       </div>
     </div>
 
     <!-- lead detail panel -->
     <aside class="detail">
-      <div class="d-title">Room 9 <span class="res">— Robin S.</span></div>
+      <div class="d-title">Room 9 <span class="res">, Robin S.</span></div>
       <div class="d-meta">inc 91c4e7ab · no_movement · confidence 0.9 · P1 <span class="auto-tag">auto-raised</span></div>
 
       <div class="d-sec">
@@ -422,7 +422,7 @@
           <button class="p2">P2 · attention</button>
           <button class="p3">P3 · monitor</button>
         </div>
-        <div class="note">Lead can lower it if the classification was wrong — the change is logged.</div>
+        <div class="note">Lead can lower it if the classification was wrong: the change is logged.</div>
       </div>
 
       <div class="d-sec">
@@ -454,14 +454,14 @@
         <h4>Override</h4>
         <div class="ov-row">
           <button class="btn danger small">Escalate now</button>
-          <button class="btn small" style="border-color:rgba(125,211,168,.5);color:var(--sage)">De-escalate — stand down</button>
+          <button class="btn small" style="border-color:rgba(125,211,168,.5);color:var(--sage)">De-escalate: stand down</button>
           <button class="btn small">Suppress</button>
           <button class="btn small">Re-page group</button>
         </div>
         <div class="ov-row" style="margin-top:8px">
           <button class="btn small" style="border-color:rgba(185,166,255,.45);color:var(--violet)">Pull Alex R. off break</button>
         </div>
-        <div class="note">Overrides are logged with your name and timestamp — they appear in the Audit tab. Pulling someone off break pages them with “lead override” and is logged the same way.</div>
+        <div class="note">Overrides are logged with your name and timestamp: they appear in the Audit tab. Pulling someone off break pages them with “lead override” and is logged the same way.</div>
       </div>
     </aside>
   </div>
@@ -476,7 +476,7 @@
       <div class="case-card">
         <div class="cc-head">
           <span class="cc-id">CL-1043</span>
-          <span class="cc-room">Room 9 — negative response</span>
+          <span class="cc-room">Room 9: negative response</span>
           <span class="cc-origin">From resident reply</span>
           <span class="cc-state open">Paged</span>
           <span class="cc-sla bad">needs an owner now</span>
@@ -496,7 +496,7 @@
       <div class="case-card">
         <div class="cc-head">
           <span class="cc-id">CL-1041</span>
-          <span class="cc-room">Room 7 — wander cue</span>
+          <span class="cc-room">Room 7: wander cue</span>
           <span class="cc-state open">Handling</span>
           <span class="cc-sla warn">11m to target</span>
         </div>
@@ -516,7 +516,7 @@
       <div class="case-card">
         <div class="cc-head">
           <span class="cc-id">CL-1039</span>
-          <span class="cc-room">Room 3 — check-in silence</span>
+          <span class="cc-room">Room 3: check-in silence</span>
           <span class="cc-state open">Wrapping</span>
           <span class="cc-sla ok">2m to target</span>
         </div>
@@ -538,7 +538,7 @@
       <div class="case-card">
         <div class="cc-head">
           <span class="cc-id">CL-1042</span>
-          <span class="cc-room">Room 12 — check-in silence</span>
+          <span class="cc-room">Room 12: check-in silence</span>
           <span class="cc-state closed">Closed</span>
           <span class="cc-sla ok">ack 0m 52s · handling 24m 39s</span>
         </div>
@@ -546,10 +546,10 @@
           <span>owner <b>Maria G.</b></span>
           <span>closed <b>15:08</b></span>
           <span>nudges <b>1</b></span>
-          <span>documented <b style="color:var(--green)">yes — in chat</b></span>
+          <span>documented <b style="color:var(--green)">yes: in chat</b></span>
         </div>
         <div class="cc-doc"><b>Documentation:</b> “Resident had dozed off in the armchair after lunch. Vitals normal.
-        Repositioned, offered water, stayed 20 min to observe. No further concerns — will re-check on 16:00 round.”</div>
+        Repositioned, offered water, stayed 20 min to observe. No further concerns. Will re-check on 16:00 round.”</div>
         <div class="cc-foot">
           <button class="btn small">Open chat thread</button>
           <button class="btn small">View incident report</button>
@@ -560,7 +560,7 @@
       <div class="case-card">
         <div class="cc-head">
           <span class="cc-id">CL-1038</span>
-          <span class="cc-room">Room 6 — check-in</span>
+          <span class="cc-room">Room 6: check-in</span>
           <span class="cc-state closed">Closed</span>
           <span class="cc-sla ok">ack 0m 41s · handling 3m 02s</span>
         </div>
@@ -576,9 +576,9 @@
       <div class="cs-row"><div class="ava fl">FL</div><b style="font-weight:650;margin-right:8px">You (lead)</b><span style="margin-left:auto" class="sp-status on">on exception</span></div>
       <div class="break-toggle" style="margin-top:12px">
         <button class="bt-switch" role="switch" aria-checked="false" aria-label="toggle your own break status" onclick="this.setAttribute('aria-checked', this.getAttribute('aria-checked')==='true'?'false':'true')"></button>
-        <div><b>You're on shift</b> — you can also set yourself on break; auto-routing then skips you too.<div class="break-note">Responders toggle their own break from chat: <b>/break 15</b> · auto-returns · P1 pages still break through unless “do not disturb” is set.</div></div>
+        <div><b>You're on shift</b>: you can also set yourself on break; auto-routing then skips you too.<div class="break-note">Responders toggle their own break from chat: <b>/break 15</b> · auto-returns · P1 pages still break through unless “do not disturb” is set.</div></div>
       </div>
-      <div class="note">Negative responses page the group immediately and skip the wait rungs — they arrive here as P1 with the resident's reply attached. Staff on break are excluded from auto-routing until they return.</div>
+      <div class="note">Negative responses page the group immediately and skip the wait rungs: they arrive here as P1 with the resident's reply attached. Staff on break are excluded from auto-routing until they return.</div>
     </aside>
   </div>
 </section>
@@ -635,7 +635,7 @@
           <div class="report">
             <h5>Care Ladder incident report · inc 5c88f1</h5>
             <div class="r-line"><span class="nm">Cue</span><span class="ds"><b>no_movement</b> · confidence 0.9 · living room</span><span class="ts">14:29:18</span></div>
-            <div class="r-line key"><span class="nm">Voice check-in</span><span class="ds">resident replied <span class="quote">“I'm fine, thanks — just resting.”</span></span><span class="ts">14:29:59</span></div>
+            <div class="r-line key"><span class="nm">Voice check-in</span><span class="ds">resident replied <span class="quote">“I'm fine, thanks, just resting.”</span></span><span class="ts">14:29:59</span></div>
             <div class="r-line stop"><span class="nm">Resolved</span><span class="ds">positive response · ladder stopped at rung 2 · nothing paged</span><span class="ts">14:29:59</span></div>
             <div class="note" style="margin-top:10px">Pre-event clip: 2 frames · privacy blur · retained per policy for response-verified resolutions</div>
           </div>
@@ -683,7 +683,7 @@
         <h4>Response layer · today</h4>
         <div class="r-line"><span class="nm">Positive replies</span><span class="ds"><b>6</b> incidents closed in place</span><span class="ts">38s median</span></div>
         <div class="r-line jump"><span class="nm">Negative replies</span><span class="ds"><b>1</b> → priority raised, ladder jumped</span><span class="ts">14:36</span></div>
-        <div class="r-line"><span class="nm">Silence</span><span class="ds"><b>4</b> → paged staff as usual</span><span class="ts">—</span></div>
+        <div class="r-line"><span class="nm">Silence</span><span class="ds"><b>4</b> → paged staff as usual</span><span class="ts">-</span></div>
         <div class="note">Response classification is rule-based (keywords + buttons) and every transcript lands in the incident report.</div>
       </div>
       <div class="au-card">
@@ -691,7 +691,7 @@
         <div class="r-line"><span class="nm">Priority</span><span class="ds">Common room raised to <b>P1</b></span><span class="ts">14:13</span></div>
         <div class="r-line"><span class="nm">Confirm</span><span class="ds">Room 9 auto-raise <b>kept at P1</b></span><span class="ts">14:37</span></div>
         <div class="r-line"><span class="nm">Break</span><span class="ds">Alex R. pulled off break <b>14:40</b> · accepted</span><span class="ts">14:40</span></div>
-        <div class="note">Confirming or correcting an auto-raise is itself audited — management sees classification quality over time. Break events (self-set, auto-return, lead pull-back) are logged for staffing review.</div>
+        <div class="note">Confirming or correcting an auto-raise is itself audited: management sees classification quality over time. Break events (self-set, auto-return, lead pull-back) are logged for staffing review.</div>
       </div>
       <div class="au-card">
         <h4>Exports</h4>
@@ -708,7 +708,7 @@
 
 <footer>
   Not a medical device · no real telephony (reserved NANP fiction) · emergency fail-closed · frames privacy-transformed before persist.
-  <div class="mock">static mockup — demo data only · break-aware routing: Alert center / Cases / Audit</div>
+  <div class="mock">static mockup: demo data only · break-aware routing: Alert center / Cases / Audit</div>
 </footer>
 
 <script>

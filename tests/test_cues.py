@@ -61,7 +61,7 @@ def test_no_visibility_latches_does_not_refire_every_frame():
     cue1 = det.observe(right, t=1.0)
     assert cue1 is not None and cue1.kind == "no_visibility"
     cue2 = det.observe(right, t=2.0)
-    assert cue2 is None  # latched / cleared — no spam
+    assert cue2 is None  # latched / cleared, no spam
 
 
 def test_no_movement_latches_until_motion_resets():

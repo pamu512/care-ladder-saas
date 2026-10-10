@@ -27,7 +27,7 @@ def test_next_rung_skips_disabled_emergency():
         if r.tool == "dial_contact" and r.params.get("contact") == "secondary"
     )
     nxt = next_rung_after_no_answer(plan, secondary_idx)
-    # emergency is enabled: false — fail-closed, must not select it
+    # emergency is enabled: false. Fail-closed, must not select it.
     assert nxt is None
     emergency = next(r for r in plan.rungs if r.tool == "emergency")
     assert emergency.params.get("enabled") is False

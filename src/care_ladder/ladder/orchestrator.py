@@ -709,7 +709,7 @@ async def run_incident(
                 )
                 idx += 1
                 continue
-            # Enabled emergency: audit only in demo — never place a real 911 call.
+            # Enabled emergency: audit only in demo. Never place a real 911 call.
             _append(
                 events,
                 tool="emergency",

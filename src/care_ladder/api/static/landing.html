@@ -19,7 +19,7 @@
     --line-strong: rgba(233,239,248,0.16);
     --ink: #e9eff8;
     --ink-60: rgba(233,239,248,0.62);
-    --ink-40: rgba(233,239,248,0.40);
+    --ink-40: rgba(233,239,248,0.72); /* 0.40 composites under 4.5:1 on #1c2432 */
     --accent: #2dd4e8;
     --accent-deep: #0e7490;
     --sage: #34d399;
@@ -135,6 +135,9 @@
   @media (max-width: 720px) {
     .ladder-explain { grid-template-columns: 1fr; gap: 18px; }
     .hero { padding-top: 40px; }
+    header.top { flex-wrap: wrap; row-gap: 8px; }
+    .brand { min-width: 0; flex: 1 1 auto; }
+    .top-spacer { display: none; }
   }
 </style>
 </head>

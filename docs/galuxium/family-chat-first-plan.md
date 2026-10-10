@@ -1,7 +1,7 @@
-# Care Ladder · Family Chat-First Runtime + Console — Implementation Plan
+# Care Ladder · Family Chat-First Runtime + Console: Implementation Plan
 
 **For:** coding agent · **From:** design review · **Date:** 2026-09-29
-**Status:** approved direction — implement in phase order
+**Status:** approved direction: implement in phase order
 **References:**
 - Facility design guide: `mockups/care-ladder-design-guide.html` (sections F1–F3 are this plan's design contract)
 - Family console mockup v2 (setup + archive): `mockups/family-console.html`
@@ -18,7 +18,7 @@ The family member will not sit in the console. They set the household up once an
 1. The **chat thread is the runtime**: inform → acknowledge → update → close all happen in chat.
 2. The **console is setup + archive**: pairing, care-plan facts, day timeline review, clips, billing.
 3. The existing signed-token ack page (`GET /ack/{token}`) stays as the universal fallback that works on any channel.
-4. Every hop of every conversation is written to the incident audit trail — the same trail the facility drill-down reads.
+4. Every hop of every conversation is written to the incident audit trail: the same trail the facility drill-down reads.
 
 Nothing in this plan touches the facility console (separate track, already underway).
 
@@ -28,7 +28,7 @@ Nothing in this plan touches the facility console (separate track, already under
 
 | Phase | Delivers | Why first |
 |---|---|---|
-| **P1 · Conversation core** | Bot thread model, Telegram adapter v2 (free-form + inline buttons), ack-from-chat into the registry, audit events with timestamps | Telegram needs no template approval — full experience ships immediately |
+| **P1 · Conversation core** | Bot thread model, Telegram adapter v2 (free-form + inline buttons), ack-from-chat into the registry, audit events with timestamps | Telegram needs no template approval: full experience ships immediately |
 | **P2 · WhatsApp path** | WhatsApp adapter v2 (UTILITY template + ack-link fallback), template management notes, numbered-reply parser | WhatsApp lands as soon as Meta approves the template |
 | **P3 · Console re-roll** | Home console → family v2 (chat strip, hero, day feed, rails, pairing surface) | Depends on P1 runtime existing to mirror |
 | **P4 · Commands & rhythm** | /status /pause /resume /contacts /quiet, daily receipts + evening recap | Polish after the alert path is proven |
@@ -73,13 +73,13 @@ outcome reply (free text) → case closes; documentation=reply; close card with 
 ### 2.2 Telegram adapter v2 (`router.py` extension)
 
 - Poll or webhook mode behind env (`TELEGRAM_MODE=poll|hook`, default poll for the demo).
-- Inline keyboard on alert cards: `[{"I'm on it — call her myself":ack},{"Call Mom now":call_now},{"Can't take it — go to {next}":pass}]`.
+- Inline keyboard on alert cards: `[{"I'm on it. I'll call her myself":ack},{"Call Mom now":call_now},{"Can't take it. Go to {next}":pass}]`.
 - Callback query → same handler as the ack-link POST.
 - Daily-receipt + recap messages (P4) use plain sends.
 
 ### 2.3 Ack registry extension (`ack.py`)
 
-- `acknowledge(token, by=..., channel="telegram"|"whatsapp"|"web"|"call", msg_ref=...)` — already mostly generic; add `msg_ref` and `origin` to the outcome for audit.
+- `acknowledge(token, by=..., channel="telegram"|"whatsapp"|"web"|"call", msg_ref=...)`: already mostly generic; add `msg_ref` and `origin` to the outcome for audit.
 - Numbered-reply parser: in the open window, replies `1|2|3` (or button words) map to the same three actions; log as `ack_channel: chat`.
 
 ### 2.4 Orchestrator wiring
@@ -111,7 +111,7 @@ FAMILY_PLAN_PATH=configs/demo_family.yaml        (new: household contacts + cade
 - **Template reality:** business-initiated alerts need an approved UTILITY template. Until approved:
   - Send the templated alert text (parameterized: name, room, countdown) + the **ack link** (signed token page already works).
   - Buttons arrive post-approval (interactive button templates / Flows).
-- Numbered replies: within the 24h customer-service window, free-form replies are allowed — parse `1/2/3` there; outside it, only the link works. **Document this honestly in README** (repo convention).
+- Numbered replies: within the 24h customer-service window, free-form replies are allowed: parse `1/2/3` there; outside it, only the link works. **Document this honestly in README** (repo convention).
 - Template management: store template name in env (`WHATSAPP_UTILITY_TEMPLATE`), fail-closed to link-only if unset.
 
 ---
@@ -120,24 +120,24 @@ FAMILY_PLAN_PATH=configs/demo_family.yaml        (new: household contacts + cade
 
 Follow design guide **F1** exactly (tokens, zones, copy rules). Implementation notes:
 
-- Keep the existing endpoints (`/incidents`, `/acks/pending`, frames, `/auth/*`, billing CTAs) — the console reads, chat writes.
+- Keep the existing endpoints (`/incidents`, `/acks/pending`, frames, `/auth/*`, billing CTAs): the console reads, chat writes.
 - Replace header: mark + "The {household} home · {person}'s apartment" + camera-status chip + Invite family + settings icon. **All fixture buttons move into the collapsed demo `<details>`** (bottom of page, family fixtures only).
 - Chat strip (first element): bot status from a new `GET /family/runtime` (last message kind + ts, channel states); Open WhatsApp/Telegram deep links.
 - Hero numbers from incidents: answered = resolved-with-positive-reply count; since-last = now − last positive reply ts; calls-this-week = dial events in window. All derivable from audit events (needs the P1 `at` stamps).
 - Day feed: incidents + check-in moments merged by time; quotes from `speaker_prompt` event details; reply chips from reply_class.
 - Side rails: contact ladder from the family plan YAML; household facts from plan + camera status; weekly recap computed like hero numbers.
 - **Remove** the ack panel as an interactive surface; the strip mirrors chat state only. Keep `/acks/pending` reading for the mirror.
-- Home console tests to update: fixture-button presence assertions move to the demo strip; `Path A` string must survive (test greps it) — put "Path A · Mom answers OK" inside the demo strip labels.
+- Home console tests to update: fixture-button presence assertions move to the demo strip; `Path A` string must survive (test greps it): put "Path A · Mom answers OK" inside the demo strip labels.
 - Billing CTAs (upgrade/portal) move under settings; governance strip stays.
 
 ---
 
 ## 5 · P4 · Commands & rhythm
 
-- `/status` — camera, next check-in, ladder armed, quiet hours.
-- `/pause 2h` / `/resume` — sets a pause window (suppress rhythm + non-distress cues; **distress bypasses**, message says so).
-- `/contacts` — renders the ladder in order + "emergency services are never dialed automatically".
-- `/quiet` — toggles evening-recap muting.
+- `/status`: camera, next check-in, ladder armed, quiet hours.
+- `/pause 2h` / `/resume`: sets a pause window (suppress rhythm + non-distress cues; **distress bypasses**, message says so).
+- `/contacts`: renders the ladder in order + "emergency services are never dialed automatically".
+- `/quiet`: toggles evening-recap muting.
 - Rhythm receipts: check-in-answered quiet messages (quoted words); evening recap at 20:00 local (check-ins x/x, calls this week, median response, next check-in, quiet hours).
 - All command effects append audit events (repo convention: every state change is auditable).
 
@@ -157,8 +157,8 @@ Follow design guide **F1** exactly (tokens, zones, copy rules). Implementation n
 
 - Telegram polling in the demo process is fine; webhook mode is the production path.
 - WhatsApp template approval timing is outside our control; link fallback is the contract.
-- Voice calls remain stubbed (reserved NANP fiction) — the FSM treats them as real hops anyway.
-- Not a medical device; emergency fail-closed — the family copy must keep saying so.
+- Voice calls remain stubbed (reserved NANP fiction): the FSM treats them as real hops anyway.
+- Not a medical device; emergency fail-closed: the family copy must keep saying so.
 
 ---
 

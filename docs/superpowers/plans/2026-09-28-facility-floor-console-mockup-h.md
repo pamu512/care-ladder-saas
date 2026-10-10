@@ -16,7 +16,7 @@
 - Repo: `pamu512/care-ladder-saas` (Galaxium Care Ladder SaaS). Not OpenCV Care Ladder; not Alexa/Fire TV track.
 - Home tenant UI must keep Path A / Path B caregiver console behavior.
 - Facility Mockup H only when tenant `mode=facility` (auth-on) or facility demo session.
-- No em dashes (—) in user-facing copy or commit subject fluff; use periods, commas, parentheses.
+- No em dashes (long dash) in user-facing copy or commit subject fluff; use periods, commas, parentheses.
 - Not a medical device; dial stubs only; webhook/billing behavior unchanged.
 - TDD: failing test → implement → pass → commit per task.
 - Offline CI: never require Vertex; mock classifier or fixture-only path.
@@ -95,7 +95,7 @@ class ReplyClass(StrEnum):
 
 `classify_reply`: if `fixture_class` set → return fixture. Else if Vertex env present → call `vertex_classify` (stub raising until Task 1b). Else **keyword fallback** lists for positive/negative (so offline demos still show negative jump without Vertex). Empty text → silence.
 
-- [ ] **Step 4: Run tests — PASS**
+- [ ] **Step 4: Run tests: PASS**
 - [ ] **Step 5: Commit** `feat(facility): reply classification interface with fixture override`
 
 ---
@@ -129,7 +129,7 @@ class ReplyClass(StrEnum):
 **Interfaces:**
 - Produces: `Priority` enum P1/P2/P3; `apply_negative_reply(incident, classify_result) -> None` mutates events: `speaker_prompt` detail includes class; adds `jump` event skipping wait; sets `priority=P1`.
 
-- [ ] **Step 1: Failing test** — run facility path with fixture negative reply; assert jump event present and priority P1; no wait tool after negative.
+- [ ] **Step 1: Failing test**: run facility path with fixture negative reply; assert jump event present and priority P1; no wait tool after negative.
 - [ ] **Step 2: Implement** fixture `facility_negative_reply` in `SUPPORTED_FIXTURES` + `_run_facility_negative_reply`.
 - [ ] **Step 3: pytest PASS**
 - [ ] **Step 4: Commit** `feat(facility): negative reply raises P1 and jumps wait rungs`
@@ -140,7 +140,7 @@ class ReplyClass(StrEnum):
 
 **Files:**
 - Modify: `src/care_ladder/db/models.py` (or create `src/care_ladder/facility/models.py` imported by Base metadata)
-- Modify: `scripts/bootstrap_saas_demo.py` — seed 4 staff for demo-facility
+- Modify: `scripts/bootstrap_saas_demo.py`: seed 4 staff for demo-facility
 - Create: `tests/test_facility_staff.py`
 
 **Interfaces:**
@@ -157,7 +157,7 @@ class ReplyClass(StrEnum):
 **Files:**
 - Create: `src/care_ladder/facility/cases.py`
 - Modify: `src/care_ladder/db/models.py`
-- Modify: `src/care_ladder/api/app.py` — mount routes
+- Modify: `src/care_ladder/api/app.py`: mount routes
 - Create: `tests/test_facility_cases_api.py`
 
 **Interfaces:**
@@ -206,7 +206,7 @@ class ReplyClass(StrEnum):
 
 **Files:**
 - Create: `src/care_ladder/api/static/facility_console.html` (or split css/js)
-- Modify: `src/care_ladder/api/app.py` — serve facility console for facility tenants on `/ui/` (Home keeps `index.html`)
+- Modify: `src/care_ladder/api/app.py`: serve facility console for facility tenants on `/ui/` (Home keeps `index.html`)
 - Create: `tests/test_facility_console_ui.py` (HTML contains tab labels + fetch paths)
 - Modify: `docs/galuxium/demo-video-galuxium.md` facility shots to name new UI
 

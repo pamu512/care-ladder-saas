@@ -47,8 +47,8 @@ def ingest_video(
     cue (the ladder takes over from there) or end of clip / max_seconds.
 
     ``sample_hz`` processes a real-time sample grid (e.g. 5 Hz → every 6th
-    frame at 30 fps): timestamps stay in real seconds — validated on the
-    KU Leuven fall clips (sudden-fall signature survives 5 Hz sampling) —
+    frame at 30 fps): timestamps stay in real seconds, validated on the
+    KU Leuven fall clips (sudden-fall signature survives 5 Hz sampling),
     while DNN cost drops ~6x for CPU-bound containers.
 
     ``prefer_distress`` keeps scanning after a non-distress cue and returns

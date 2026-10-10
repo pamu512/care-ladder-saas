@@ -6,7 +6,7 @@
 <title>Care Ladder Console · UI/UX Design Guide</title>
 <style>
   :root{
-    --paper:#f6f8f9; --ink:#131a20; --ink2:#42505c; --faint:#6b7a87;
+    --paper:#f6f8f9; --ink:#131a20; --ink2:#42505c; --faint:#5a6b76;
     --hair:#d9e0e5; --hair2:#c3cdd4;
     --accent:#0e7490; --accent-soft:#e3f1f5;
     --code-bg:#eef2f4;
@@ -140,9 +140,9 @@
     code review or CI it is marked with a <span class="check">CHECK</span> tag.
   </p>
   <ul>
-    <li><strong>Fixed</strong> — color tokens, type scale, spacing scale, component anatomy, state styles, copy terminology. Changing these requires a design decision, not a whim.</li>
-    <li><strong>Flexible</strong> — minor paddings inside a component (±4px), copy that follows the terminology rules, ordering of secondary info.</li>
-    <li><strong>Forbidden</strong> — everything in section 12 (Anti-patterns). These exist because each one appeared in a previous iteration and was rejected.</li>
+    <li><strong>Fixed</strong>: color tokens, type scale, spacing scale, component anatomy, state styles, copy terminology. Changing these requires a design decision, not a whim.</li>
+    <li><strong>Flexible</strong>: minor paddings inside a component (±4px), copy that follows the terminology rules, ordering of secondary info.</li>
+    <li><strong>Forbidden</strong>: everything in section 12 (Anti-patterns). These exist because each one appeared in a previous iteration and was rejected.</li>
   </ul>
   <p class="note">
     The approved mockup (<code>mockups/console-full-saas.html</code>) is the visual
@@ -156,7 +156,7 @@
   <div class="sec-head"><span class="sec-no">01</span><h2>Design principles</h2></div>
   <p>Five principles explain every rule that follows. When you must improvise, improvise in their direction.</p>
   <ol>
-    <li><strong>Calm command center.</strong> The console is watched for hours and read in seconds. One accent color, dark surfaces, generous hierarchy. Urgency is communicated by a small set of semantic colors reserved for triage — never by decoration.</li>
+    <li><strong>Calm command center.</strong> The console is watched for hours and read in seconds. One accent color, dark surfaces, generous hierarchy. Urgency is communicated by a small set of semantic colors reserved for triage: never by decoration.</li>
     <li><strong>Resident answers first.</strong> The response layer (positive closes, negative raises, silence escalates) is the product's core idea and must remain visually first-class: reply quotes, origin chips and the response-outcome violet are structural, not ornament.</li>
     <li><strong>Honest states.</strong> Every surface shows what is actually happening: stubs say stub, missed windows say missed, empty lists explain what would populate them. Never render a control that does nothing.</li>
     <li><strong>Numbers where numbers matter.</strong> Times, countdowns, medians and counts are always <code>mono</code> with tabular figures, always paired with their target ("<span class="m">24m 39s / 15m 00s</span>") so health is judgeable at a glance.</li>
@@ -169,7 +169,7 @@
   <div class="sec-head"><span class="sec-no">02</span><h2>Color system</h2></div>
   <p>
     Dark theme, single accent, four semantic families. Copy this block verbatim as the
-    console's <code>:root</code> <span class="check">CHECK</span> — token names are part of the API.
+    console's <code>:root</code> <span class="check">CHECK</span>: token names are part of the API.
   </p>
 <pre><code>:root{
   /* surfaces */
@@ -177,10 +177,10 @@
   --border:#1f2a36; --border2:#2b3a49;
   /* text */
   --text:#e8eef4; --muted:#8b9bab; --faint:#5f7189;
-  /* accent — the ONLY brand color */
+  /* accent: the ONLY brand color */
   --accent:#18a4c2; --accent-deep:#0e7490; --accent-ink:#04141a;
   --accent-soft:rgba(24,164,194,.12);
-  /* semantic — reserved, see rules below */
+  /* semantic: reserved, see rules below */
   --ok:#34c98e; --warn:#f5b544; --bad:#f4574d;
   --p1:#f4574d; --p2:#f5a044; --p3:#5b8def;
   --vio:#b9a6ff; --vio-soft:rgba(185,166,255,.11);
@@ -192,7 +192,7 @@
     <tr><th>Token</th><th>Value</th><th>Use</th></tr>
     <tr><td><span class="sw" style="background:#0b0f14"></span><code>--bg</code></td><td class="m">#0b0f14</td><td>Page background behind everything</td></tr>
     <tr><td><span class="sw" style="background:#0d1319"></span><code>--side</code></td><td class="m">#0d1319</td><td>Sidebar only</td></tr>
-    <tr><td><span class="sw" style="background:#121820"></span><code>--card</code></td><td class="m">#121820</td><td>Cards, alert rows, KPI boxes — the default surface</td></tr>
+    <tr><td><span class="sw" style="background:#121820"></span><code>--card</code></td><td class="m">#121820</td><td>Cards, alert rows, KPI boxes: the default surface</td></tr>
     <tr><td><span class="sw" style="background:#0e141b"></span><code>--card2</code></td><td class="m">#0e141b</td><td>Recessed areas: reply quotes, drill-down bodies, register interiors</td></tr>
     <tr><td><span class="sw" style="background:#161f2a"></span><code>--raise</code></td><td class="m">#161f2a</td><td>Hover fill on rows/nav, avatar fills</td></tr>
   </table>
@@ -203,7 +203,7 @@
     <tr><th>Token</th><th>Value</th><th>Role</th><th>Contrast on --card</th></tr>
     <tr><td><code>--text</code></td><td class="m">#e8eef4</td><td>Primary labels, values, titles</td><td class="m">13.9:1</td></tr>
     <tr><td><code>--muted</code></td><td class="m">#8b9bab</td><td>Secondary sentences, metadata</td><td class="m">6.1:1</td></tr>
-    <tr><td><code>--faint</code></td><td class="m">#5f7189</td><td>Tertiary: timestamps, footers, kickers</td><td class="m">3.4:1 — large/mono meta only</td></tr>
+    <tr><td><code>--faint</code></td><td class="m">#5f7189</td><td>Tertiary: timestamps, footers, kickers</td><td class="m">3.4:1 (large/mono meta only)</td></tr>
   </table>
 
   <h3>2.3 The accent</h3>
@@ -215,13 +215,13 @@
     instead. Accent fills use <code>--accent-soft</code> behind <code>--accent</code> text.
   </p>
 
-  <h3>2.4 Semantic colors — usage is policed</h3>
+  <h3>2.4 Semantic colors: usage is policed</h3>
   <table>
     <tr><th>Family</th><th>Tokens</th><th>Means</th><th>May color</th><th>May never color</th></tr>
     <tr><td><span class="sw" style="background:#f4574d"></span>Critical</td><td class="m">--bad / --p1 (same value)</td><td>P1 priority, missed windows, timeouts, negative replies</td><td>priority chips, missed/timeouts badges, alert left border, "needs owner" badges</td><td>buttons other than "Escalate now", decoration, links</td></tr>
     <tr><td><span class="sw" style="background:#f5a044"></span>Caution</td><td class="m">--p2, --warn</td><td>P2, approaching SLA, breaks</td><td>P2 chips, SLA countdown text, break status</td><td>body text, borders of unrelated cards</td></tr>
     <tr><td><span class="sw" style="background:#5b8def"></span>Monitor</td><td class="m">--p3</td><td>P3 / de-escalatable</td><td>P3 chips only</td><td>everything else</td></tr>
-    <tr><td><span class="sw" style="background:#34c98e"></span>Positive</td><td class="m">--ok</td><td>resolved, available, in-target</td><td>status badges, closed badges, "can de-escalate", ack timing within target</td><td>—</td></tr>
+    <tr><td><span class="sw" style="background:#34c98e"></span>Positive</td><td class="m">--ok</td><td>resolved, available, in-target</td><td>status badges, closed badges, "can de-escalate", ack timing within target</td><td>-</td></tr>
     <tr><td><span class="sw" style="background:#b9a6ff"></span>Response layer</td><td class="m">--vio</td><td>resolved by resident response</td><td>origin chips, response KPIs, register timing</td><td>anything staff-side</td></tr>
   </table>
   <p class="note">
@@ -248,7 +248,7 @@
   <h3>3.1 Scale (type ramp)</h3>
   <table>
     <tr><th>Role</th><th>Size / line</th><th>Weight</th><th>Notes</th></tr>
-    <tr><td>View title (topbar)</td><td class="m">16px / —</td><td class="m">700</td><td>The only 700 in the UI</td></tr>
+    <tr><td>View title (topbar)</td><td class="m">16px / -</td><td class="m">700</td><td>The only 700 in the UI</td></tr>
     <tr><td>Card heading</td><td class="m">11px</td><td class="m">700</td><td>UPPERCASE, letter-spacing .1em, color <code>--faint</code></td></tr>
     <tr><td>Card / section body</td><td class="m">14px / 1.5</td><td class="m">400</td><td>Base body size</td></tr>
     <tr><td>Row titles, names</td><td class="m">13.5px</td><td class="m">650</td><td>Alert titles, register rooms, staff names</td></tr>
@@ -261,7 +261,7 @@
 
   <h3>3.2 Rules</h3>
   <ul>
-    <li><strong>Everything numeric is mono</strong> — durations, clocks, counts, thresholds, ids. Pair value + target: <span class="m">0m 52s / 5m 00s</span>.</li>
+    <li><strong>Everything numeric is mono</strong>: durations, clocks, counts, thresholds, ids. Pair value + target: <span class="m">0m 52s / 5m 00s</span>.</li>
     <li>UPPERCASE always gets letter-spacing: .05em badges, .1em card headings, .12–.14em kickers <span class="check">CHECK</span>.</li>
     <li>Sentences are sentence case. No all-caps sentences, no Title Case For Every Word in UI labels ("Acknowledge", not "Acknowledge The Case").</li>
     <li>Max 8 type roles on a screen. If a new role seems needed, reuse one.</li>
@@ -281,8 +281,8 @@
 
   <h3>4.2 The two content patterns</h3>
   <ul>
-    <li><strong>grid2</strong> — <code>minmax(0,1fr) 330px</code>: queue + detail panel (Alerts), cases + capacity (Cases), billing compare. The right column is always <code>position:sticky; top:74px</code>. Collapses to one column under 980px.</li>
-    <li><strong>full-width card stack</strong> — tables (People, Places, deliveries), channel grid (<code>auto-fit minmax(230px,1fr)</code>), settings rows.</li>
+    <li><strong>grid2</strong>: <code>minmax(0,1fr) 330px</code>: queue + detail panel (Alerts), cases + capacity (Cases), billing compare. The right column is always <code>position:sticky; top:74px</code>. Collapses to one column under 980px.</li>
+    <li><strong>full-width card stack</strong>: tables (People, Places, deliveries), channel grid (<code>auto-fit minmax(230px,1fr)</code>), settings rows.</li>
   </ul>
 
   <h3>4.3 Spacing scale</h3>
@@ -298,22 +298,22 @@
 
   <h3>5.1 Buttons</h3>
   <div class="spec-row"><span class="k">.btn</span><span class="v"><span class="m">--card</span> bg, <span class="m">1px --border</span>, <span class="m">--text</span>, radius 9px, padding <span class="m">7px 13px</span>, font 12.5px</span></div>
-  <div class="spec-row"><span class="k">.btn.primary</span><span class="v"><span class="m">--accent</span> bg, <span class="m">--accent-ink</span> text, weight 650 — one per view max</span></div>
-  <div class="spec-row"><span class="k">.btn.danger</span><span class="v"><span class="m">--bad</span> bg, near-black text, weight 700 — "Escalate now" only</span></div>
-  <div class="spec-row"><span class="k">.btn.subtle</span><span class="v">11.5px, padding <span class="m">5px 10px</span> — inline actions inside cards</span></div>
+  <div class="spec-row"><span class="k">.btn.primary</span><span class="v"><span class="m">--accent</span> bg, <span class="m">--accent-ink</span> text, weight 650: one per view max</span></div>
+  <div class="spec-row"><span class="k">.btn.danger</span><span class="v"><span class="m">--bad</span> bg, near-black text, weight 700: "Escalate now" only</span></div>
+  <div class="spec-row"><span class="k">.btn.subtle</span><span class="v">11.5px, padding <span class="m">5px 10px</span>: inline actions inside cards</span></div>
   <div class="spec-row"><span class="k">hover</span><span class="v">border-color → <span class="m">--accent</span> (no bg change)</span></div>
 
   <h3>5.2 Chips and badges</h3>
   <ul>
-    <li><strong>Chip</strong> — informational metadata pill: 1px <code>--border</code>, <code>--muted</code> text, 10.5px. Variants: <code>.hot</code> (bad border/text) for negative/missed, <code>.ok</code> for can-de-escalate.</li>
-    <li><strong>Badge</strong> — status stamp: soft bg + colored text, UPPERCASE 9.5px/750. Map: ok→<code>b-ok</code>, handling/warn→<code>b-warn</code>, missed/needs-owner→<code>b-bad</code>, resolved-by-response→<code>b-vio</code>, informational→<code>b-info</code> (accent).</li>
-    <li><strong>Priority chip</strong> — <code>.pri</code>: mono-weight P1/P2/P3 on <code>--card2</code> with border; text colored by family.</li>
+    <li><strong>Chip</strong>: informational metadata pill: 1px <code>--border</code>, <code>--muted</code> text, 10.5px. Variants: <code>.hot</code> (bad border/text) for negative/missed, <code>.ok</code> for can-de-escalate.</li>
+    <li><strong>Badge</strong>: status stamp: soft bg + colored text, UPPERCASE 9.5px/750. Map: ok→<code>b-ok</code>, handling/warn→<code>b-warn</code>, missed/needs-owner→<code>b-bad</code>, resolved-by-response→<code>b-vio</code>, informational→<code>b-info</code> (accent).</li>
+    <li><strong>Priority chip</strong>: <code>.pri</code>: mono-weight P1/P2/P3 on <code>--card2</code> with border; text colored by family.</li>
   </ul>
 
   <h3>5.3 Alert card (Alert center queue)</h3>
   <pre><code>┌─ card: --card, 1px --border, LEFT border 4px colored by priority, radius 12
 ├─ row1: [pri chip] [title: place · person, 650] [chips…] …[mono meta right]
-├─ row2 (chips): state chips — "negative reply" .hot, "aging 14m", "02:41 to target"
+├─ row2 (chips): state chips: "negative reply" .hot, "aging 14m", "02:41 to target"
 └─ .reply (when a resident reply exists): --card2 bg, 3px LEFT border --bad,
    italic quote 12.5px + mono classification line 10px --faint</code></pre>
   <ul>
@@ -330,15 +330,15 @@
   <div class="spec-row"><span class="k">names</span><span class="v">12px 600; done rows drop to <span class="m">--muted</span></span></div>
 
   <h3>5.6 Register row + drill-down (Audit)</h3>
-  <pre><code>.reg        — 1px --border, radius 10, --card
-.reg-head   — grid: caret · cid(mono accent) · room+sub · owner · ack-time · handling
+  <pre><code>.reg       : 1px --border, radius 10, --card
+.reg-head  : grid: caret · cid(mono accent) · room+sub · owner · ack-time · handling
              keyboard: role=button tabindex=0; aria-expanded
-.reg-body   — --card2, grid minmax(0,1fr)/280px, hairline top
-  report    — mono incident line, .r-line rows (132px name · detail · right ts)
+.reg-body  : --card2, grid minmax(0,1fr)/280px, hairline top
+  report   : mono incident line, .r-line rows (132px name · detail · right ts)
               kinds: key=accent name · stop=ok name · jump=warn name
               deltas inline: mono 9.5px accent "Δ 0m 52s"
-  .doc-block— submitted documentation: card bg, 9px UPPERCASE h6, quote, mono sig line
-  .rail     — Timing / Evidence / Overrides boxes; metric rows k/v with mono v
+  .doc-block: submitted documentation: card bg, 9px UPPERCASE h6, quote, mono sig line
+  .rail    : Timing / Evidence / Overrides boxes; metric rows k/v with mono v
               Timing always shows value / target pairs; hide the box when values
               are unknown (never render "n/a / 0s")</code></pre>
 
@@ -371,7 +371,7 @@
     <tr><td>Empty</td><td>Named empty states that say what populates them: "Floor clear. No open alerts." / "No closed cases or resident resolutions today." Never blank.</td></tr>
     <tr><td>Error</td><td>Action failures surface inline (form-error under the field) + toast. API 401 redirects to sign-in.</td></tr>
     <tr><td>Disabled</td><td>Opacity .45–.55 + <code>cursor:default</code>; break-option rows for on-break staff render dimmed, not hidden.</td></tr>
-    <tr><td>Missed window</td><td>Ack countdown flips to <code>.hot</code> "ack window missed" — a first-class state, not a clamped zero.</td></tr>
+    <tr><td>Missed window</td><td>Ack countdown flips to <code>.hot</code> "ack window missed": a first-class state, not a clamped zero.</td></tr>
   </table>
 </section>
 
@@ -392,7 +392,7 @@
   <ul>
     <li>All icons are inline SVG, single-line stroke style, <span class="m">stroke-width 2–2.4</span>, <span class="m">16–20px</span>, <code>currentColor</code> <span class="check">CHECK</span>. No icon fonts, no icon CDN, no emoji as UI icons.</li>
     <li>The product mark is the <strong>ladder glyph</strong>: two rails + three rungs, drawn with round linecaps. It is the only place the accent gradient is allowed. Banner/alert icons are simple outline shapes (bell, check-shield, warning triangle).</li>
-    <li>Channels use single-letter tiles on brand-dark backgrounds (Slack aubergine <span class="m">#4a154b</span>, Teams blue <span class="m">#5072c4</span>, WhatsApp green <span class="m">#1e3a2f</span>, Telegram slate) — letter + color reads faster than logos and avoids brand-asset copying.</li>
+    <li>Channels use single-letter tiles on brand-dark backgrounds (Slack aubergine <span class="m">#4a154b</span>, Teams blue <span class="m">#5072c4</span>, WhatsApp green <span class="m">#1e3a2f</span>, Telegram slate): letter + color reads faster than logos and avoids brand-asset copying.</li>
     <li>One icon per meaning; do not decorate text with repeated icons.</li>
   </ul>
 </section>
@@ -403,17 +403,17 @@
   <table>
     <tr><th>Concept</th><th>Console says</th><th>Never says</th></tr>
     <tr><td>Monitored person</td><td>vocabulary-driven: resident / patient / child (from facility type)</td><td>user, subject, elder</td></tr>
-    <tr><td>Place</td><td>room / gym / classroom — vocabulary-driven</td><td>zone-7, unit</td></tr>
-    <tr><td>Acknowledgment</td><td>"Acknowledge — I'm on it" (person taking) · "ack window" (the timer)</td><td>"confirm receipt", "accept alert"</td></tr>
+    <tr><td>Place</td><td>room / gym / classroom: vocabulary-driven</td><td>zone-7, unit</td></tr>
+    <tr><td>Acknowledgment</td><td>"Acknowledge: I'm on it" (person taking) · "ack window" (the timer)</td><td>"confirm receipt", "accept alert"</td></tr>
     <tr><td>Case lifecycle</td><td>needs owner → handling → wrapping → closed (with documentation)</td><td>"in progress", "done"</td></tr>
     <tr><td>Response outcomes</td><td>"resolved by response" · "negative reply" · "silence"</td><td>"auto-resolved", "declined"</td></tr>
     <tr><td>Escalation</td><td>"escalated to you" · "group timeout" · "floor lead paged"</td><td>"failed", "breach"</td></tr>
   </table>
   <ul>
-    <li><strong>No em dashes in UI copy</strong> <span class="check">CHECK</span> — use "·" separators or restructure. (This guide may use them; the product may not.)</li>
+    <li><strong>No em dashes in UI copy</strong> <span class="check">CHECK</span>: use "·" separators or restructure. The product copy follows the same rule.</li>
     <li>Durations are humanized mono: <span class="m">0m 52s · 13m 55s · 02:41 left</span>.</li>
     <li>Honesty language stays: "stub", "demo", "fail-closed", "not a medical device" appear where true and are never styled away.</li>
-    <li>Ids: staff cases <span class="m">CL-1042</span>; resident-resolved rows show <span class="m">inc 5c88f1</span> until case ids exist for them — do not mix both formats in one column.</li>
+    <li>Ids: staff cases <span class="m">CL-1042</span>; resident-resolved rows show <span class="m">inc 5c88f1</span> until case ids exist for them: do not mix both formats in one column.</li>
   </ul>
 </section>
 
@@ -442,7 +442,7 @@
     <li>Text contrast: body ≥ 4.5:1 (verified: <code>--text</code> 13.9, <code>--muted</code> 6.1 on card); <code>--faint</code> reserved for ≥12px mono metadata <span class="check">CHECK</span>.</li>
     <li>Keyboard: tabs, alert cards, register heads, all buttons focusable; Enter/Space activates; visible focus ring everywhere <span class="check">CHECK</span>.</li>
     <li>ARIA: tabs use <code>role=tablist/tab/tabpanel</code> + <code>aria-selected</code>; banners <code>role=status</code>; toasts <code>aria-live=polite</code>; accordions <code>aria-expanded</code>; priority segments are <code>role=group</code> with labels.</li>
-    <li>Color never carries meaning alone — every colored chip/badge includes its word (P1, missed, break) <span class="check">CHECK</span>.</li>
+    <li>Color never carries meaning alone: every colored chip/badge includes its word (P1, missed, break) <span class="check">CHECK</span>.</li>
     <li>Touch targets ≥ 36px on interactive rows/buttons at mobile widths.</li>
   </ul>
 </section>
@@ -452,19 +452,19 @@
   <div class="sec-head"><span class="sec-no">12</span><h2>Anti-patterns (each one shipped and was rejected)</h2></div>
   <div class="rule-example">
     <div class="cell do"><span class="tag">do</span>Left 4px priority border on a 12px-radius card, flat surfaces, hairline separations.</div>
-    <div class="cell dont"><span class="tag">dont</span>Rounded card + colored left border at larger radii + drop shadow — the generic AI dashboard block.</div>
+    <div class="cell dont"><span class="tag">dont</span>Rounded card + colored left border at larger radii + drop shadow: the generic AI dashboard block.</div>
   </div>
   <ul>
-    <li><strong>Light/dark split</strong> — one dark system for the whole product. The old home console's light theme is retired, not extended.</li>
-    <li><strong>Multiple accents</strong> — no second brand hue, no per-view recoloring, no indigo <span class="m">#6366f1</span>-family defaults.</li>
-    <li><strong>Emoji as icons</strong> — replaced once already; do not reintroduce.</li>
-    <li><strong>Stub controls</strong> — no button that toasts "coming soon". Hide unwired features.</li>
-    <li><strong>n/a walls</strong> — never render timing rails/tables of nulls; hide the block.</li>
-    <li><strong>Clamped countdowns</strong> — "0m to target" forever is a bug; missed is a state.</li>
-    <li><strong>Raw ids as identity</strong> — owners render names + initials; enums render labels ("negative reply", not "from_negative_reply").</li>
-    <li><strong>Demo chrome above product</strong> — demo strip collapses by default on deployed instances.</li>
-    <li><strong>Monospace body text</strong> — mono is for numbers/ids only.</li>
-    <li><strong>New reds/oranges</strong> — semantic hues are closed set (§2.4).</li>
+    <li><strong>Light/dark split</strong>: one dark system for the whole product. The old home console's light theme is retired, not extended.</li>
+    <li><strong>Multiple accents</strong>: no second brand hue, no per-view recoloring, no indigo <span class="m">#6366f1</span>-family defaults.</li>
+    <li><strong>Emoji as icons</strong>: replaced once already; do not reintroduce.</li>
+    <li><strong>Stub controls</strong>: no button that toasts "coming soon". Hide unwired features.</li>
+    <li><strong>n/a walls</strong>: never render timing rails/tables of nulls; hide the block.</li>
+    <li><strong>Clamped countdowns</strong>: "0m to target" forever is a bug; missed is a state.</li>
+    <li><strong>Raw ids as identity</strong>: owners render names + initials; enums render labels ("negative reply", not "from_negative_reply").</li>
+    <li><strong>Demo chrome above product</strong>: demo strip collapses by default on deployed instances.</li>
+    <li><strong>Monospace body text</strong>: mono is for numbers/ids only.</li>
+    <li><strong>New reds/oranges</strong>: semantic hues are closed set (§2.4).</li>
   </ul>
 </section>
 
@@ -474,8 +474,8 @@
   <ul>
     <li><strong>Files</strong>: the console lives at <code>src/care_ladder/api/static/facility/index.html</code> (self-contained, no build step). The shell adds views as <code>&lt;section class="view" id="view-X"&gt;</code> + sidebar <code>data-view</code> entries; the tiny router in the mockup's script is the pattern.</li>
     <li><strong>Tokens first</strong>: paste the §2 block as-is; components reference tokens, never hex literals <span class="check">CHECK</span>.</li>
-    <li><strong>Test hooks</strong>: existing tests grep served bytes — keep these strings intact: <code>Alert center</code>, <code>Cases</code>, <code>Audit</code>, <code>pull_off_break</code>, <code>/facility/staff</code>, <code>/facility/alerts</code>, <code>/facility/audit/summary</code>, <code>data-fixture="facility_negative_reply"</code>, <code>Path A</code> (home console), and no <span class="m">\u2014</span> em dash anywhere <span class="check">CHECK</span>.</li>
-    <li><strong>Data contract</strong>: render from the existing endpoints; new views (People/Places/Channels/Billing) read new read-only endpoints — keep payloads shaped for the components (rows with badges + mono fields), and hide any metric the backend cannot fill honestly (see §12 n/a walls).</li>
+    <li><strong>Test hooks</strong>: existing tests grep served bytes: keep these strings intact: <code>Alert center</code>, <code>Cases</code>, <code>Audit</code>, <code>pull_off_break</code>, <code>/facility/staff</code>, <code>/facility/alerts</code>, <code>/facility/audit/summary</code>, <code>data-fixture="facility_negative_reply"</code>, <code>Path A</code> (home console), and no <span class="m">\u2014</span> em dash anywhere <span class="check">CHECK</span>.</li>
+    <li><strong>Data contract</strong>: render from the existing endpoints; new views (People/Places/Channels/Billing) read new read-only endpoints: keep payloads shaped for the components (rows with badges + mono fields), and hide any metric the backend cannot fill honestly (see §12 n/a walls).</li>
     <li><strong>Timestamps</strong>: the drill-down depends on event <code>at</code> stamps; until the backend records them, the Timing rail stays hidden rather than rendering nulls.</li>
     <li><strong>Mobile</strong>: one breakpoint at 980px (sidebar → top row, grid2 → single column, KPI → 2-up, register hides owner/handling columns).</li>
   </ul>
@@ -493,7 +493,7 @@
     <li>Empty states present for: queue, cases, register, roster, deliveries.</li>
     <li>Reduced-motion respected; no new animation types.</li>
     <li>Test-grep strings (§13) intact; full suite green.</li>
-    <li>Screenshot diff against <code>console-full-saas.html</code> at 1480px and 390px — layout skeletons must match; report intentional deviations.</li>
+    <li>Screenshot diff against <code>console-full-saas.html</code> at 1480px and 390px: layout skeletons must match; report intentional deviations.</li>
   </ul>
 </section>
 

@@ -7,7 +7,7 @@
 <style>
   :root{
     --paper:#faf8f5; --card:#ffffff; --sink:#f3efe9;
-    --ink:#22303a; --ink2:#5a6b76; --faint:#8d99a3;
+    --ink:#22303a; --ink2:#5a6b76; --faint:#5a6b76; /* same gray as ink2: #8d99a3 on white is under 4.5:1 at 11px */
     --hair:#e8e2d8; --hair2:#d8d0c2;
     --teal:#0e7490; --teal-deep:#0b5c73; --teal-soft:#e5f2f6; --teal-ink:#0c4a5e;
     --amber:#a16207; --amber-soft:#fdf3d8; --amber-line:#ecd9a8;
@@ -139,7 +139,7 @@
   .call-row{display:flex;align-items:center;gap:10px;padding:6px 0}
   .call-row .ava{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;flex-shrink:0}
   .ava.you{background:var(--teal-soft);color:var(--teal-ink)}
-  .ava.sis{background:#f3e8dd;color:#9a6700}
+  .ava.sis{background:#f3e8dd;color:#8a5a00}
   .ava.nbr{background:var(--sink);color:var(--ink2)}
   .call-row .who{flex:1;font-size:13px}
   .call-row .who b{font-weight:650}
@@ -530,13 +530,20 @@ function paintStrip(rt, pending){
   }
 }
 async function refresh(){
+  const el = document.getElementById("incidents");
+  if(!el.dataset.loaded){
+    el.innerHTML = `<div class="empty">Loading check-ins...</div>`;
+  }
   const rt = await fetchJson("/family/runtime");
   const pending = await fetchJson("/acks/pending");
   if(rt) paintHero(rt);
   paintStrip(rt, pending);
   const list = await fetchJson("/incidents");
-  const el = document.getElementById("incidents");
-  if(!Array.isArray(list)) return;
+  if(!Array.isArray(list)){
+    el.innerHTML = `<div class="empty">Check-ins could not be loaded. Refresh the page to try again.</div>`;
+    return;
+  }
+  el.dataset.loaded = "1";
   if(!list.length){
     el.innerHTML = `<div class="empty">No check-ins on the archive yet. Run a demo path below, or wait for the next voice check-in.</div>`;
     return;
@@ -554,7 +561,7 @@ async function refresh(){
   }
   el.innerHTML = parts.length
     ? parts.join("")
-    : `<div class="empty">No check-ins on the archive yet. Run a demo path below, or wait for the next voice check-in.</div>`;
+    : `<div class="empty">Check-ins could not be loaded. Refresh the page to try again.</div>`;
 }
 document.querySelectorAll("[data-fixture]").forEach(btn=>{
   btn.addEventListener("click", async ()=>{

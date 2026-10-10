@@ -32,7 +32,7 @@ def test_pose_path_tagged_source_on_real_photo():
         pose_model=MPPose(str(POSE), confThreshold=0.5),
     )
     img = cv2.imread(str(REPO / "tests" / "fixtures" / "basketball1.png"))
-    # standing person — pose must NOT fire distress; detector must not crash
+    # standing person: pose must NOT fire distress; detector must not crash
     for t in [0.0, 0.5, 1.0, 2.0, 3.0, 4.0]:
         cue = det.observe(img, t=t)
         if cue is not None:

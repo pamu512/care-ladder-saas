@@ -44,7 +44,7 @@ Mockup H facility console shipped at `/ui/facility/` with cases, staff, breaks, 
 | Break durations | Buttons for 15 / 30 / 60 minutes; show `on break · Xm left` from `break_until` |
 | Demo chrome | Move fixture buttons into a collapsible `.demo-strip` below the header (default expanded in demo auth-off / demo tenants) |
 | Visual unify | Facility adopts shared CSS variables for accent teal + ladder logo SVG from home; keep dark facility surface (floor ops) but same mark, type scale, and chip language |
-| Copy | No em dashes (—) in user-facing strings |
+| Copy | No em dashes (long dash) in user-facing strings |
 | Implement | Mac Hermes only (no Cursor cloud agents for code) |
 
 ## API additions (small)

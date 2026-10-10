@@ -1,7 +1,7 @@
 """Person tracking: count, enter/leave events, and coarse shape signatures.
 
 Privacy-preserving by construction: tracks are described ONLY by geometry
-(height ratio, aspect, position) — no color histograms, no faces, no identity
+(height ratio, aspect, position). No color histograms, no faces, no identity
 claims. Two people of similar build may be conflated; that limitation is
 documented in docs/failure-modes.md.
 
@@ -29,7 +29,7 @@ class Track:
     left: bool = False
 
     def signature(self) -> dict[str, Any]:
-        """Coarse shape descriptor — distinguishes tall/short, slim/wide."""
+        """Coarse shape descriptor: distinguishes tall/short, slim/wide."""
         return {
             "track_id": self.id,
             "height_ratio": round(self.height_ratio, 3),

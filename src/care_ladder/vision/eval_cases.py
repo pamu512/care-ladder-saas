@@ -205,7 +205,7 @@ def build_cases() -> list[EvalCase]:
         ),
         EvalCase(
             "clip_pedestrians_negative",
-            "OpenCV vtest pedestrians — no DISTRESS escalation (mild no_visibility when people exit frame is correct)",
+            "OpenCV vtest pedestrians: no DISTRESS escalation (mild no_visibility when people exit frame is correct)",
             "no_visibility",
             timeout_sec=80.0,
             frames=lambda: _seq_clip("vtest.avi", fps=10, sample_hz=5),
@@ -232,8 +232,8 @@ def _seq_clip(name: str, fps: float, sample_hz: float, start_sec: float = 0.0):
         if not ok:
             break
         if i >= skip and (i - skip) % step == 0:
-            # timestamp in REAL seconds (source fps), not sample steps —
-            # the pose state machine measures transition speed from these
+            # timestamp in REAL seconds (source fps), not sample steps.
+            # The pose state machine measures transition speed from these timestamps.
             frames.append((f, (i - skip) / fps))
         i += 1
     cap.release()
@@ -244,7 +244,7 @@ def summarize(results: list[dict]) -> dict:
     """Compute the grant-proposal metrics from per-case result dicts.
 
     Skipped cases (missing fixture/clip) are excluded from recall/FPR
-    denominators — a case that could not run is not a miss.
+    denominators. A case that could not run is not a miss.
     """
     ran = [r for r in results if not r.get("skipped")]
     expect_cue = [r for r in ran if r["expect_cue"] is not None]
